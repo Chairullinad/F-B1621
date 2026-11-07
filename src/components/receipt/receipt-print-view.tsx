@@ -84,7 +84,7 @@ export function ReceiptPrintView({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo-1621.png"
-              alt="Logo f&b1621"
+              alt="Logo 1621F&B"
               className="h-full w-full object-contain"
             />
           </div>

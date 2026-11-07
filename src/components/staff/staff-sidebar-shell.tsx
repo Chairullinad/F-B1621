@@ -19,23 +19,189 @@ interface StaffSidebarShellProps {
   children: React.ReactNode;
 }
 
+interface SubMenuItem {
+  href: string;
+  label: string;
+  badgeCount?: number;
+}
+
+interface MainMenuGroup {
+  id: string;
+  label: string;
+  icon: string;
+  roles: ReadonlyArray<UserRole>;
+  items: SubMenuItem[];
+}
+
 export function StaffSidebarShell({
   staff,
-  navItems,
   badges,
   logoutAction,
   children,
 }: StaffSidebarShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [pendingHref, setPendingHref] = React.useState<string | null>(null);
 
-  // Reset pending indicator saat rute sudah berpindah
+  // Daftar 6 Komponen Utama dengan Sub-item yang disembunyikan dalam Expand/Accordion
+  const allGroups: MainMenuGroup[] = React.useMemo(() => {
+    return [
+      {
+        id: "dashboard",
+        label: "Dashboard",
+        icon: "📊",
+        roles: ["owner"],
+        items: [
+          { href: "/dashboard", label: "Ringkasan Utama" },
+          { href: "/dashboard/stok-menu", label: "Stok Menu" },
+          { href: "/dashboard/produk", label: "Master Menu & Harga" },
+        ],
+      },
+      {
+        id: "operasional",
+        label: "Kasir & Pesanan",
+        icon: "📱",
+        roles: ["owner", "cashier", "kitchen", "waiter"],
+        items: [
+          ...(staff.role === "owner" || staff.role === "cashier"
+            ? [
+                {
+                  href: "/kasir",
+                  label: "Layar Kasir Meja",
+                  badgeCount: badges.pending_orders,
+                },
+                { href: "/order-manual", label: "POS / Order Manual" },
+              ]
+            : []),
+          ...(staff.role === "owner" || staff.role === "kitchen"
+            ? [{ href: "/dapur", label: "Layar Dapur (KDS)" }]
+            : []),
+          ...(staff.role === "owner" || staff.role === "waiter"
+            ? [{ href: "/antar", label: "Layar Antar Meja" }]
+            : []),
+        ],
+      },
+      {
+        id: "inventori",
+        label: "Inventori & Gudang",
+        icon: "📦",
+        roles: ["owner", "warehouse", "cashier"],
+        items: [
+          {
+            href: "/dashboard/inventory",
+            label: "Bahan Baku & Resep BOM",
+            badgeCount: badges.low_stock,
+          },
+          ...(staff.role === "owner" || staff.role === "warehouse"
+            ? [
+                {
+                  href: "/dashboard/opname",
+                  label: "Stock Opname (Blind Count)",
+                  badgeCount: badges.pending_opnames,
+                },
+                {
+                  href: "/dashboard/transfer-stok",
+                  label: "Transfer Stok Antar Lokasi",
+                  badgeCount: badges.pending_transfers,
+                },
+                {
+                  href: "/dashboard/waste",
+                  label: "Waste & Spoilage Tracking",
+                },
+                {
+                  href: "/dashboard/supplier",
+                  label: "Supplier & Purchase Order",
+                },
+              ]
+            : [
+                {
+                  href: "/dashboard/transfer-stok",
+                  label: "Transfer Stok",
+                  badgeCount: badges.pending_transfers,
+                },
+                {
+                  href: "/dashboard/supplier",
+                  label: "Cek Supplier",
+                },
+              ]),
+        ],
+      },
+      {
+        id: "keuangan",
+        label: "Laporan & Keuangan",
+        icon: "💰",
+        roles: ["owner"],
+        items: [
+          { href: "/dashboard/keuangan", label: "Laporan Keuangan 5 Tab" },
+          { href: "/dashboard/transaksi", label: "Riwayat Transaksi & Struk" },
+        ],
+      },
+      {
+        id: "cabang",
+        label: "Pengaturan Cabang",
+        icon: "🏢",
+        roles: ["owner"],
+        items: [
+          { href: "/dashboard/pengaturan", label: "Kelola & Tambah Cabang" },
+        ],
+      },
+      {
+        id: "master",
+        label: "Master & Pengaturan",
+        icon: "⚙️",
+        roles: ["owner"],
+        items: [
+          { href: "/dashboard/pengaturan", label: "Pajak, Service & QRIS" },
+          { href: "/dashboard/meja", label: "100 Meja & Cetak QR" },
+          { href: "/dashboard/staf", label: "Hak Akses & Staf" },
+          { href: "/dashboard/audit", label: "Pembukuan & Jejak Audit" },
+        ],
+      },
+    ];
+  }, [staff.role, badges]);
+
+  // Filter grup sesuai role pengguna
+  const visibleGroups = allGroups.filter((g) => g.roles.includes(staff.role));
+
+  // State Accordion: menentukan grup mana yang sedang terbuka (expand)
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const group of visibleGroups) {
+      // Buka otomatis grup yang memuat rute aktif saat ini
+      const hasActive = group.items.some(
+        (it) => pathname === it.href || pathname.startsWith(`${it.href}/`)
+      );
+      initial[group.id] = hasActive;
+    }
+    // Jika tidak ada yang cocok, buka grup pertama
+    if (!Object.values(initial).some(Boolean) && visibleGroups[0]) {
+      initial[visibleGroups[0].id] = true;
+    }
+    return initial;
+  });
+
+  // Sinkronisasi auto-expand saat rute berpindah
   React.useEffect(() => {
     setPendingHref(null);
-  }, [pathname]);
+    for (const group of visibleGroups) {
+      const hasActive = group.items.some(
+        (it) => pathname === it.href || pathname.startsWith(`${it.href}/`)
+      );
+      if (hasActive) {
+        setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
+      }
+    }
+  }, [pathname, visibleGroups]);
 
-  function isActiveRoute(href: string) {
+  function toggleGroup(groupId: string) {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  }
+
+  function isItemActive(href: string) {
     if (pendingHref) {
       return pendingHref === href;
     }
@@ -45,327 +211,165 @@ export function StaffSidebarShell({
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  function getBadgeCount(key?: StaffNavItem["badgeKey"]): number {
-    if (!key) return 0;
-    return badges[key] ?? 0;
-  }
-
-  // Pengelompokan Ringkas (Compact Groups)
-  const operationalItems = navItems.filter((i) =>
-    ["/kasir", "/order-manual", "/dapur", "/antar"].includes(i.href)
-  );
-
-  const inventoryItems = navItems.filter((i) =>
-    [
-      "/dashboard/inventory",
-      "/dashboard/opname",
-      "/dashboard/transfer-stok",
-      "/dashboard/waste",
-      "/dashboard/supplier",
-    ].includes(i.href)
-  );
-
-  const financeAndReportItems = navItems.filter((i) =>
-    ["/dashboard", "/dashboard/keuangan"].includes(i.href)
-  );
-
-  const isOwner = staff.role === "owner";
-
   return (
-    <div className="flex min-h-screen bg-[#F4F6F8] text-slate-900">
+    <div className="flex min-h-screen bg-[#F0F3F7] text-slate-900">
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
-      {/* Modern Compact Sidebar (#0F1B27 dengan aksen denim #3B7097) */}
+      {/* Modern Light Clean Sidebar (#FFFFFF bergaya ESB POSLite) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col bg-[#0F1B27] text-slate-300 shadow-2xl transition-transform duration-200 lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white text-slate-800 shadow-xl transition-all duration-200 lg:translate-x-0 ${
+          sidebarCollapsed ? "w-18" : "w-64"
+        } ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* Brand Header dengan Logo PNG Transparan (Tanpa Bingkai Hitam) */}
-        <div className="flex items-center justify-between border-b border-[#1A2E42] px-4 py-3.5">
+        {/* Brand Header */}
+        <div className="flex h-15 items-center justify-between border-b border-slate-200 px-4 py-3 bg-[#FAFBFD]">
           <Link
-            href={isOwner ? "/dashboard" : navItems[0]?.href ?? "/"}
+            href={staff.role === "owner" ? "/dashboard" : "/kasir"}
             prefetch={true}
-            onClick={() => {
-              setMobileOpen(false);
-              setPendingHref(isOwner ? "/dashboard" : navItems[0]?.href ?? "/");
-            }}
-            className="flex items-center gap-2.5"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-2.5 min-w-0"
           >
-            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
+            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
               <Image
                 src="/logo-1621.png"
-                alt="f&b1621 Logo"
-                width={40}
-                height={40}
+                alt="Logo 1621F&B"
+                width={36}
+                height={36}
                 className="h-full w-full object-contain"
                 priority
               />
             </div>
-            <div className="min-w-0">
-              <div className="truncate text-base font-extrabold tracking-tight text-[#FAF4EC]">
-                f&amp;b1621
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <div className="truncate text-base font-extrabold tracking-tight text-[#0F1B27]">
+                  1621F&amp;B
+                </div>
+                <div className="truncate text-[10px] font-semibold text-[#3B7097]">
+                  POSLite &bull; F&amp;B System
+                </div>
               </div>
-              <div className="truncate text-[10px] font-semibold text-[#8BB1CE]">
-                POS &bull; Inventory &bull; Finance
-              </div>
-            </div>
+            )}
           </Link>
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-[#1A2E42] hover:text-white lg:hidden"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
             aria-label="Tutup menu"
           >
             ✕
           </button>
         </div>
 
-        {/* Navigation Links Terstruktur & Ringkas */}
-        <nav className="flex-1 space-y-4 overflow-y-auto px-2.5 py-3 text-xs">
-          {/* Kelompok 1: Operasional Kasir & KDS */}
-          {operationalItems.length > 0 && (
-            <div className="space-y-0.5">
-              <div className="px-2.5 pb-1 text-[10px] font-bold tracking-wider text-[#6B8EA8] uppercase">
-                Operasional Kasir
-              </div>
-              {operationalItems.map((item) => {
-                const active = isActiveRoute(item.href);
-                const badge = getBadgeCount(item.badgeKey);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    prefetch={true}
-                    onClick={() => {
-                      setPendingHref(item.href);
-                      setMobileOpen(false);
-                    }}
-                    className={`flex items-center justify-between rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                      active
-                        ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                        : "text-slate-300 hover:bg-[#162737] hover:text-white"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <span className="text-sm">{item.icon}</span>
-                      <span className="truncate">{item.label}</span>
-                    </span>
-                    {badge > 0 && (
-                      <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[10px] font-extrabold text-white">
-                        {badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+        {/* Navigation Accordion: Komponen Utama + Sub-item Expandable */}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-2.5 py-3 text-xs">
+          {visibleGroups.map((group) => {
+            const isOpen = !!openGroups[group.id];
+            // Hitung total badge di dalam grup untuk ditampilkan saat accordion tertutup
+            const totalGroupBadge = group.items.reduce(
+              (acc, it) => acc + (it.badgeCount ?? 0),
+              0
+            );
 
-          {/* Kelompok 2: Inventory & Gudang */}
-          {inventoryItems.length > 0 && (
-            <div className="space-y-0.5 border-t border-[#1A2E42]/60 pt-2.5">
-              <div className="px-2.5 pb-1 text-[10px] font-bold tracking-wider text-[#6B8EA8] uppercase">
-                Inventory &amp; Gudang
-              </div>
-              {inventoryItems.map((item) => {
-                const active = isActiveRoute(item.href);
-                const badge = getBadgeCount(item.badgeKey);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    prefetch={true}
-                    onClick={() => {
-                      setPendingHref(item.href);
-                      setMobileOpen(false);
-                    }}
-                    className={`flex items-center justify-between rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                      active
-                        ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                        : "text-slate-300 hover:bg-[#162737] hover:text-white"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <span className="text-sm">{item.icon}</span>
-                      <span className="truncate">{item.label}</span>
-                    </span>
-                    {badge > 0 && (
-                      <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-extrabold text-slate-950">
-                        {badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Kelompok 3: Finansial & Bisnis */}
-          {(financeAndReportItems.length > 0 || isOwner) && (
-            <div className="space-y-0.5 border-t border-[#1A2E42]/60 pt-2.5">
-              <div className="px-2.5 pb-1 text-[10px] font-bold tracking-wider text-[#6B8EA8] uppercase">
-                Keuangan &amp; Laporan
-              </div>
-              {financeAndReportItems.map((item) => {
-                const active = isActiveRoute(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    prefetch={true}
-                    onClick={() => {
-                      setPendingHref(item.href);
-                      setMobileOpen(false);
-                    }}
-                    className={`flex items-center justify-between rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                      active
-                        ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                        : "text-slate-300 hover:bg-[#162737] hover:text-white"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <span className="text-sm">{item.icon}</span>
-                      <span className="truncate">{item.label}</span>
-                    </span>
-                  </Link>
-                );
-              })}
-              {isOwner && (
-                <Link
-                  href="/dashboard/transaksi"
-                  prefetch={true}
-                  onClick={() => {
-                    setPendingHref("/dashboard/transaksi");
-                    setMobileOpen(false);
-                  }}
-                  className={`flex items-center gap-2 rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                    isActiveRoute("/dashboard/transaksi")
-                      ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                      : "text-slate-300 hover:bg-[#162737] hover:text-white"
+            return (
+              <div key={group.id} className="mb-1 rounded-xl">
+                {/* Header Komponen Utama */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  title={group.label}
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 font-bold transition-all ${
+                    isOpen
+                      ? "text-[#3B7097] bg-[#F3F7FA]"
+                      : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
-                  <span className="text-sm">🧾</span>
-                  <span className="truncate">Riwayat Transaksi</span>
-                </Link>
-              )}
-            </div>
-          )}
+                  <div className="flex items-center gap-2.5 truncate">
+                    <span className="text-base shrink-0">{group.icon}</span>
+                    {!sidebarCollapsed && (
+                      <span className="truncate text-xs">{group.label}</span>
+                    )}
+                  </div>
 
-          {/* Kelompok 4: Master Data & Pengaturan Outlet (Owner Only) */}
-          {isOwner && (
-            <div className="space-y-0.5 border-t border-[#1A2E42]/60 pt-2.5">
-              <div className="px-2.5 pb-1 text-[10px] font-bold tracking-wider text-[#6B8EA8] uppercase">
-                Pengaturan &amp; Master
+                  {!sidebarCollapsed && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {totalGroupBadge > 0 && (
+                        <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[10px] font-extrabold text-white">
+                          {totalGroupBadge}
+                        </span>
+                      )}
+                      <span
+                        className={`text-[10px] text-slate-400 transition-transform duration-200 ${
+                          isOpen ? "rotate-90 text-[#3B7097]" : ""
+                        }`}
+                      >
+                        ▶
+                      </span>
+                    </div>
+                  )}
+                </button>
+
+                {/* Sub-item yang Tersembunyi (Expandable) */}
+                {isOpen && !sidebarCollapsed && (
+                  <div className="mt-1 space-y-0.5 pl-6 pr-1 border-l-2 border-[#DCE6ED] ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {group.items.map((item) => {
+                      const active = isItemActive(item.href);
+                      return (
+                        <Link
+                          key={item.href + item.label}
+                          href={item.href}
+                          prefetch={true}
+                          onClick={() => {
+                            setPendingHref(item.href);
+                            setMobileOpen(false);
+                          }}
+                          className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[11px] font-semibold transition-all ${
+                            active
+                              ? "bg-[#EBF3F8] text-[#3B7097] font-bold shadow-2xs"
+                              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                          }`}
+                        >
+                          <span className="truncate">{item.label}</span>
+                          {(item.badgeCount ?? 0) > 0 && (
+                            <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[9px] font-extrabold text-white shrink-0">
+                              {item.badgeCount}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <Link
-                href="/dashboard/pengaturan"
-                prefetch={true}
-                onClick={() => {
-                  setPendingHref("/dashboard/pengaturan");
-                  setMobileOpen(false);
-                }}
-                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                  isActiveRoute("/dashboard/pengaturan")
-                    ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                    : "text-slate-300 hover:bg-[#162737] hover:text-white"
-                }`}
-              >
-                <span className="text-sm">⚙️</span>
-                <span className="truncate">Pengaturan &amp; Outlet</span>
-              </Link>
-              <Link
-                href="/dashboard/produk"
-                prefetch={true}
-                onClick={() => {
-                  setPendingHref("/dashboard/produk");
-                  setMobileOpen(false);
-                }}
-                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                  isActiveRoute("/dashboard/produk")
-                    ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                    : "text-slate-300 hover:bg-[#162737] hover:text-white"
-                }`}
-              >
-                <span className="text-sm">🍛</span>
-                <span className="truncate">Menu &amp; Resep</span>
-              </Link>
-              <Link
-                href="/dashboard/meja"
-                prefetch={true}
-                onClick={() => {
-                  setPendingHref("/dashboard/meja");
-                  setMobileOpen(false);
-                }}
-                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                  isActiveRoute("/dashboard/meja")
-                    ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                    : "text-slate-300 hover:bg-[#162737] hover:text-white"
-                }`}
-              >
-                <span className="text-sm">🪑</span>
-                <span className="truncate">100 Meja &amp; QR</span>
-              </Link>
-              <Link
-                href="/dashboard/staf"
-                prefetch={true}
-                onClick={() => {
-                  setPendingHref("/dashboard/staf");
-                  setMobileOpen(false);
-                }}
-                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                  isActiveRoute("/dashboard/staf")
-                    ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                    : "text-slate-300 hover:bg-[#162737] hover:text-white"
-                }`}
-              >
-                <span className="text-sm">👥</span>
-                <span className="truncate">Manajemen Staf</span>
-              </Link>
-              <Link
-                href="/dashboard/audit"
-                prefetch={true}
-                onClick={() => {
-                  setPendingHref("/dashboard/audit");
-                  setMobileOpen(false);
-                }}
-                className={`flex items-center gap-2 rounded-xl px-2.5 py-2 font-semibold transition-colors ${
-                  isActiveRoute("/dashboard/audit")
-                    ? "bg-[#3B7097] text-[#FAF4EC] shadow-xs"
-                    : "text-slate-300 hover:bg-[#162737] hover:text-white"
-                }`}
-              >
-                <span className="text-sm">🛡️</span>
-                <span className="truncate">Jejak Audit</span>
-              </Link>
-            </div>
-          )}
+            );
+          })}
         </nav>
 
-        {/* User Footer Profile */}
-        <div className="border-t border-[#1A2E42] bg-[#0A131C] px-3.5 py-3 text-xs">
+        {/* User Profile Footer */}
+        <div className="border-t border-slate-200 bg-[#FAFBFD] p-3 text-xs">
           <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="truncate font-bold text-[#FAF4EC]">
-                {staff.fullName}
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <div className="truncate font-bold text-slate-900">
+                  {staff.fullName}
+                </div>
+                <div className="truncate text-[10px] text-slate-500">
+                  {ROLE_LABELS_ID[staff.role]} &bull; 1621F&amp;B
+                </div>
               </div>
-              <div className="truncate text-[10px] text-[#8BB1CE]">
-                {ROLE_LABELS_ID[staff.role]} &bull; f&amp;b1621
-              </div>
-            </div>
+            )}
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="rounded-lg bg-rose-950/60 px-2 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-900 hover:text-white transition-colors"
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors"
                 title="Keluar dari sistem"
               >
-                Keluar
+                ⎋
               </button>
             </form>
           </div>
@@ -373,64 +377,78 @@ export function StaffSidebarShell({
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
-        {/* Topbar dengan Aksen Denim Blue & Outlet Switcher */}
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur-xs sm:px-6">
+      <div
+        className={`flex min-w-0 flex-1 flex-col transition-all duration-200 ${
+          sidebarCollapsed ? "lg:pl-18" : "lg:pl-64"
+        }`}
+      >
+        {/* Full-Width Topbar Biru Penuh (#3B7097 bergaya ESB POSLite) */}
+        <header className="sticky top-0 z-30 flex h-15 items-center justify-between gap-3 bg-[#3B7097] px-4 text-white shadow-md sm:px-6">
           <div className="flex items-center gap-3">
+            {/* Tombol Mobile Toggle */}
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 lg:hidden"
-              aria-label="Buka menu navigasi"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 lg:hidden"
+              aria-label="Buka menu"
             >
               ☰
             </button>
+
+            {/* Tombol Collapse Desktop Sidebar <| */}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="hidden h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-xs font-bold text-white hover:bg-white/20 lg:inline-flex transition-colors"
+              title={sidebarCollapsed ? "Buka Sidebar" : "Lipat Sidebar"}
+            >
+              {sidebarCollapsed ? "▶|" : "◀|"}
+            </button>
+
+            {/* Logo Brand di Topbar */}
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center">
-                <Image
-                  src="/logo-1621.png"
-                  alt="Logo f&b1621"
-                  width={28}
-                  height={28}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <span className="text-sm font-extrabold tracking-tight text-slate-900 sm:text-base">
-                f&amp;b1621
+              <span className="text-base font-extrabold tracking-tight sm:text-lg">
+                1621F&amp;B
               </span>
-              <span className="hidden rounded-full bg-[#EBF3F8] px-2.5 py-0.5 text-[11px] font-bold text-[#3B7097] border border-[#C5DAE8] sm:inline-block">
-                ⚡ Realtime Connected
+              <span className="hidden rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold text-white border border-white/20 sm:inline-block">
+                ⚡ Live Cloud Connected
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Outlet Switcher / Info Cabang */}
+          {/* Sisi Kanan: Kartu Cabang & Profil Staf (Persis Latte Space Boyolali) */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Kartu Cabang Aktif + User Profil */}
             <Link
               href="/dashboard/pengaturan"
               prefetch={true}
-              className="group flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-[#3B7097] hover:bg-[#F3F8FB] transition-colors"
+              className="flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 transition-all border border-white/15"
+              title="Klik untuk kelola cabang"
             >
-              <span className="text-[#3B7097]">📍</span>
-              <span className="truncate max-w-[140px] sm:max-w-none">
-                Outlet Utama (100 Meja)
-              </span>
-              {isOwner && (
-                <span className="text-[10px] text-slate-400 group-hover:text-[#3B7097]">
-                  ▼
-                </span>
-              )}
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-slate-800 font-extrabold text-xs shadow-2xs">
+                🏢
+              </div>
+              <div className="hidden text-left sm:block">
+                <div className="text-xs font-bold leading-tight">
+                  Outlet Utama (100 Meja)
+                </div>
+                <div className="text-[10px] text-blue-100 font-medium">
+                  {staff.fullName} ({ROLE_LABELS_ID[staff.role]})
+                </div>
+              </div>
+              <span className="text-[10px] text-white/70">▼</span>
             </Link>
 
-            {(isOwner || staff.role === "cashier") && (
+            {/* Tombol Cepat Kasir */}
+            {(staff.role === "owner" || staff.role === "cashier") && (
               <Link
                 href="/kasir"
                 prefetch={true}
-                className="hidden items-center gap-1.5 rounded-xl bg-[#3B7097] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#2F5B7C] shadow-xs sm:inline-flex transition-colors"
+                className="hidden items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-[#3B7097] hover:bg-blue-50 shadow-sm sm:inline-flex transition-colors"
               >
                 <span>📱 Kasir POS</span>
                 {badges.pending_orders > 0 && (
-                  <span className="rounded-full bg-white px-1.5 py-0.2 text-[10px] font-extrabold text-[#3B7097]">
+                  <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[10px] font-extrabold text-white">
                     {badges.pending_orders}
                   </span>
                 )}

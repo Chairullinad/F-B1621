@@ -27,7 +27,7 @@ export default async function LoginPage() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-[#0F1B27]">
-              f&amp;b1621
+              1621F&amp;B
             </h1>
             <p className="text-xs font-semibold text-[#3B7097]">
               Sistem POS, Inventory &amp; Akuntansi 5 Tab (100 Meja QR)

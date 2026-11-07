@@ -707,7 +707,7 @@ export function CustomerOrderExperience({
               {data.outlet.name}
             </h1>
             <p className="text-xs text-slate-500 truncate">
-              f&amp;b1621 &bull; QRIS Meja / Tunai di Kasir
+              1621F&amp;B &bull; QRIS Meja / Tunai di Kasir
             </p>
           </div>
         </div>

@@ -1,22 +1,24 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { PwaRegister } from "@/components/pwa/pwa-register";
+import { NavigationLoadingIndicator } from "@/components/ui/navigation-loading-indicator";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "f&b1621 — Sistem POS, Inventory, & Akuntansi F&B",
+  title: "1621F&B — Sistem POS, Inventory, & Akuntansi F&B",
   description:
-    "Aplikasi POS, Inventory, dan Akuntansi berbasis web (PWA) f&b1621 dengan fitur self-order QR meja, QRIS dinamis, layar kasir, KDS, gudang, dan laporan keuangan lengkap.",
+    "Aplikasi POS, Inventory, dan Akuntansi berbasis web (PWA) 1621F&B dengan fitur self-order QR meja, QRIS dinamis, layar kasir, KDS, gudang, dan laporan keuangan lengkap.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "f&b1621",
+    title: "1621F&B",
   },
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/logo-1621.png",
+    apple: "/logo-1621.png",
   },
 };
 
@@ -24,7 +26,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#18181b",
+  themeColor: "#3B7097",
 };
 
 export default function RootLayout({
@@ -34,9 +36,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className="min-h-screen bg-zinc-50 text-zinc-950 antialiased">
+      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
         <QueryProvider>
           <PwaRegister />
+          <Suspense fallback={null}>
+            <NavigationLoadingIndicator />
+          </Suspense>
           {children}
           <Toaster position="top-center" richColors />
         </QueryProvider>
