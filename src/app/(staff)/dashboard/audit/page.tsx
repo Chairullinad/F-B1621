@@ -1,16 +1,23 @@
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuditTrailExplorer } from "@/components/dashboard/audit-trail-explorer";
+import { getAuditTrailDashboardData } from "@/server/audit-trail";
 
-export default function AuditPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Jejak Audit (Append-Only)</CardTitle>
-        <CardDescription>
-          Catatan permanen seluruh aktivitas penting dengan nilai sebelum,
-          sesudah, dan rantai hash kriptografis.
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
+export const dynamic = "force-dynamic";
+
+export default async function DashboardAuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const sp = await searchParams;
+  const period =
+    sp.period === "today" ||
+    sp.period === "7d" ||
+    sp.period === "30d" ||
+    sp.period === "all"
+      ? sp.period
+      : "7d";
+
+  const data = await getAuditTrailDashboardData({ period });
+
+  return <AuditTrailExplorer initialData={data} activePeriod={period} />;
 }
-
