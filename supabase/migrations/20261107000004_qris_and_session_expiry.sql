@@ -35,8 +35,10 @@ END
 $$;
 
 -- 3. Kolom pilihan pembayaran, waktu konfirmasi pelanggan, dan kedaluwarsa sesi tracking pada orders
+--    Catatan: payment_choice memakai text + CHECK ('qris', 'cash') agar tidak memicu
+--    PostgreSQL error 55P04 (unsafe use of new enum value in same transaction) saat dijalankan sekaligus di SQL Editor.
 ALTER TABLE public.orders
-  ADD COLUMN IF NOT EXISTS payment_choice public.payment_method NOT NULL DEFAULT 'qris',
+  ADD COLUMN IF NOT EXISTS payment_choice text NOT NULL DEFAULT 'qris' CHECK (payment_choice IN ('qris', 'cash')),
   ADD COLUMN IF NOT EXISTS customer_claimed_paid_at timestamptz NULL,
   ADD COLUMN IF NOT EXISTS tracking_expired_at timestamptz NULL;
 

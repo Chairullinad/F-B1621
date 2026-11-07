@@ -21,7 +21,9 @@ INSERT INTO public.outlets (
   tax_percent,
   service_enabled,
   service_percent,
-  price_includes_tax
+  price_includes_tax,
+  qris_enabled,
+  qris_raw_payload
 ) VALUES (
   '00000000-0000-0000-0000-000000001621',
   'Kafe Nusantara 1621',
@@ -32,12 +34,16 @@ INSERT INTO public.outlets (
   NULL,
   false,
   NULL,
-  false
+  false,
+  true,
+  '00020101021126610014COM.GO-JEK.WWW01189360091431234567890210G1234567890303UMI51440014ID.CO.QRIS.WWW0215ID10200123456780303UMI5204581253033605802ID5919KAFE NUSANTARA 16216013JAKARTA PUSAT61051011062070703A0163046A28'
 )
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   address = EXCLUDED.address,
-  receipt_footer = EXCLUDED.receipt_footer;
+  receipt_footer = EXCLUDED.receipt_footer,
+  qris_enabled = EXCLUDED.qris_enabled,
+  qris_raw_payload = COALESCE(public.outlets.qris_raw_payload, EXCLUDED.qris_raw_payload);
 
 -- 2. Pengaturan Notifikasi Email Owner
 INSERT INTO public.notification_settings (
