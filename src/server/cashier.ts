@@ -23,6 +23,7 @@ import type {
   UserRole,
 } from "@/lib/types/database";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
+import { runExpireOverdueOrdersJob } from "@/server/order-expiry";
 
 // ============================================================================
 // ZOD SCHEMAS (Validasi Server sesuai AGENTS.md)
@@ -226,14 +227,8 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
   const staff = await requireStaffRole(["owner", "cashier"]);
   const admin = createSupabaseAdminClient();
 
-  // 1. Kedaluwarsakan order PENDING yang sudah melewati expires_at
-  const nowIso = new Date().toISOString();
-  await admin
-    .from("orders")
-    .update({ status: "expired" })
-    .eq("outlet_id", staff.outletId)
-    .eq("status", "pending")
-    .lt("expires_at", nowIso);
+  // 1. Kedaluwarsakan order PENDING yang sudah melewati expires_at lewat job server
+  await runExpireOverdueOrdersJob();
 
   const [
     outletRes,
@@ -1391,3 +1386,4 @@ export async function recordReceiptReprintAction(rawInput: {
     message: `Cetak struk Order #${orderRow.order_no} dicatat di Jejak Audit.`,
   };
 }
+
