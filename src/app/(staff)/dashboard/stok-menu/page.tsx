@@ -1,30 +1,24 @@
 import { MenuStockManager } from "@/components/dashboard/menu-stock-manager";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireStaffRole } from "@/server/auth";
-import {
-  listCategoriesForOwner,
-  listProductsForOwner,
-} from "@/server/master-data";
+import { getMenuStockPageData } from "@/server/menu-stock";
 
 export const dynamic = "force-dynamic";
 
-export default async function StokMenuPage() {
-  const staff = await requireStaffRole(["owner", "cashier", "warehouse"]);
-  const admin = createSupabaseAdminClient();
+interface StokMenuPageProps {
+  searchParams: Promise<{
+    outletId?: string;
+  }>;
+}
 
-  const [products, categories, outletRes] = await Promise.all([
-    listProductsForOwner(),
-    listCategoriesForOwner(),
-    admin.from("outlets").select("name").eq("id", staff.outletId).maybeSingle(),
-  ]);
+export default async function StokMenuPage({
+  searchParams,
+}: StokMenuPageProps) {
+  await requireStaffRole(["owner", "cashier", "warehouse", "kitchen", "waiter"]);
+  const sp = await searchParams;
 
-  const outletName = outletRes.data?.name ?? "1621F&B Pusat";
+  const data = await getMenuStockPageData({
+    outletId: sp.outletId,
+  });
 
-  return (
-    <MenuStockManager
-      initialProducts={products}
-      categories={categories}
-      outletName={outletName}
-    />
-  );
+  return <MenuStockManager initialData={data} />;
 }
