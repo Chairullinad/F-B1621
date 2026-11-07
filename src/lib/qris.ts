@@ -151,3 +151,4 @@ export function generateDynamicQrisPayload(
 
   return `${payloadWithCrcHeader}${crc}`;
 }
+

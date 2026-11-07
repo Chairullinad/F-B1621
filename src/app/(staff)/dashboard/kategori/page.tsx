@@ -1,15 +1,20 @@
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CategoryManager } from "@/components/dashboard/category-manager";
+import { listCategoriesForOwner } from "@/server/master-data";
 
-export default function KategoriPage() {
+export default async function KategoriPage() {
+  const categories = await listCategoriesForOwner();
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Master Kategori</CardTitle>
-        <CardDescription>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Master Kategori</h1>
+        <p className="text-sm text-zinc-600">
           Kelola nama kategori dan urutan tampil pada layar pelanggan dan kasir.
-        </CardDescription>
-      </CardHeader>
-    </Card>
+          Setiap perubahan dicatat otomatis di Jejak Audit.
+        </p>
+      </div>
+
+      <CategoryManager initialCategories={categories} />
+    </div>
   );
 }
-

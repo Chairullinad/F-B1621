@@ -8,3 +8,4 @@ export default async function DashboardOwnerLayout({
   await requireStaffRole(["owner"]);
   return <>{children}</>;
 }
+

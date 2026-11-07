@@ -50,3 +50,4 @@ describe("src/lib/auth.ts", () => {
     assert.equal(canRoleAccessPathname("waiter", "/dashboard"), false);
   });
 });
+
