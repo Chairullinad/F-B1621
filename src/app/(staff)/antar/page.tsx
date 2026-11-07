@@ -1,18 +1,10 @@
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireStaffRole } from "@/server/auth";
+import { WaiterBoard } from "@/components/waiter/waiter-board";
+import { getWaiterWorkspaceData } from "@/server/kitchen-waiter";
+
+export const dynamic = "force-dynamic";
 
 export default async function AntarPage() {
-  const staff = await requireStaffRole(["owner", "waiter"]);
+  const data = await getWaiterWorkspaceData();
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Layar Antar (Pelayan) — {staff.fullName}</CardTitle>
-        <CardDescription>
-          Menampilkan order berstatus READY per meja dan tombol Sudah Diantar
-          (SERVED).
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
+  return <WaiterBoard initialData={data} />;
 }
