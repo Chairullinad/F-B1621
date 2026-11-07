@@ -97,3 +97,4 @@ Dokumen ini berisi panduan langkah demi langkah untuk merilis aplikasi **POS 162
 - [ ] Buka **Dashboard -> Produk & Kategori** untuk memasukkan daftar menu dan harga asli toko.
 - [ ] Buka **Dashboard -> 100 Meja & Cetak QR (`/dashboard/meja/cetak`)** untuk mencetak 100 kode QR meja.
 - [ ] Pasang aplikasi sebagai **PWA (Add to Home Screen)** pada 5 perangkat kasir (`/kasir`), layar dapur (`/dapur`), dan HP pelayan (`/antar`).
+

@@ -37,7 +37,8 @@ export interface KitchenTicketView {
   orderType: OrderType;
   tableNo: number | null;
   tableName: string;
-  status: Extract<OrderStatus, "paid" | "cancelled">;
+  status: Extract<OrderStatus, "paid" | "ready" | "cancelled">;
+  cookingStartedAt: string | null;
   version: number;
   paidAt: string;
   cancelledAt: string | null;
@@ -53,6 +54,7 @@ export interface KitchenWorkspaceData {
     outletId: string;
   };
   paidTickets: KitchenTicketView[];
+  readyCount: number;
   recentCancelledPaidTickets: KitchenTicketView[];
 }
 
@@ -110,16 +112,16 @@ async function applyOperationalAuditContext(
  * - TIDAK menyertakan harga satuan, subtotal, total, atau metode pembayaran (PRD 5.8).
  */
 export async function getKitchenWorkspaceData(): Promise<KitchenWorkspaceData> {
-  const staff = await requireStaffRole(["owner", "kitchen"]);
+  const staff = await requireStaffRole(["owner", "kitchen", "cashier"]);
   const admin = createSupabaseAdminClient();
 
   const thirtyMinsAgoIso = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
-  const [paidRes, cancelledRes, tablesRes] = await Promise.all([
+  const [paidRes, readyCountRes, cancelledRes, tablesRes] = await Promise.all([
     admin
       .from("orders")
       .select(
-        "id, order_no, order_type, table_id, status, version, paid_at, created_at, cancelled_at, cancel_reason"
+        "id, order_no, order_type, table_id, status, cooking_started_at, version, paid_at, created_at, cancelled_at, cancel_reason"
       )
       .eq("outlet_id", staff.outletId)
       .eq("status", "paid")
@@ -127,8 +129,14 @@ export async function getKitchenWorkspaceData(): Promise<KitchenWorkspaceData> {
       .order("paid_at", { ascending: true }),
     admin
       .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("outlet_id", staff.outletId)
+      .eq("status", "ready")
+      .is("deleted_at", null),
+    admin
+      .from("orders")
       .select(
-        "id, order_no, order_type, table_id, status, version, paid_at, created_at, cancelled_at, cancel_reason"
+        "id, order_no, order_type, table_id, status, cooking_started_at, version, paid_at, created_at, cancelled_at, cancel_reason"
       )
       .eq("outlet_id", staff.outletId)
       .eq("status", "cancelled")
@@ -197,6 +205,7 @@ export async function getKitchenWorkspaceData(): Promise<KitchenWorkspaceData> {
         tbl?.name ??
         (raw.order_type === "takeaway" ? "Takeaway / Bungkus" : "Tanpa Meja"),
       status: raw.status === "cancelled" ? "cancelled" : "paid",
+      cookingStartedAt: (raw.cooking_started_at as string | null) ?? null,
       version: Number(raw.version ?? 1),
       paidAt: String(raw.paid_at ?? raw.created_at),
       cancelledAt: (raw.cancelled_at as string | null) ?? null,
@@ -215,9 +224,46 @@ export async function getKitchenWorkspaceData(): Promise<KitchenWorkspaceData> {
     paidTickets: (
       (paidRes.data ?? []) as Array<Record<string, unknown>>
     ).map(mapKitchenTicket),
+    readyCount: readyCountRes.count ?? 0,
     recentCancelledPaidTickets: (
       (cancelledRes.data ?? []) as Array<Record<string, unknown>>
     ).map(mapKitchenTicket),
+  };
+}
+
+/**
+ * Server Action Dapur: Menandai order mulai dimasak (cooking_started_at).
+ */
+export async function startOrderCookingAction(rawInput: {
+  orderId: string;
+}): Promise<ActionResult> {
+  const parsed = z.object({ orderId: z.string().uuid() }).safeParse(rawInput);
+  if (!parsed.success) {
+    return { ok: false, message: "ID order tidak valid." };
+  }
+
+  const { staff, admin } = await applyOperationalAuditContext(
+    ["owner", "kitchen", "cashier"],
+    "Dapur menekan tombol Mulai Masak (Cooking)"
+  );
+
+  const { error } = await admin
+    .from("orders")
+    .update({
+      cooking_started_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.orderId)
+    .eq("outlet_id", staff.outletId)
+    .eq("status", "paid");
+
+  if (error) {
+    return { ok: false, message: `Gagal memulai masak: ${error.message}` };
+  }
+
+  revalidatePath("/dapur");
+  return {
+    ok: true,
+    message: "Status tiket diubah menjadi Sedang Dimasak.",
   };
 }
 

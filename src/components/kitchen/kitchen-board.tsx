@@ -15,6 +15,7 @@ import { formatTimeWIB } from "@/lib/datetime";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   markOrderReadyAction,
+  startOrderCookingAction,
   type KitchenWorkspaceData,
 } from "@/server/kitchen-waiter";
 
@@ -149,6 +150,21 @@ export function KitchenBoard({
     [initialData.recentCancelledPaidTickets, dismissedCancelledIds]
   );
 
+  async function handleStartCooking(orderId: string) {
+    setProcessingOrderId(orderId);
+    setFeedback(null);
+    try {
+      const res = await startOrderCookingAction({ orderId });
+      setFeedback({
+        type: res.ok ? "success" : "error",
+        text: res.message,
+      });
+      router.refresh();
+    } finally {
+      setProcessingOrderId(null);
+    }
+  }
+
   async function handleMarkReady(orderId: string, expectedVersion: number) {
     setProcessingOrderId(orderId);
     setFeedback(null);
@@ -164,19 +180,62 @@ export function KitchenBoard({
     }
   }
 
+  const newQueueCount = initialData.paidTickets.filter(
+    (t) => !t.cookingStartedAt
+  ).length;
+  const cookingCount = initialData.paidTickets.filter((t) =>
+    Boolean(t.cookingStartedAt)
+  ).length;
+
   return (
     <div className="space-y-4">
+      {/* 3 KPI Stat Cards KDS (Antrian Baru, Sedang Dimasak, Siap Disajikan) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500">
+            Antrian Baru
+          </div>
+          <div className="mt-1 text-3xl font-extrabold text-amber-500">
+            {newQueueCount}
+          </div>
+          <div className="mt-1 text-xs text-slate-500">
+            Menunggu mulai dimasak
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500">
+            Sedang Dimasak
+          </div>
+          <div className="mt-1 text-3xl font-extrabold text-blue-600">
+            {cookingCount}
+          </div>
+          <div className="mt-1 text-xs text-slate-500">
+            Diproses koki di dapur
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500">
+            Siap Disajikan (READY)
+          </div>
+          <div className="mt-1 text-3xl font-extrabold text-emerald-600">
+            {initialData.readyCount ?? 0}
+          </div>
+          <div className="mt-1 text-xs text-slate-500">
+            Menunggu diantar pelayan
+          </div>
+        </div>
+      </div>
+
       {/* Header Bar Layar Dapur */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
         <div>
-          <h1 className="text-lg font-extrabold text-zinc-900">
-            🍳 Layar Antrean Dapur ({initialData.paidTickets.length} Pesanan
-            Sedang Dimasak)
+          <h1 className="text-lg font-extrabold text-slate-900">
+            🍳 Kitchen Display System — f&amp;b1621
           </h1>
-          <p className="text-xs text-zinc-600">
-            Urut berdasarkan waktu pembayaran terlama. Tekan{" "}
-            <strong>Siap Diantar</strong> setelah seluruh item pada tiket selesai
-            disiapkan.
+          <p className="text-xs text-slate-600">
+            Alur 3 tahap: Klik <strong>🍳 Mulai Masak</strong> saat pesanan
+            diproses, lalu tekan <strong>✅ Siap Saji</strong> agar pelayan
+            mengantar ke meja.
           </p>
         </div>
 
@@ -349,18 +408,30 @@ export function KitchenBoard({
                     ))}
                   </div>
 
-                  <Button
-                    type="button"
-                    disabled={processingOrderId === ticket.id}
-                    onClick={() =>
-                      handleMarkReady(ticket.id, ticket.version)
-                    }
-                    className="min-h-12 w-full bg-emerald-700 text-base font-bold text-white hover:bg-emerald-800"
-                  >
-                    {processingOrderId === ticket.id
-                      ? "Memproses..."
-                      : `✅ Siap Diantar (${ticket.tableName})`}
-                  </Button>
+                  <div className="flex gap-2">
+                    {!ticket.cookingStartedAt ? (
+                      <Button
+                        type="button"
+                        disabled={processingOrderId === ticket.id}
+                        onClick={() => handleStartCooking(ticket.id)}
+                        className="min-h-11 flex-1 bg-blue-100 text-sm font-bold text-blue-900 hover:bg-blue-200"
+                      >
+                        🍳 Mulai Masak
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      disabled={processingOrderId === ticket.id}
+                      onClick={() =>
+                        handleMarkReady(ticket.id, ticket.version)
+                      }
+                      className="min-h-11 flex-1 bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700"
+                    >
+                      {processingOrderId === ticket.id
+                        ? "Memproses..."
+                        : `✅ Siap Saji (${ticket.tableName})`}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );

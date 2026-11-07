@@ -744,25 +744,38 @@ export function CustomerOrderExperience({
           return (
             <Card
               key={product.id}
-              className={`flex flex-col justify-between transition-opacity ${
-                isOut ? "bg-zinc-100 opacity-60" : "bg-white"
+              className={`flex flex-col justify-between overflow-hidden rounded-2xl border transition-all ${
+                isOut
+                  ? "border-zinc-200 bg-zinc-100 opacity-60"
+                  : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
               }`}
             >
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base">{product.name}</CardTitle>
-                  {isOut ? (
-                    <Badge variant="destructive">Habis</Badge>
-                  ) : inCart ? (
-                    <Badge variant="success">{inCart.qty} dipilih</Badge>
-                  ) : null}
+              <div className="flex items-center gap-3 p-3.5 pb-0">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-2xl shadow-2xs">
+                  {product.emoji || "🍽️"}
                 </div>
-                <p className="pt-1 text-base font-bold text-zinc-900">
-                  {formatRupiah(product.price)}
-                </p>
-              </CardHeader>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <CardTitle className="text-sm font-bold leading-tight text-slate-900">
+                      {product.name}
+                    </CardTitle>
+                    {isOut ? (
+                      <Badge variant="destructive" className="shrink-0 text-2xs">
+                        Habis
+                      </Badge>
+                    ) : inCart ? (
+                      <Badge variant="success" className="shrink-0 text-2xs">
+                        {inCart.qty}x
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className="pt-1 text-sm font-bold text-blue-600">
+                    {formatRupiah(product.price)}
+                  </p>
+                </div>
+              </div>
 
-              <CardContent className="pt-2">
+              <CardContent className="p-3.5 pt-3">
                 {isOut ? (
                   <Button
                     type="button"

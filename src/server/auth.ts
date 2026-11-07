@@ -9,7 +9,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ProfileRow, UserRole } from "@/lib/types/database";
 
-const userRoleSchema = z.enum(["owner", "cashier", "kitchen", "waiter"]);
+const userRoleSchema = z.enum(["owner", "cashier", "warehouse", "kitchen", "waiter"]);
 
 const loginInputSchema = z.object({
   email: z

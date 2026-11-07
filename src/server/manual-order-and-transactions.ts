@@ -25,6 +25,7 @@ import type {
 } from "@/lib/types/database";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 import type { CashierOrderItemView } from "@/server/cashier";
+import { recordOrderPaidInventoryAndAccounting } from "@/server/inventory";
 
 // ============================================================================
 // ZOD SCHEMAS (Validasi Server sesuai AGENTS.md)
@@ -636,10 +637,25 @@ export async function createManualCashierOrderAction(rawInput: {
     });
   }
 
+  try {
+    await recordOrderPaidInventoryAndAccounting({
+      outletId: staff.outletId,
+      orderId,
+      orderNo,
+      orderTotal: totals.total,
+      paymentMethod,
+      actorUserId: staff.userId,
+    });
+  } catch {
+    // Jangan gagalkan transaksi POS kasir bila pencatatan jurnal sekunder gagal
+  }
+
   revalidatePath("/order-manual");
   revalidatePath("/kasir");
   revalidatePath("/dapur");
   revalidatePath("/dashboard/transaksi");
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/keuangan");
 
   return {
     ok: true,

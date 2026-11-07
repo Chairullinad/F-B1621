@@ -1,17 +1,18 @@
 # AGENTS.md
 
-Aturan kerja untuk agent di proyek **POS F&B Web**. Baca `PRD.md` sebelum mengerjakan tugas apa pun. Jika PRD dan file ini berbeda, PRD yang menang; beri tahu saya perbedaannya.
+Aturan kerja untuk agent di proyek **f&b1621 (POS, Inventory, & Akuntansi F&B Web)**. Baca `PRD.md` sebelum mengerjakan tugas apa pun. Jika PRD dan file ini berbeda, PRD yang menang; beri tahu saya perbedaannya.
 
 ## Ringkasan produk
 
-POS berbasis web (PWA) untuk 1 outlet restoran/kafe dengan 100 meja dan 5 perangkat kasir. Alur utama:
+POS, Inventory, dan Akuntansi F&B berbasis web (PWA) dengan brand **f&b1621** untuk restoran/kafe dengan 100 meja dan 5 perangkat kasir. Alur utama:
 
 1. Pelanggan scan QR di meja (`/m/[token]`), memesan, dan memilih metode pembayaran: **QRIS di meja** (utama) atau **Tunai di kasir** (opsi kedua). Order berstatus `PENDING`.
 2. Untuk **QRIS di meja**: layar pelanggan menampilkan QRIS toko dengan nominal murni sesuai tagihan dan label meja (`MEJA-<no>`). Setelah membayar, pelanggan menekan tombol **Saya Sudah Bayar** (tanpa upload bukti bayar). Layar Kasir menerima notifikasi real-time berisi **Nomor Meja + Nominal**; kasir mencocokkan uang masuk lalu menekan **Pembayaran Sesuai**. Untuk **Tunai**: pelanggan membayar di kasir dalam 15 menit. Jika tidak dibayar/diverifikasi dalam 15 menit, order menjadi `EXPIRED`.
-3. Saat kasir menekan **Pembayaran Sesuai** (QRIS) atau **Bayar** (Tunai), order menjadi `PAID`, masuk ke **Layar Dapur**, dan **Layar Pelanggan** memperbarui status pesanan secara real-time.
+3. Saat kasir menekan **Pembayaran Sesuai** (QRIS) atau **Bayar** (Tunai), order menjadi `PAID`, stok bahan baku terpotong otomatis sesuai resep (BOM), jurnal akuntansi otomatis tercatat, masuk ke **Layar Dapur (KDS 3-Tahap: Baru → Mulai Masak → Siap Saji)**, dan **Layar Pelanggan** memperbarui status pesanan secara real-time.
 4. Dapur menandai `READY`, pelayan mengantar dan menandai `SERVED`. Begitu order berstatus `SERVED` (atau `EXPIRED`/`CANCELLED`), sesi pemantauan order pada layar pelanggan otomatis berakhir (*expired*) dan tidak bisa diakses kembali.
+5. Dilengkapi Modul **Inventory & Gudang** (Bahan Baku, Resep/BOM, Stock Opname Blind Count + Approval, Waste Tracking, Supplier & PO, Transfer Stok) serta **Laporan Keuangan & Akuntansi 5 Tab** (Jurnal Umum, Laba Rugi, Neraca, Arus Kas, Rekap Pajak).
 
-Role: `owner`, `cashier`, `kitchen`, `waiter`. Pelanggan tidak punya akun.
+Role: `owner`, `cashier`, `warehouse`, `kitchen`, `waiter`. Pelanggan tidak punya akun.
 
 ## Stack
 

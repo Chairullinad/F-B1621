@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "POS 1621 F&B — Sistem Kasir & Self-Order QR",
-    short_name: "POS 1621 F&B",
+    name: "f&b1621 — Sistem POS, Inventory, & Akuntansi F&B",
+    short_name: "f&b1621",
     description:
-      "Aplikasi POS berbasis web (PWA) untuk restoran dan kafe dengan 100 meja QR, Layar Kasir, Layar Dapur, Layar Antar, dan Audit Trail.",
+      "Aplikasi POS, Inventory, dan Akuntansi F&B berbasis web (PWA) dengan 100 meja QR, QRIS Dinamis, Layar Kasir, KDS, Gudang, dan Laporan Keuangan 5 Tab.",
     start_url: "/login",
     display: "standalone",
     orientation: "any",
@@ -28,3 +28,4 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
   };
 }
+

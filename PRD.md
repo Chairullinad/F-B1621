@@ -1,39 +1,46 @@
-# PRD: POS F&B Web (MVP Order sampai Kasir)
+# PRD: f&b1621 — Sistem POS, Inventory, & Akuntansi F&B Web (PWA)
 
-Versi 0.2 | Dokumen acuan untuk pengembangan dengan Antigravity
+Versi 0.3 | Dokumen acuan untuk pengembangan dengan Antigravity
 
 ## 1. Ringkasan
 
-Aplikasi POS berbasis web (PWA) untuk restoran/kafe, terinspirasi ESB POSLite. Bisa dipakai di iPhone, Android, tablet, dan laptop lewat browser. Fase 1 fokus pada satu alur: **pelanggan scan QR di meja dan memesan, membayar langsung dengan QRIS di meja (atau tunai di kasir), kasir memverifikasi pembayaran sesuai nomor meja & nominal, dapur memasak, lalu pelayan mengantar**. Pelanggan memantau status pesanannya secara real-time di HP sampai disajikan, lalu sesi otomatis kedaluwarsa. Pajak dan service charge tersedia sebagai pengaturan yang bisa dinyalakan atau dimatikan (default mati). Setiap tindakan penting tercatat di audit trail.
+**f&b1621** adalah aplikasi POS, Inventory, dan Akuntansi F&B berbasis web (PWA) untuk restoran/kafe, terinspirasi ESB POSLite dan *FnB Integration Suite*. Bisa dipakai di iPhone, Android, tablet, dan laptop lewat browser. Fokus utama mencakup:
+1. **Alur Pesanan & Pembayaran Meja**: Pelanggan scan QR di meja dan memesan, membayar langsung dengan **QRIS di meja** (atau **tunai di kasir**), kasir memverifikasi pembayaran sesuai nomor meja & nominal, dapur memasak (**Antrian Baru → Mulai Masak → Siap Saji**), lalu pelayan mengantar (`SERVED`). Pelanggan memantau status pesanannya secara real-time di HP sampai disajikan, lalu sesi otomatis kedaluwarsa.
+2. **Modul Inventory, Resep (BOM), & Gudang Lengkap**: Master bahan baku dengan alert stok minimum, resep per produk (*auto-deduct* stok & hitung HPP saat order `PAID`), *Stock Opname Blind Count Mode* dengan approval Owner, *Waste & Spoilage Tracking*, manajemen Supplier & *Purchase Order* (PO) beserta Hutang Usaha, dan Transfer/Mutasi Stok.
+3. **Modul Laporan Keuangan & Akuntansi Terintegrasi (5 Tab)**: Jurnal Umum otomatis (*auto-journaling* dari POS, HPP, PO, Opname, Waste, dan Transfer + Export CSV), Laporan Laba Rugi, Neraca, Laporan Arus Kas, dan Rekap Pajak.
+4. **Audit Trail & Keamanan**: Pajak dan service charge tersedia sebagai pengaturan yang bisa dinyalakan atau dimatikan (default mati). Setiap tindakan penting tercatat di audit trail *append-only* ber-hash SHA-256.
 
 ## 2. Tujuan dan Non-Tujuan
 
-**Tujuan fase 1**
+**Tujuan**
 
+- Identitas brand aplikasi adalah **f&b1621** dengan UI/UX modern (*Dark Sidebar* `#0f172a`, *live notification badges*, *KPI stat cards*, dan kartu menu visual).
 - Pelanggan dapat memesan sendiri lewat QR di meja, tanpa login dan tanpa install aplikasi, serta memilih bayar via **QRIS di meja** atau **Tunai di kasir**.
 - Saat memilih QRIS di meja, QRIS toko tampil otomatis dengan nominal murni sesuai tagihan dan label meja (`MEJA-<no>`). Pelanggan menekan **Saya Sudah Bayar** (tanpa upload screenshot).
-- Order dan konfirmasi pembayaran QRIS muncul real-time di layar kasir lengkap dengan **Nomor Meja + Nominal**; setelah kasir mencocokkan mutasi dan menekan **Pembayaran Sesuai** (atau menerima tunai), order menjadi `PAID`, otomatis masuk ke layar dapur, dan layar pelanggan ter-update real-time.
-- Dapur menandai pesanan siap (`READY`), pelayan mengantar ke meja (`SERVED`), dan setelah `SERVED` sesi pemantauan pesanan pelanggan otomatis berakhir (*expired*).
-- Kasir dapat merevisi atau membatalkan order dengan alasan wajib; pembatalan setelah bayar tercatat sebagai refund agar alur keuangan jelas.
+- Order dan konfirmasi pembayaran QRIS muncul real-time di layar kasir lengkap dengan **Nomor Meja + Nominal**; setelah kasir mencocokkan mutasi dan menekan **Pembayaran Sesuai** (atau menerima tunai), order menjadi `PAID`, stok bahan baku terpotong otomatis sesuai resep (BOM), jurnal akuntansi otomatis tercatat, order masuk ke layar dapur, dan layar pelanggan ter-update real-time.
+- Dapur mengelola antrian 3 tahap (**Baru → Mulai Masak → Siap Saji (`READY`)**), pelayan mengantar ke meja (`SERVED`), dan setelah `SERVED` sesi pemantauan pesanan pelanggan otomatis berakhir (*expired*).
+- Kasir dapat merevisi atau membatalkan order dengan alasan wajib; pembatalan setelah bayar tercatat sebagai refund, mengembalikan stok resep, dan membuat jurnal pembalik.
+- Staff Gudang & Owner dapat mengelola Bahan Baku, Resep (BOM), Stock Opname (*Blind Count Mode*), Waste, Supplier & Purchase Order (PO), serta Transfer Stok.
+- Owner memiliki **Laporan Keuangan Lengkap (5 Tab)**: Jurnal Umum, Laba Rugi, Neraca, Arus Kas, dan Rekap Pajak.
 - Setiap tindakan penting tercatat di audit trail yang tidak bisa diubah, sebagai bukti bagi pemilik usaha.
-- Owner dapat mengelola menu, meja (QR), QRIS toko, pajak, dan melihat transaksi serta jejak audit.
 
-**Bukan tujuan fase 1 (ditunda)**
+**Bukan tujuan (ditunda / di luar cakupan)**
 
+- Integrasi Order Delivery Aggregator pihak ketiga (GoFood, GrabFood, ShopeeFood)
 - Akun/login pelanggan, poin loyalty, dan promo
 - Integrasi payment gateway pihak ketiga (Midtrans/Xendit) dan kartu EDC
-- Printer dapur otomatis dan printer thermal Bluetooth/USB (fase 1 cukup layar dapur dan cetak lewat browser)
-- Manajemen stok, shift kas, modifier kompleks, multi-outlet
+- Printer dapur otomatis dan printer thermal Bluetooth/USB (cukup layar dapur dan cetak lewat browser)
 - Mode offline penuh
 
 ## 3. Pengguna dan Role
 
 | Role | Tugas utama | Akses |
 | --- | --- | --- |
-| Owner | Kelola menu, meja/QR, user; lihat transaksi dan refund | Dashboard + semua layar |
-| Kasir | Terima order pelanggan, terima pembayaran, revisi dan batalkan order | Layar Kasir + Layar Order Manual |
-| Dapur | Melihat order yang sudah dibayar, menandai siap diantar | Layar Dapur |
-| Pelayan | Mengantar pesanan ke meja; tidak bisa membuat atau mengedit order | Layar Antar |
+| Owner (`owner`) | Kelola laporan keuangan (5 tab), menu & resep, meja/QR, inventory, supplier/PO, approval opname, user; lihat transaksi, refund, dan audit | Dashboard + semua layar |
+| Kasir (`cashier`) | Terima order pelanggan (QRIS/Tunai), POS manual, revisi dan batalkan order, lihat KDS, cek stok & transfer | Layar Kasir + Order Manual + Cek Stok |
+| Gudang (`warehouse`) | Kelola stok bahan baku, stock opname (*blind count*), waste tracking, transfer stok, supplier & PO | Layar Inventory, Opname, Waste, Transfer, Supplier & PO |
+| Dapur (`kitchen`) | Melihat order yang sudah dibayar, klik *Mulai Masak* dan *Siap Saji* | Layar Dapur (KDS) |
+| Pelayan (`waiter`) | Mengantar pesanan siap ke meja; tidak bisa membuat atau mengedit order | Layar Antar |
 
 Asumsi: 1 outlet dulu, tetapi tabel dirancang sudah membawa `outlet_id` agar mudah dikembangkan ke multi-outlet.
 
@@ -161,6 +168,24 @@ Catatan: pelayan tidak dapat membuat atau mengedit order. Hanya kasir yang boleh
 - Data bisnis tidak dihapus permanen: order, produk, meja, dan user memakai soft delete.
 - Owner memiliki halaman **Jejak Audit**: filter tanggal, user, aksi, dan nomor order; riwayat lengkap per order (siapa membuat, merevisi, membayar, membatalkan); ekspor CSV.
 - **Email ke Owner:** semuanya berupa pengaturan yang diatur Owner: (1) laporan bulanan otomatis berisi penjualan kotor, refund, pembatalan, diskon, dan perubahan pengaturan selama sebulan; (2) notifikasi langsung untuk kejadian sensitif seperti refund, pembatalan order yang sudah dibayar, diskon, dan perubahan harga atau pengaturan. Owner menyalakan atau mematikan tiap pilihan dan menentukan kejadian mana yang dikirim. Email dikirim dari job di server lewat layanan email transaksional, dan setiap pengiriman dicatat di audit trail.
+
+### 5.12 Modul Inventory, Resep (BOM), & Gudang (`/dashboard/inventory`, `/dashboard/opname`, `/dashboard/waste`, `/dashboard/supplier`, `/dashboard/transfer-stok`)
+
+- **Master Bahan Baku**: CRUD bahan baku (`nama`, `kategori`, `satuan` kg/gram/liter/ml/pcs, `stok saat ini`, `stok minimum`, `harga beli per satuan` dalam integer Rupiah, dan rincian stok per lokasi penyimpanan `Gudang Utama`, `Dapur`, `Bar`). Menampilkan indikator `Aman`, `Menipis`, dan `⚠️ Restock`.
+- **Resep Produk (BOM) & Auto-Deduct**: Setiap produk menu dapat memiliki daftar bahan baku beserta takaran pemakaiannya. Saat order menjadi `PAID`, stok bahan baku otomatis berkurang dan nilai HPP order tercatat. Jika order `PAID` di-refund karena kesalahan outlet, stok dikembalikan.
+- **Stock Opname Blind Count & Approval Owner**: Staff Gudang mengisi kuantitas fisik tanpa melihat angka stok sistem (*Blind Count*), lengkap dengan progress bar. Setelah disubmit, sistem menghitung selisih kuantitas & nilai Rupiah untuk di-approve Owner. Saat di-approve, stok disesuaikan dan jurnal penyesuaian otomatis tercatat.
+- **Waste & Spoilage Tracking**: Pencatatan bahan rusak/busuk/expired/tumpah yang otomatis mengurangi stok dan mencatat jurnal `Beban Waste (D) / Persediaan (K)`.
+- **Supplier & Purchase Order (PO)**: Master supplier beserta rating, termin, dan saldo hutang usaha. Pembuatan & penerimaan PO (`pending` → `dikirim` → `diterima` → `lunas`) yang otomatis menambah stok bahan baku dan mencatat jurnal `Persediaan (D) / Hutang Usaha (K)`.
+- **Transfer / Mutasi Stok**: Pemindahan stok antar lokasi (`Gudang Utama`, `Dapur`, `Bar`) dengan alur `Pending Approval → In-Transit → Diterima` dan jurnal otomatis.
+
+### 5.13 Modul Laporan Keuangan & Akuntansi (`/dashboard/keuangan`)
+
+- **5 Tab Terintegrasi**:
+  1. **Jurnal Umum**: Jurnal otomatis dari transaksi POS/Meja, HPP resep, PO Supplier, Pelunasan Hutang, Waste, Selisih Opname, dan Transfer Stok + input jurnal manual (Biaya Gaji, Sewa, Listrik & Air, Pembelian Peralatan, Modal) + **Export CSV/Excel**.
+  2. **Laba Rugi (*Income Statement*)**: Pendapatan (QR Meja, Kasir Manual/Takeaway, dikurangi Diskon/Refund) dikurangi HPP Bahan Baku = **Laba Kotor**, dikurangi Biaya Operasional (Gaji, Sewa, Listrik & Air, Waste, Selisih Opname) = **Laba Bersih**.
+  3. **Neraca (*Balance Sheet*)**: **Aset Lancar** (Kas & Bank, Persediaan Bahan Baku) + **Aset Tetap** (Peralatan Dapur, Meja & Kursi, Akum. Penyusutan) vs **Kewajiban** (Hutang Supplier, Hutang Pajak) + **Ekuitas** (Modal Pemilik, Laba Periode Ini).
+  4. **Arus Kas (*Cash Flow Statement*)**: Aktivitas Operasi dan Aktivitas Investasi → **Kenaikan/Penurunan Kas Bersih**.
+  5. **Rekap Pajak**: PPN/PB1 Keluaran, PPN Masukan (dari PO), Pajak Kurang Bayar, PPh 21, dan PPh Final UMKM (0,5%).
 
 ## 6. Status Order
 

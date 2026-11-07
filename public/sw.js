@@ -16,3 +16,4 @@ self.addEventListener("fetch", (event) => {
   // supaya tidak pernah menyajikan status order atau harga basi
   if (event.request.method !== "GET") return;
 });
+

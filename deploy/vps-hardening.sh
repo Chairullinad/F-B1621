@@ -49,3 +49,4 @@ echo "==========================================================================
 echo "SELESAI! VPS Hostinger KVM 2 telah diamankan dan Coolify telah terpasang."
 echo "Langkah berikutnya: Hubungkan domain ke Coolify dan ikuti DEPLOYMENT.md."
 echo "============================================================================"
+

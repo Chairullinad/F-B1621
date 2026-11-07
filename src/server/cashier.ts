@@ -25,6 +25,10 @@ import type {
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 import { runExpireOverdueOrdersJob } from "@/server/order-expiry";
 import { dispatchSensitiveEventAlert } from "@/server/owner-notifications";
+import {
+  recordOrderPaidInventoryAndAccounting,
+  recordOrderRefundInventoryAndAccounting,
+} from "@/server/inventory";
 
 // ============================================================================
 // ZOD SCHEMAS (Validasi Server sesuai AGENTS.md)
@@ -1075,8 +1079,24 @@ export async function processOrderPaymentAction(rawInput: {
     });
   }
 
+  // 4. Auto-deduct stok bahan baku (BOM) + catat jurnal penjualan & HPP otomatis
+  try {
+    await recordOrderPaidInventoryAndAccounting({
+      outletId: staff.outletId,
+      orderId,
+      orderNo: String(orderRow.order_no),
+      orderTotal: total,
+      paymentMethod: method,
+      actorUserId: staff.userId,
+    });
+  } catch {
+    // Jangan gagalkan transaksi kasir bila pencatatan jurnal sekunder gagal
+  }
+
   revalidatePath("/kasir");
   revalidatePath("/dapur");
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/keuangan");
   return {
     ok: true,
     orderId,
@@ -1206,6 +1226,19 @@ export async function cancelOrderWithRefundAction(rawInput: {
       }
     }
 
+    try {
+      await recordOrderRefundInventoryAndAccounting({
+        outletId: staff.outletId,
+        orderId,
+        orderNo: String(orderRow.order_no),
+        refundAmount: Number(orderRow.total),
+        reason,
+        actorUserId: staff.userId,
+      });
+    } catch {
+      // Abaikan kegagalan jurnal sekunder
+    }
+
     await dispatchSensitiveEventAlert({
       outletId: staff.outletId,
       eventType: "paid_cancellation",
@@ -1240,6 +1273,8 @@ export async function cancelOrderWithRefundAction(rawInput: {
 
   revalidatePath("/kasir");
   revalidatePath("/dapur");
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/keuangan");
   revalidatePath("/dashboard/transaksi");
   return {
     ok: true,

@@ -24,6 +24,7 @@ import {
 const ROLES: ReadonlyArray<UserRole> = [
   "owner",
   "cashier",
+  "warehouse",
   "kitchen",
   "waiter",
 ];

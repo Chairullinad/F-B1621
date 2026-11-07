@@ -10,6 +10,7 @@ describe("src/lib/auth.ts", () => {
   it("mengembalikan rute default yang tepat untuk setiap role", () => {
     assert.equal(getDefaultRouteForRole("owner"), "/dashboard");
     assert.equal(getDefaultRouteForRole("cashier"), "/kasir");
+    assert.equal(getDefaultRouteForRole("warehouse"), "/dashboard/inventory");
     assert.equal(getDefaultRouteForRole("kitchen"), "/dapur");
     assert.equal(getDefaultRouteForRole("waiter"), "/antar");
   });
@@ -36,6 +37,17 @@ describe("src/lib/auth.ts", () => {
     assert.equal(canRoleAccessPathname("cashier", "/dashboard"), false);
     assert.equal(canRoleAccessPathname("cashier", "/dapur"), false);
     assert.equal(canRoleAccessPathname("cashier", "/antar"), false);
+
+    // Staff Gudang hanya bisa mengakses inventory, opname, waste, supplier, dan transfer
+    assert.equal(canRoleAccessPathname("warehouse", "/dashboard/inventory"), true);
+    assert.equal(canRoleAccessPathname("warehouse", "/dashboard/opname"), true);
+    assert.equal(canRoleAccessPathname("warehouse", "/dashboard/waste"), true);
+    assert.equal(canRoleAccessPathname("warehouse", "/dashboard/supplier"), true);
+    assert.equal(canRoleAccessPathname("warehouse", "/dashboard/transfer-stok"), true);
+    assert.equal(canRoleAccessPathname("warehouse", "/dashboard"), false);
+    assert.equal(canRoleAccessPathname("warehouse", "/kasir"), false);
+    assert.equal(canRoleAccessPathname("warehouse", "/dapur"), false);
+    assert.equal(canRoleAccessPathname("warehouse", "/antar"), false);
 
     // Dapur hanya bisa mengakses /dapur
     assert.equal(canRoleAccessPathname("kitchen", "/dapur"), true);

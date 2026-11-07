@@ -5,14 +5,14 @@ import { PwaRegister } from "@/components/pwa/pwa-register";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "POS 1621 F&B — Sistem Kasir & Self-Order QR",
+  title: "f&b1621 — Sistem POS, Inventory, & Akuntansi F&B",
   description:
-    "Aplikasi POS berbasis web (PWA) untuk restoran dan kafe dengan fitur self-order QR meja, layar kasir, layar dapur, layar antar, dan audit trail.",
+    "Aplikasi POS, Inventory, dan Akuntansi berbasis web (PWA) f&b1621 dengan fitur self-order QR meja, QRIS dinamis, layar kasir, KDS, gudang, dan laporan keuangan lengkap.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "POS 1621 F&B",
+    title: "f&b1621",
   },
   icons: {
     icon: "/icon.svg",

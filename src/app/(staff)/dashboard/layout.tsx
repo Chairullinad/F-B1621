@@ -5,7 +5,7 @@ export default async function DashboardOwnerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireStaffRole(["owner"]);
+  await requireStaffRole(["owner", "warehouse", "cashier"]);
   return <>{children}</>;
 }
 

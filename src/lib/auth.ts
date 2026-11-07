@@ -13,6 +13,7 @@ import type { UserRole } from "./types/database.ts";
 export const ROLE_LABELS_ID: Record<UserRole, string> = {
   owner: "Owner",
   cashier: "Kasir",
+  warehouse: "Staff Gudang",
   kitchen: "Dapur",
   waiter: "Pelayan",
 };
@@ -20,6 +21,7 @@ export const ROLE_LABELS_ID: Record<UserRole, string> = {
 export const ROLE_DEFAULT_ROUTE: Record<UserRole, string> = {
   owner: "/dashboard",
   cashier: "/kasir",
+  warehouse: "/dashboard/inventory",
   kitchen: "/dapur",
   waiter: "/antar",
 };
@@ -27,34 +29,81 @@ export const ROLE_DEFAULT_ROUTE: Record<UserRole, string> = {
 export interface StaffNavItem {
   href: string;
   label: string;
+  icon?: string;
+  badgeKey?: "pending_orders" | "pending_opnames" | "pending_transfers" | "low_stock";
   allowedRoles: ReadonlyArray<UserRole>;
 }
 
 export const STAFF_NAV_ITEMS: ReadonlyArray<StaffNavItem> = [
   {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: "📊",
+    allowedRoles: ["owner"],
+  },
+  {
+    href: "/dashboard/keuangan",
+    label: "Laporan Keuangan",
+    icon: "💰",
+    allowedRoles: ["owner"],
+  },
+  {
     href: "/kasir",
-    label: "Layar Kasir",
+    label: "Pesanan Meja & Kasir",
+    icon: "📱",
+    badgeKey: "pending_orders",
     allowedRoles: ["owner", "cashier"],
   },
   {
     href: "/order-manual",
-    label: "Order Manual",
+    label: "POS / Order Manual",
+    icon: "🛒",
     allowedRoles: ["owner", "cashier"],
   },
   {
     href: "/dapur",
-    label: "Layar Dapur",
+    label: "Kitchen Display (KDS)",
+    icon: "🍳",
     allowedRoles: ["owner", "kitchen"],
   },
   {
     href: "/antar",
-    label: "Layar Antar",
+    label: "Layar Antar Meja",
+    icon: "🍽️",
     allowedRoles: ["owner", "waiter"],
   },
   {
-    href: "/dashboard",
-    label: "Dashboard Owner",
-    allowedRoles: ["owner"],
+    href: "/dashboard/inventory",
+    label: "Inventory Bahan Baku",
+    icon: "📦",
+    badgeKey: "low_stock",
+    allowedRoles: ["owner", "warehouse", "cashier"],
+  },
+  {
+    href: "/dashboard/opname",
+    label: "Stock Opname",
+    icon: "🔍",
+    badgeKey: "pending_opnames",
+    allowedRoles: ["owner", "warehouse"],
+  },
+  {
+    href: "/dashboard/transfer-stok",
+    label: "Transfer Stok",
+    icon: "🚚",
+    badgeKey: "pending_transfers",
+    allowedRoles: ["owner", "warehouse", "cashier"],
+  },
+  {
+    href: "/dashboard/waste",
+    label: "Waste Tracking",
+    icon: "🗑️",
+    allowedRoles: ["owner", "warehouse"],
+  },
+  {
+    href: "/dashboard/supplier",
+    label: "Supplier & PO",
+    icon: "🏭",
+    allowedRoles: ["owner", "warehouse", "cashier"],
   },
 ];
 
@@ -116,6 +165,26 @@ export function canRoleAccessPathname(
 
   if (pathname === "/antar" || pathname.startsWith("/antar/")) {
     return role === "waiter";
+  }
+
+  if (
+    pathname === "/dashboard/inventory" ||
+    pathname.startsWith("/dashboard/inventory/") ||
+    pathname === "/dashboard/transfer-stok" ||
+    pathname.startsWith("/dashboard/transfer-stok/") ||
+    pathname === "/dashboard/supplier" ||
+    pathname.startsWith("/dashboard/supplier/")
+  ) {
+    return role === "warehouse" || role === "cashier";
+  }
+
+  if (
+    pathname === "/dashboard/opname" ||
+    pathname.startsWith("/dashboard/opname/") ||
+    pathname === "/dashboard/waste" ||
+    pathname.startsWith("/dashboard/waste/")
+  ) {
+    return role === "warehouse";
   }
 
   if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {

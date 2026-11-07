@@ -364,26 +364,35 @@ export function ManualOrderPos({
                         !product.is_available
                           ? "cursor-not-allowed border-zinc-200 bg-zinc-100 opacity-60"
                           : inCart
-                            ? "border-2 border-zinc-900 bg-zinc-50 shadow-sm"
-                            : "border-zinc-200 bg-white hover:border-zinc-400"
+                            ? "border-2 border-blue-600 bg-blue-50/50 shadow-xs"
+                            : "border-slate-200 bg-white hover:border-slate-400 hover:shadow-xs"
                       }`}
                     >
-                      <div>
-                        <div className="flex items-start justify-between gap-1">
-                          <span className="text-sm font-bold text-zinc-900">
-                            {product.name}
-                          </span>
-                          {inCart && (
-                            <Badge variant="default">{inCart.qty}x</Badge>
-                          )}
+                      <div className="flex items-start gap-2.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xl shadow-2xs">
+                          {product.emoji || "🍽️"}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-1">
+                            <span className="text-sm font-bold leading-tight text-slate-900">
+                              {product.name}
+                            </span>
+                            {inCart && (
+                              <Badge variant="default" className="shrink-0 text-2xs">
+                                {inCart.qty}x
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs font-extrabold text-zinc-800">
+                        <span className="text-xs font-extrabold text-blue-700">
                           {formatRupiah(product.price)}
                         </span>
                         {!product.is_available && (
-                          <Badge variant="outline">HABIS</Badge>
+                          <Badge variant="outline" className="text-2xs">
+                            HABIS
+                          </Badge>
                         )}
                       </div>
                     </button>
