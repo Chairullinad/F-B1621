@@ -143,7 +143,7 @@ export function StaffSidebarShell({
         icon: "🏢",
         roles: ["owner"],
         items: [
-          { href: "/dashboard/pengaturan", label: "Kelola & Tambah Cabang" },
+          { href: "/dashboard/cabang", label: "Kelola & Tambah Cabang" },
         ],
       },
       {
@@ -161,8 +161,10 @@ export function StaffSidebarShell({
     ];
   }, [staff.role, badges]);
 
-  // Filter grup sesuai role pengguna
-  const visibleGroups = allGroups.filter((g) => g.roles.includes(staff.role));
+  // Filter grup sesuai role pengguna (dimemoize agar referensi array stabil)
+  const visibleGroups = React.useMemo(() => {
+    return allGroups.filter((g) => g.roles.includes(staff.role));
+  }, [allGroups, staff.role]);
 
   // State Accordion: menentukan grup mana yang sedang terbuka (expand)
   const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(() => {
@@ -181,7 +183,7 @@ export function StaffSidebarShell({
     return initial;
   });
 
-  // Sinkronisasi auto-expand saat rute berpindah
+  // Sinkronisasi auto-expand saat rute berpindah (hanya perbarui state jika belum aktif)
   React.useEffect(() => {
     setPendingHref(null);
     for (const group of visibleGroups) {
@@ -189,7 +191,10 @@ export function StaffSidebarShell({
         (it) => pathname === it.href || pathname.startsWith(`${it.href}/`)
       );
       if (hasActive) {
-        setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
+        setOpenGroups((prev) => {
+          if (prev[group.id]) return prev;
+          return { ...prev, [group.id]: true };
+        });
       }
     }
   }, [pathname, visibleGroups]);
@@ -420,7 +425,7 @@ export function StaffSidebarShell({
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Kartu Cabang Aktif + User Profil */}
             <Link
-              href="/dashboard/pengaturan"
+              href="/dashboard/cabang"
               prefetch={true}
               className="flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 transition-all border border-white/15"
               title="Klik untuk kelola cabang"

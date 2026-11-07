@@ -172,3 +172,4 @@ export async function getMenuStockPageData(params?: {
     activeOutletName,
   };
 }
+
