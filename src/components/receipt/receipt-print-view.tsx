@@ -80,6 +80,14 @@ export function ReceiptPrintView({
       >
         {/* Header Outlet */}
         <div className="border-b border-dashed border-zinc-400 pb-2.5 text-center">
+          <div className="mx-auto mb-1.5 flex h-11 w-11 items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-1621.png"
+              alt="Logo f&b1621"
+              className="h-full w-full object-contain"
+            />
+          </div>
           <h1 className="text-sm font-bold uppercase tracking-wide">
             {receipt.outletName}
           </h1>

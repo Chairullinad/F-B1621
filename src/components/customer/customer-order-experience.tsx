@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -690,16 +691,27 @@ export function CustomerOrderExperience({
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-24">
       {/* Header Outlet & Nomor Meja Tetap */}
-      <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight">
-            {data.outlet.name}
-          </h1>
-          <p className="text-xs text-zinc-600">
-            Pemesanan Mandiri &bull; Bayar QRIS di Meja atau Tunai di Kasir
-          </p>
+      <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+            <Image
+              src="/logo-1621.png"
+              alt="Logo f&b1621"
+              width={48}
+              height={48}
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-base font-extrabold tracking-tight text-slate-900 truncate">
+              {data.outlet.name}
+            </h1>
+            <p className="text-xs text-slate-500 truncate">
+              f&amp;b1621 &bull; QRIS Meja / Tunai di Kasir
+            </p>
+          </div>
         </div>
-        <Badge variant="default" className="px-3.5 py-1.5 text-sm font-bold">
+        <Badge className="bg-[#3B7097] text-white px-3.5 py-1.5 text-sm font-bold shadow-xs shrink-0">
           {data.table.name}
         </Badge>
       </div>

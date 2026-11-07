@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 import { z } from "zod";
 import { roundRupiah } from "@/lib/money";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -41,63 +41,65 @@ export interface StaffSidebarBadges {
   }>;
 }
 
-export async function getStaffSidebarBadges(
-  outletId: string
-): Promise<StaffSidebarBadges> {
-  const admin = createSupabaseAdminClient();
+export const getStaffSidebarBadges = unstable_cache(
+  async (outletId: string): Promise<StaffSidebarBadges> => {
+    const admin = createSupabaseAdminClient();
 
-  const [ordersRes, opnamesRes, transfersRes, ingredientsRes] =
-    await Promise.all([
-      admin
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("outlet_id", outletId)
-        .eq("status", "pending")
-        .is("deleted_at", null),
-      admin
-        .from("stock_opnames")
-        .select("id", { count: "exact", head: true })
-        .eq("outlet_id", outletId)
-        .eq("status", "waiting_approval"),
-      admin
-        .from("stock_transfers")
-        .select("id", { count: "exact", head: true })
-        .eq("outlet_id", outletId)
-        .eq("status", "pending"),
-      admin
-        .from("ingredients")
-        .select("id, name, current_stock, min_stock, unit")
-        .eq("outlet_id", outletId)
-        .eq("is_active", true)
-        .is("deleted_at", null),
-    ]);
+    const [ordersRes, opnamesRes, transfersRes, ingredientsRes] =
+      await Promise.all([
+        admin
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("outlet_id", outletId)
+          .eq("status", "pending")
+          .is("deleted_at", null),
+        admin
+          .from("stock_opnames")
+          .select("id", { count: "exact", head: true })
+          .eq("outlet_id", outletId)
+          .eq("status", "waiting_approval"),
+        admin
+          .from("stock_transfers")
+          .select("id", { count: "exact", head: true })
+          .eq("outlet_id", outletId)
+          .eq("status", "pending"),
+        admin
+          .from("ingredients")
+          .select("id, name, current_stock, min_stock, unit")
+          .eq("outlet_id", outletId)
+          .eq("is_active", true)
+          .is("deleted_at", null),
+      ]);
 
-  const allIngredients = (ingredientsRes.data ?? []) as Array<{
-    id: string;
-    name: string;
-    current_stock: number;
-    min_stock: number;
-    unit: string;
-  }>;
+    const allIngredients = (ingredientsRes.data ?? []) as Array<{
+      id: string;
+      name: string;
+      current_stock: number;
+      min_stock: number;
+      unit: string;
+    }>;
 
-  const lowStockItems = allIngredients
-    .map((item) => ({
-      id: item.id,
-      name: item.name,
-      current_stock: Number(item.current_stock),
-      min_stock: Number(item.min_stock),
-      unit: item.unit,
-    }))
-    .filter((item) => item.current_stock <= item.min_stock);
+    const lowStockItems = allIngredients
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        current_stock: Number(item.current_stock),
+        min_stock: Number(item.min_stock),
+        unit: item.unit,
+      }))
+      .filter((item) => item.current_stock <= item.min_stock);
 
-  return {
-    pending_orders: ordersRes.count ?? 0,
-    pending_opnames: opnamesRes.count ?? 0,
-    pending_transfers: transfersRes.count ?? 0,
-    low_stock: lowStockItems.length,
-    lowStockItems,
-  };
-}
+    return {
+      pending_orders: ordersRes.count ?? 0,
+      pending_opnames: opnamesRes.count ?? 0,
+      pending_transfers: transfersRes.count ?? 0,
+      low_stock: lowStockItems.length,
+      lowStockItems,
+    };
+  },
+  ["staff_sidebar_badges"],
+  { revalidate: 10, tags: ["sidebar_badges"] }
+);
 
 // ============================================================================
 // 1. MASTER BAHAN BAKU & RESEP (BOM)
