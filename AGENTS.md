@@ -6,10 +6,10 @@ Aturan kerja untuk agent di proyek **POS F&B Web**. Baca `PRD.md` sebelum menger
 
 POS berbasis web (PWA) untuk 1 outlet restoran/kafe dengan 100 meja dan 5 perangkat kasir. Alur utama:
 
-1. Pelanggan scan QR di meja (`/m/[token]`), memesan, order `PENDING`.
-2. Pelanggan membayar tunai di kasir dalam 15 menit, kalau tidak order `EXPIRED`.
-3. Kasir menekan Bayar, order `PAID` dan masuk Layar Dapur.
-4. Dapur menandai `READY`, pelayan mengantar dan menandai `SERVED`.
+1. Pelanggan scan QR di meja (`/m/[token]`), memesan, dan memilih metode pembayaran: **QRIS di meja** (utama) atau **Tunai di kasir** (opsi kedua). Order berstatus `PENDING`.
+2. Untuk **QRIS di meja**: layar pelanggan menampilkan QRIS toko dengan nominal murni sesuai tagihan dan label meja (`MEJA-<no>`). Setelah membayar, pelanggan menekan tombol **Saya Sudah Bayar** (tanpa upload bukti bayar). Layar Kasir menerima notifikasi real-time berisi **Nomor Meja + Nominal**; kasir mencocokkan uang masuk lalu menekan **Pembayaran Sesuai**. Untuk **Tunai**: pelanggan membayar di kasir dalam 15 menit. Jika tidak dibayar/diverifikasi dalam 15 menit, order menjadi `EXPIRED`.
+3. Saat kasir menekan **Pembayaran Sesuai** (QRIS) atau **Bayar** (Tunai), order menjadi `PAID`, masuk ke **Layar Dapur**, dan **Layar Pelanggan** memperbarui status pesanan secara real-time.
+4. Dapur menandai `READY`, pelayan mengantar dan menandai `SERVED`. Begitu order berstatus `SERVED` (atau `EXPIRED`/`CANCELLED`), sesi pemantauan order pada layar pelanggan otomatis berakhir (*expired*) dan tidak bisa diakses kembali.
 
 Role: `owner`, `cashier`, `kitchen`, `waiter`. Pelanggan tidak punya akun.
 
@@ -85,4 +85,4 @@ supabase/seed.sql
 
 ## Di luar scope fase 1 (jangan dibangun)
 
-QRIS/kartu, akun pelanggan, printer thermal/dapur otomatis, stok, shift kas, modifier, multi-outlet, mode offline.
+Integrasi payment gateway pihak ketiga (Midtrans/Xendit), kartu EDC, akun pelanggan, printer thermal/dapur otomatis, stok, shift kas, modifier, multi-outlet, mode offline.

@@ -4,23 +4,24 @@ Versi 0.2 | Dokumen acuan untuk pengembangan dengan Antigravity
 
 ## 1. Ringkasan
 
-Aplikasi POS berbasis web (PWA) untuk restoran/kafe, terinspirasi ESB POSLite. Bisa dipakai di iPhone, Android, tablet, dan laptop lewat browser. Fase 1 fokus pada satu alur: **pelanggan scan QR di meja dan memesan, membayar di kasir, dapur memasak, lalu pelayan mengantar**. Pajak dan service charge tersedia sebagai pengaturan yang bisa dinyalakan atau dimatikan (default mati). Setiap tindakan penting tercatat di audit trail.
+Aplikasi POS berbasis web (PWA) untuk restoran/kafe, terinspirasi ESB POSLite. Bisa dipakai di iPhone, Android, tablet, dan laptop lewat browser. Fase 1 fokus pada satu alur: **pelanggan scan QR di meja dan memesan, membayar langsung dengan QRIS di meja (atau tunai di kasir), kasir memverifikasi pembayaran sesuai nomor meja & nominal, dapur memasak, lalu pelayan mengantar**. Pelanggan memantau status pesanannya secara real-time di HP sampai disajikan, lalu sesi otomatis kedaluwarsa. Pajak dan service charge tersedia sebagai pengaturan yang bisa dinyalakan atau dimatikan (default mati). Setiap tindakan penting tercatat di audit trail.
 
 ## 2. Tujuan dan Non-Tujuan
 
 **Tujuan fase 1**
 
-- Pelanggan dapat memesan sendiri lewat QR di meja, tanpa login dan tanpa install aplikasi.
-- Order muncul real-time di layar kasir; setelah kasir menerima pembayaran tunai, order otomatis masuk ke layar dapur.
-- Dapur menandai pesanan siap, dan pelayan mengantar ke meja yang tepat.
+- Pelanggan dapat memesan sendiri lewat QR di meja, tanpa login dan tanpa install aplikasi, serta memilih bayar via **QRIS di meja** atau **Tunai di kasir**.
+- Saat memilih QRIS di meja, QRIS toko tampil otomatis dengan nominal murni sesuai tagihan dan label meja (`MEJA-<no>`). Pelanggan menekan **Saya Sudah Bayar** (tanpa upload screenshot).
+- Order dan konfirmasi pembayaran QRIS muncul real-time di layar kasir lengkap dengan **Nomor Meja + Nominal**; setelah kasir mencocokkan mutasi dan menekan **Pembayaran Sesuai** (atau menerima tunai), order menjadi `PAID`, otomatis masuk ke layar dapur, dan layar pelanggan ter-update real-time.
+- Dapur menandai pesanan siap (`READY`), pelayan mengantar ke meja (`SERVED`), dan setelah `SERVED` sesi pemantauan pesanan pelanggan otomatis berakhir (*expired*).
 - Kasir dapat merevisi atau membatalkan order dengan alasan wajib; pembatalan setelah bayar tercatat sebagai refund agar alur keuangan jelas.
 - Setiap tindakan penting tercatat di audit trail yang tidak bisa diubah, sebagai bukti bagi pemilik usaha.
-- Owner dapat mengelola menu, meja (QR), pajak, dan melihat transaksi serta jejak audit.
+- Owner dapat mengelola menu, meja (QR), QRIS toko, pajak, dan melihat transaksi serta jejak audit.
 
 **Bukan tujuan fase 1 (ditunda)**
 
 - Akun/login pelanggan, poin loyalty, dan promo
-- Pembayaran QRIS/kartu
+- Integrasi payment gateway pihak ketiga (Midtrans/Xendit) dan kartu EDC
 - Printer dapur otomatis dan printer thermal Bluetooth/USB (fase 1 cukup layar dapur dan cetak lewat browser)
 - Manajemen stok, shift kas, modifier kompleks, multi-outlet
 - Mode offline penuh
@@ -41,13 +42,15 @@ Asumsi: 1 outlet dulu, tetapi tabel dirancang sudah membawa `outlet_id` agar mud
 ## 4. Alur Utama (Happy Path)
 
 1. Pelanggan memindai QR di meja; menu terbuka di browser HP tanpa login. Nomor meja terisi otomatis dan tidak bisa diubah.
-2. Pelanggan memilih menu, jumlah, dan catatan. Harga adalah harga akhir, tanpa pajak.
-3. Pelanggan menekan **Kirim Pesanan**. Order berstatus `PENDING`, dan layar pelanggan menampilkan pengumuman: bayar di kasir dalam 15 menit, lengkap dengan hitung mundur.
-4. Order muncul real-time di Layar Kasir dengan nomor meja dan sisa waktu.
-5. Pelanggan berjalan ke kasir dan membayar tunai. Jika ada yang salah, kasir merevisi order sebelum dibayar.
-6. Kasir menekan **Bayar**. Order menjadi `PAID`, struk tampil, dan order otomatis muncul di Layar Dapur.
-7. Dapur memasak lalu menekan **Siap Diantar** (`READY`). Pelayan melihatnya di Layar Antar.
-8. Pelayan mengantar ke meja dan menekan **Sudah Diantar** (`SERVED`). Layar pelanggan menampilkan status di setiap tahap.
+2. Pelanggan memilih menu, jumlah, catatan, dan metode pembayaran (**QRIS di Meja** atau **Bayar Tunai di Kasir**). Harga adalah harga akhir, tanpa pajak (kecuali pajak diaktifkan Owner).
+3. Pelanggan menekan **Kirim Pesanan**. Order berstatus `PENDING` dengan batas waktu 15 menit:
+   - Jika memilih **QRIS di Meja**: layar pelanggan langsung menampilkan QRIS toko dengan nominal murni sesuai tagihan dan label referensi nomor meja (`MEJA-<no>`). Setelah membayar di m-banking/e-wallet, pelanggan menekan tombol **Saya Sudah Bayar** (tanpa perlu upload bukti bayar).
+   - Jika memilih **Bayar Tunai di Kasir**: layar pelanggan menampilkan instruksi bayar di kasir dalam 15 menit.
+4. Order muncul real-time di Layar Kasir dengan **nomor meja, nominal tagihan, metode bayar, status konfirmasi QRIS pelanggan, dan sisa waktu**.
+5. Untuk QRIS, kasir mencocokkan uang yang masuk di mutasi QRIS toko dengan **Nomor Meja & Nominal** yang tampil di Layar Kasir. Untuk Tunai, pelanggan membayar di kasir. Jika ada item yang salah sebelum dibayar, kasir dapat merevisi order.
+6. Kasir menekan **Pembayaran Sesuai** (untuk QRIS) atau **Bayar** (untuk Tunai). Order menjadi `PAID`, struk tampil, order otomatis masuk ke **Layar Dapur**, dan **Layar Pelanggan** berubah status menjadi *Pembayaran Terverifikasi — Sedang Disiapkan Dapur*.
+7. Dapur memasak lalu menekan **Siap Diantar** (`READY`). Pelayan melihatnya di Layar Antar, dan Layar Pelanggan berubah menjadi *Pesanan Siap — Sedang Diantar ke Meja Anda*.
+8. Pelayan mengantar ke meja dan menekan **Sudah Diantar** (`SERVED`). Layar pelanggan menampilkan bahwa pesanan telah disajikan, lalu **sesi halaman pemantauan pesanan tersebut otomatis kedaluwarsa (*expired*) dan tidak bisa diakses lagi**.
 
 ### Alur order manual oleh kasir (cadangan)
 
@@ -192,19 +195,20 @@ Order manual dari kasir langsung `PAID`. Kedaluwarsa dijalankan otomatis oleh se
 ```
 outlets        (id, name, address, receipt_footer, order_expiry_minutes,
                 tax_enabled, tax_percent [nullable], service_enabled, service_percent [nullable],
-                price_includes_tax, created_at)
+                price_includes_tax, qris_enabled, qris_raw_payload [nullable], qris_merchant_name [nullable], created_at)
 notification_settings (id, outlet_id, owner_email, monthly_report_enabled, instant_events [jsonb], updated_at)
 profiles       (id -> auth.users, outlet_id, full_name, role[owner|cashier|kitchen|waiter], is_active, deleted_at)
 categories     (id, outlet_id, name, sort_order, is_active, deleted_at)
 products       (id, outlet_id, category_id, name, price, image_url, is_available, is_active, deleted_at)
-tables         (id, outlet_id, name, qr_token, is_active, deleted_at)
+tables         (id, outlet_id, table_no, name, qr_token, is_active, deleted_at)
 orders         (id, outlet_id, order_no, source[customer_qr|cashier], order_type[dine_in|takeaway], table_id,
-                status[pending|paid|ready|served|expired|cancelled],
+                payment_choice[qris|cash], status[pending|paid|ready|served|expired|cancelled],
                 subtotal, discount, discount_reason, service_rate, service_amount, tax_rate, tax_amount,
-                price_includes_tax, total, version, expires_at, created_at, paid_at, ready_at, served_at,
-                paid_by, served_by, cancelled_by, cancelled_at, cancel_reason)
+                price_includes_tax, total, version, customer_claimed_paid_at, tracking_expired_at,
+                expires_at, created_at, paid_at, ready_at, served_at,
+                paid_by, served_by, cancelled_by, cancelled_at, cancel_reason, deleted_at)
 order_items    (id, order_id, product_id, product_name, unit_price, qty, note, line_total)
-payments       (id, order_id, method[cash], amount_received, change_amount, created_by, created_at)
+payments       (id, order_id, method[cash|qris], amount_received, change_amount, created_by, created_at)
 refunds        (id, order_id, payment_id, amount, reason_category[outlet_fault|other], reason, created_by, created_at)
 audit_logs     (id, outlet_id, user_id, role, device, ip, action, entity, entity_id,
                 before, after, reason, prev_hash, hash, created_at)   -- append-only

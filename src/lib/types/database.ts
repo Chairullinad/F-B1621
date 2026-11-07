@@ -16,7 +16,7 @@ export type OrderStatus =
   | "served"
   | "expired"
   | "cancelled";
-export type PaymentMethod = "cash";
+export type PaymentMethod = "cash" | "qris";
 export type RefundReasonCategory = "outlet_fault" | "other";
 
 export interface InstantNotificationEvents {
@@ -37,6 +37,9 @@ export interface OutletRow {
   service_enabled: boolean;
   service_percent: number | null;
   price_includes_tax: boolean;
+  qris_enabled: boolean;
+  qris_raw_payload: string | null;
+  qris_merchant_name: string | null;
   max_cashier_discount_percent: number | null;
   max_cashier_discount_amount: number | null;
   created_at: string;
@@ -107,6 +110,7 @@ export interface OrderRow {
   source: OrderSource;
   order_type: OrderType;
   table_id: string | null;
+  payment_choice: PaymentMethod;
   status: OrderStatus;
   subtotal: number;
   discount: number;
@@ -119,6 +123,8 @@ export interface OrderRow {
   total: number;
   version: number;
   idempotency_key: string | null;
+  customer_claimed_paid_at: string | null;
+  tracking_expired_at: string | null;
   expires_at: string | null;
   created_at: string;
   paid_at: string | null;
@@ -183,4 +189,3 @@ export interface AuditLogRow {
   hash: string;
   created_at: string;
 }
-
