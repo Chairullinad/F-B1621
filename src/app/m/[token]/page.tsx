@@ -1,4 +1,11 @@
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CustomerOrderExperience } from "@/components/customer/customer-order-experience";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getCustomerTableMenuByToken } from "@/server/customer-order";
 
 export default async function CustomerTableOrderPage({
   params,
@@ -6,19 +13,26 @@ export default async function CustomerTableOrderPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const tableData = await getCustomerTableMenuByToken(token);
 
-  return (
-    <main className="mx-auto max-w-md px-4 py-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Pemesanan Mandiri Meja</CardTitle>
-          <CardDescription>
-            Token QR Meja: <code className="font-mono text-xs">{token}</code>.
-            Nomor meja ditentukan otomatis oleh server dari token QR ini.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    </main>
-  );
+  if (!tableData) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-8">
+        <Card className="w-full max-w-md border-red-200">
+          <CardHeader>
+            <CardTitle className="text-lg text-red-900">
+              QR Meja Tidak Berlaku
+            </CardTitle>
+            <CardDescription>
+              Kode QR yang Anda pindai sudah tidak aktif atau telah diperbarui
+              oleh pihak restoran. Silakan pindai kode QR terbaru yang tertera
+              di meja Anda atau hubungi pelayan.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </main>
+    );
+  }
+
+  return <CustomerOrderExperience data={tableData} />;
 }
-
