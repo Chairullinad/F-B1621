@@ -1,16 +1,20 @@
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TransactionsHistoryView } from "@/components/dashboard/transactions-history-view";
+import { getTransactionsDashboardData } from "@/server/manual-order-and-transactions";
 
-export default function TransaksiPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Riwayat Transaksi</CardTitle>
-        <CardDescription>
-          Daftar transaksi dengan filter tanggal, status, kasir, detail refund,
-          serta cetak ulang struk.
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
+export const dynamic = "force-dynamic";
+
+export default async function DashboardTransaksiPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const sp = await searchParams;
+  const period =
+    sp.period === "7d" || sp.period === "30d" || sp.period === "all"
+      ? sp.period
+      : "today";
+
+  const data = await getTransactionsDashboardData({ period });
+
+  return <TransactionsHistoryView initialData={data} activePeriod={period} />;
 }
-

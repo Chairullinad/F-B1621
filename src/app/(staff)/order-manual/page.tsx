@@ -1,18 +1,10 @@
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireStaffRole } from "@/server/auth";
+import { ManualOrderPos } from "@/components/cashier/manual-order-pos";
+import { getManualOrderWorkspaceData } from "@/server/manual-order-and-transactions";
+
+export const dynamic = "force-dynamic";
 
 export default async function OrderManualPage() {
-  const staff = await requireStaffRole(["owner", "cashier"]);
+  const data = await getManualOrderWorkspaceData();
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Layar Order Manual (Kasir) — {staff.fullName}</CardTitle>
-        <CardDescription>
-          Input pesanan Dine-in atau Takeaway secara langsung di kasir dan
-          terima pembayaran tunai (langsung berstatus PAID).
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
+  return <ManualOrderPos initialData={data} />;
 }
