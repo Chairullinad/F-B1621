@@ -25,6 +25,11 @@ const DASHBOARD_MENUS = [
     desc: "Kelola 100 meja, ganti token QR, dan cetak QR massal.",
   },
   {
+    href: "/dashboard/staf",
+    title: "Staf & Role Pengguna",
+    desc: "Tambah staf baru, atur role (Owner, Kasir, Dapur, Pelayan), dan nonaktifkan akun.",
+  },
+  {
     href: "/dashboard/transaksi",
     title: "Riwayat Transaksi",
     desc: "Lihat transaksi harian, penjualan kotor, refund, dan penjualan bersih.",
@@ -36,8 +41,8 @@ const DASHBOARD_MENUS = [
   },
   {
     href: "/dashboard/pengaturan",
-    title: "Pengaturan Outlet & Pajak",
-    desc: "Atur profil outlet, pajak, service charge, batas diskon kasir, dan email Owner.",
+    title: "Pengaturan Outlet, QRIS & Pajak",
+    desc: "Atur profil outlet, QRIS toko, pajak, service charge, batas diskon kasir, dan email Owner.",
   },
 ];
 
@@ -47,8 +52,8 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold">Dashboard Owner</h1>
         <p className="text-sm text-zinc-600">
-          Pusat pengelolaan master data, transaksi, pengaturan pajak, dan jejak
-          audit.
+          Pusat pengelolaan master data, staf, transaksi, pengaturan QRIS/pajak,
+          dan jejak audit.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
