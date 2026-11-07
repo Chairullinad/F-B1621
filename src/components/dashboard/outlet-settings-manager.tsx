@@ -24,6 +24,7 @@ import {
   updateQrisSettingsAction,
   updateTaxAndServiceSettingsAction,
 } from "@/server/master-data";
+import { triggerManualMonthlyReportAction } from "@/server/owner-notifications";
 
 export function OutletSettingsManager({
   initialOutlet,
@@ -634,9 +635,29 @@ export function OutletSettingsManager({
             <Button type="submit" className="w-full" disabled={isPending}>
               Simpan Pengaturan Notifikasi Email
             </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={isPending || !ownerEmail.trim()}
+              onClick={() => {
+                startTransition(async () => {
+                  const res = await triggerManualMonthlyReportAction();
+                  if (res.ok) {
+                    toast.success(res.message);
+                  } else {
+                    toast.error(res.message);
+                  }
+                });
+              }}
+            >
+              📧 Kirim / Uji Laporan Bulanan Sekarang (Catat di Audit)
+            </Button>
           </form>
         </CardContent>
       </Card>
     </div>
   );
 }
+

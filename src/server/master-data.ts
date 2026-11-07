@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
-import { validateTaxAndServiceConfig } from "@/lib/money";
+import { formatRupiah, validateTaxAndServiceConfig } from "@/lib/money";
 import { parseEmvTags } from "@/lib/qris";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -16,6 +16,7 @@ import type {
   TableRow,
 } from "@/lib/types/database";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
+import { dispatchSensitiveEventAlert } from "@/server/owner-notifications";
 
 // ============================================================================
 // ZOD SCHEMAS (Validasi Ketat di Server sesuai AGENTS.md)
@@ -387,6 +388,20 @@ export async function updateProductAction(rawInput: {
     };
   }
 
+  await dispatchSensitiveEventAlert({
+    outletId: owner.outletId,
+    eventType: "price_or_setting_change",
+    subject: `Perubahan Produk / Harga: ${parsed.data.name} (${formatRupiah(parsed.data.price)})`,
+    summaryText: `Produk "${parsed.data.name}" diperbarui oleh ${owner.fullName} dengan harga ${formatRupiah(parsed.data.price)}.`,
+    actorName: `${owner.fullName} (${owner.role})`,
+    entityId: parsed.data.id,
+    details: {
+      product_id: parsed.data.id,
+      name: parsed.data.name,
+      price: parsed.data.price,
+    },
+  });
+
   revalidatePath("/dashboard/produk");
   return { ok: true, message: "Data produk berhasil diperbarui." };
 }
@@ -749,6 +764,16 @@ export async function updateTaxAndServiceSettingsAction(rawInput: {
     };
   }
 
+  await dispatchSensitiveEventAlert({
+    outletId: owner.outletId,
+    eventType: "price_or_setting_change",
+    subject: "Perubahan Pengaturan Pajak & Service Charge Outlet",
+    summaryText: `Pengaturan Pajak (${parsed.data.taxEnabled ? `${parsed.data.taxPercent}%` : "Mati"}) dan Service Charge (${parsed.data.serviceEnabled ? `${parsed.data.servicePercent}%` : "Mati"}) telah diperbarui oleh ${owner.fullName}.`,
+    actorName: `${owner.fullName} (${owner.role})`,
+    entityId: owner.outletId,
+    details: parsed.data,
+  });
+
   revalidatePath("/dashboard/pengaturan");
   return {
     ok: true,
@@ -872,3 +897,4 @@ export async function updateNotificationSettingsAction(rawInput: {
     message: "Pengaturan notifikasi email Owner berhasil disimpan.",
   };
 }
+

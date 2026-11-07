@@ -24,6 +24,7 @@ import type {
 } from "@/lib/types/database";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 import { runExpireOverdueOrdersJob } from "@/server/order-expiry";
+import { dispatchSensitiveEventAlert } from "@/server/owner-notifications";
 
 // ============================================================================
 // ZOD SCHEMAS (Validasi Server sesuai AGENTS.md)
@@ -885,6 +886,23 @@ export async function applyOrderDiscountAction(rawInput: {
     };
   }
 
+  if (totals.discount > 0) {
+    await dispatchSensitiveEventAlert({
+      outletId: staff.outletId,
+      eventType: "discount",
+      subject: `Pemberian Diskon ${formatRupiah(totals.discount)} pada Order #${orderRow.order_no}`,
+      summaryText: `Diskon sebesar ${formatRupiah(totals.discount)} diberikan pada Order #${orderRow.order_no} (Total baru: ${formatRupiah(totals.total)}). Alasan: "${reason}"`,
+      actorName: `${staff.fullName} (${staff.role})`,
+      entityId: orderId,
+      details: {
+        order_no: orderRow.order_no,
+        discount: totals.discount,
+        total: totals.total,
+        reason,
+      },
+    });
+  }
+
   revalidatePath("/kasir");
   return {
     ok: true,
@@ -1187,6 +1205,37 @@ export async function cancelOrderWithRefundAction(rawInput: {
         };
       }
     }
+
+    await dispatchSensitiveEventAlert({
+      outletId: staff.outletId,
+      eventType: "paid_cancellation",
+      subject: `Pembatalan Order Berbayar #${orderRow.order_no} (${formatRupiah(Number(orderRow.total))})`,
+      summaryText: `Order #${orderRow.order_no} yang sebelumnya berstatus ${currentStatus.toUpperCase()} telah dibatalkan oleh ${staff.fullName}. Kategori: ${reasonCategory}. Alasan: "${reason}".`,
+      actorName: `${staff.fullName} (${staff.role})`,
+      entityId: orderId,
+      details: {
+        order_no: orderRow.order_no,
+        previous_status: currentStatus,
+        refund_amount: Number(orderRow.total),
+        reason_category: reasonCategory,
+        reason,
+      },
+    });
+
+    await dispatchSensitiveEventAlert({
+      outletId: staff.outletId,
+      eventType: "refund",
+      subject: `Pencatatan Refund Tunai ${formatRupiah(Number(orderRow.total))} — Order #${orderRow.order_no}`,
+      summaryText: `Refund tunai sebesar ${formatRupiah(Number(orderRow.total))} dicatat untuk Order #${orderRow.order_no}. Alasan: "${reason}" (${reasonCategory}).`,
+      actorName: `${staff.fullName} (${staff.role})`,
+      entityId: orderId,
+      details: {
+        order_no: orderRow.order_no,
+        refund_amount: Number(orderRow.total),
+        reason_category: reasonCategory,
+        reason,
+      },
+    });
   }
 
   revalidatePath("/kasir");
