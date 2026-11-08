@@ -82,6 +82,9 @@ export interface ManualOrderWorkspaceData {
     taxConfig: TaxAndServiceConfig;
     maxCashierDiscountPercent: number | null;
     maxCashierDiscountAmount: number | null;
+    qrisEnabled: boolean;
+    qrisMerchantName: string;
+    qrisRawPayload: string | null;
   };
   categories: CategoryRow[];
   products: ProductRow[];
@@ -258,6 +261,13 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
         rawOutlet.max_cashier_discount_amount !== undefined
           ? Number(rawOutlet.max_cashier_discount_amount)
           : null,
+      qrisEnabled: Boolean(rawOutlet.qris_enabled ?? false),
+      qrisMerchantName: String(
+        (rawOutlet.qris_merchant_name as string | null) ??
+          rawOutlet.name ??
+          "1621 GROUP"
+      ),
+      qrisRawPayload: (rawOutlet.qris_raw_payload as string | null) ?? null,
     },
     categories: (catRes.data ?? []) as CategoryRow[],
     products: (prodRes.data ?? []) as ProductRow[],

@@ -723,6 +723,8 @@ export async function updateOutletProfileSettingsAction(rawInput: {
   }
 
   revalidatePath("/dashboard/pengaturan");
+  revalidatePath("/order-manual");
+  revalidatePath("/kasir");
   return { ok: true, message: "Pengaturan outlet berhasil disimpan." };
 }
 
@@ -788,6 +790,8 @@ export async function updateTaxAndServiceSettingsAction(rawInput: {
   });
 
   revalidatePath("/dashboard/pengaturan");
+  revalidatePath("/order-manual");
+  revalidatePath("/kasir");
   return {
     ok: true,
     message:
@@ -818,11 +822,11 @@ export async function updateQrisSettingsAction(rawInput: {
     return {
       ok: false,
       message:
-        "Saklar QRIS tidak dapat dinyalakan sebelum kode string QRIS statis toko diisi.",
+        "Saklar QRIS tidak dapat dinyalakan sebelum gambar QRIS di-upload atau kode QRIS diisi.",
     };
   }
 
-  if (payload) {
+  if (payload && !payload.startsWith("data:image/")) {
     try {
       parseEmvTags(payload);
     } catch (err) {
@@ -860,6 +864,8 @@ export async function updateQrisSettingsAction(rawInput: {
   }
 
   revalidatePath("/dashboard/pengaturan");
+  revalidatePath("/order-manual");
+  revalidatePath("/kasir");
   return { ok: true, message: "Pengaturan QRIS toko berhasil disimpan." };
 }
 

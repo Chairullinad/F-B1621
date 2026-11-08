@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
+import { CheckCircle2, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -567,23 +568,34 @@ export function CustomerOrderExperience({
                         {String(activeOrder.tableNo).padStart(2, "0")} &bull;{" "}
                         {formatRupiah(activeOrder.total)}
                       </p>
-                      <div
-                        className="my-2 h-56 w-56"
-                        dangerouslySetInnerHTML={{
-                          __html: activeOrder.qrisSvg,
-                        }}
-                      />
+                      {activeOrder.qrisSvg.startsWith("data:image/") ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={activeOrder.qrisSvg}
+                          alt="QRIS Toko"
+                          className="my-2 h-56 w-56 object-contain"
+                        />
+                      ) : (
+                        <div
+                          className="my-2 h-56 w-56"
+                          dangerouslySetInnerHTML={{
+                            __html: activeOrder.qrisSvg,
+                          }}
+                        />
+                      )}
                       <p className="text-xs text-zinc-600">
                         Scan atau screenshot QRIS di atas menggunakan aplikasi
-                        m-Banking / e-Wallet Anda. Nominal sudah terisi otomatis.
+                        m-Banking / e-Wallet Anda sesuai tagihan{" "}
+                        <strong>{formatRupiah(activeOrder.total)}</strong>.
                       </p>
                     </div>
                   ) : null}
 
                   {activeOrder.customerClaimedPaidAt ? (
                     <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-left text-sm text-emerald-950">
-                      <p className="font-bold">
-                        ✓ Konfirmasi Pembayaran Terkirim ke Kasir
+                      <p className="flex items-center gap-1.5 font-bold">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                        Konfirmasi Pembayaran Terkirim ke Kasir
                       </p>
                       <p className="mt-1 text-xs text-emerald-800">
                         Notifikasi{" "}
@@ -838,8 +850,8 @@ export function CustomerOrderExperience({
               }`}
             >
               <div className="flex items-center gap-3 p-3.5 pb-0">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-2xl shadow-2xs">
-                  {product.emoji || "🍽️"}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 shadow-2xs">
+                  <UtensilsCrossed className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-1.5">

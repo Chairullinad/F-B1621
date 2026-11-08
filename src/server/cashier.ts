@@ -179,6 +179,9 @@ export interface CashierWorkspaceData {
     taxConfig: TaxAndServiceConfig;
     maxCashierDiscountPercent: number | null;
     maxCashierDiscountAmount: number | null;
+    qrisEnabled?: boolean;
+    qrisMerchantName?: string;
+    qrisRawPayload?: string | null;
   };
   pendingOrders: CashierOrderCardView[];
   recentOrders: CashierOrderCardView[];
@@ -518,6 +521,13 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
         rawOutlet.max_cashier_discount_amount !== undefined
           ? Number(rawOutlet.max_cashier_discount_amount)
           : null,
+      qrisEnabled: Boolean(rawOutlet.qris_enabled ?? false),
+      qrisMerchantName: String(
+        (rawOutlet.qris_merchant_name as string | null) ??
+          rawOutlet.name ??
+          "1621 GROUP"
+      ),
+      qrisRawPayload: (rawOutlet.qris_raw_payload as string | null) ?? null,
     },
     pendingOrders: ((pendingRes.data ?? []) as Array<Record<string, unknown>>).map(
       mapOrderToCardView

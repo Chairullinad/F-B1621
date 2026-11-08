@@ -316,28 +316,32 @@ async function buildCustomerOrderTrackingView(params: {
   const total = Number(params.orderRecord.total ?? 0);
   const orderNo = String(params.orderRecord.order_no ?? "");
 
-  // Hasilkan SVG QRIS bernominal murni + label MEJA-<no> jika metode bayar QRIS dan status masih pending
+  // Hasilkan SVG QRIS bernominal murni + label MEJA-<no> atau gambar QRIS upload jika metode bayar QRIS dan status masih pending
   let qrisSvg: string | null = null;
   if (rawPaymentChoice === "qris" && status === "pending" && total > 0) {
     const rawStaticPayload =
-      (params.outletRecord.qris_raw_payload as string | null) ??
+      (params.outletRecord.qris_raw_payload as string | null)?.trim() ??
       DEFAULT_FALLBACK_STATIC_QRIS;
-    try {
-      const dynamicPayload = generateDynamicQrisPayload({
-        staticQrisPayload: rawStaticPayload,
-        amountRupiah: total,
-        tableNo: params.tableNo,
-        orderNo,
-      });
-      qrisSvg = generateQrSvgString(dynamicPayload, 2);
-    } catch {
-      const fallbackPayload = generateDynamicQrisPayload({
-        staticQrisPayload: DEFAULT_FALLBACK_STATIC_QRIS,
-        amountRupiah: total,
-        tableNo: params.tableNo,
-        orderNo,
-      });
-      qrisSvg = generateQrSvgString(fallbackPayload, 2);
+    if (rawStaticPayload.startsWith("data:image/")) {
+      qrisSvg = rawStaticPayload;
+    } else {
+      try {
+        const dynamicPayload = generateDynamicQrisPayload({
+          staticQrisPayload: rawStaticPayload,
+          amountRupiah: total,
+          tableNo: params.tableNo,
+          orderNo,
+        });
+        qrisSvg = generateQrSvgString(dynamicPayload, 2);
+      } catch {
+        const fallbackPayload = generateDynamicQrisPayload({
+          staticQrisPayload: DEFAULT_FALLBACK_STATIC_QRIS,
+          amountRupiah: total,
+          tableNo: params.tableNo,
+          orderNo,
+        });
+        qrisSvg = generateQrSvgString(fallbackPayload, 2);
+      }
     }
   }
 

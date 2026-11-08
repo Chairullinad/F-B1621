@@ -87,7 +87,9 @@ export function OutletSettingsManager({
     initialOutlet.qris_enabled
   );
   const [qrisImagePreview, setQrisImagePreview] = React.useState<string | null>(
-    null
+    initialOutlet.qris_raw_payload?.startsWith("data:image/")
+      ? initialOutlet.qris_raw_payload
+      : null
   );
   const [isScanningQrisImage, setIsScanningQrisImage] = React.useState(false);
 
@@ -121,7 +123,10 @@ export function OutletSettingsManager({
     parsedServicePercent > 0 &&
     parsedServicePercent <= 100;
 
-  const canEnableQris = qrisRawPayload.trim().startsWith("000201");
+  const trimmedQrisPayload = qrisRawPayload.trim();
+  const isUploadedQrisImage = trimmedQrisPayload.startsWith("data:image/");
+  const isEmvQrisPayload = trimmedQrisPayload.startsWith("000201");
+  const canEnableQris = isEmvQrisPayload || isUploadedQrisImage;
 
   function handleSaveOutletProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -204,12 +209,29 @@ export function OutletSettingsManager({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const objectUrl = URL.createObjectURL(file);
-    setQrisImagePreview(objectUrl);
     setIsScanningQrisImage(true);
 
     try {
       const bitmap = await createImageBitmap(file);
+
+      // Kompres gambar QRIS ke Data URL agar tersimpan permanen di database
+      const maxDim = 600;
+      const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      }
+      const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.84);
+      setQrisImagePreview(compressedDataUrl);
+
+      let finalPayload = compressedDataUrl;
+      let detectedMerchant = qrisMerchantName.trim() || name || "1621 GROUP";
+
       type BarcodeDetectorLike = {
         detect: (
           source: ImageBitmap
@@ -224,32 +246,45 @@ export function OutletSettingsManager({
       ).BarcodeDetector;
 
       if (BarcodeDetectorCtor) {
-        const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
-        const results = await detector.detect(bitmap);
-        const found = results.find((r) => r.rawValue?.trim().startsWith("000201"));
-        if (found?.rawValue) {
-          const raw = found.rawValue.trim();
-          setQrisRawPayload(raw);
-          const info = extractMerchantInfoFromQris(raw);
-          if (info.merchantName) {
-            setQrisMerchantName(info.merchantName);
-          }
-          setQrisEnabled(true);
-          toast.success(
-            `Berhasil memindai QRIS dari gambar! Merchant: ${info.merchantName ?? qrisMerchantName}`
+        try {
+          const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
+          const results = await detector.detect(bitmap);
+          const found = results.find((r) =>
+            r.rawValue?.trim().startsWith("000201")
           );
-          setIsScanningQrisImage(false);
-          return;
+          if (found?.rawValue) {
+            finalPayload = found.rawValue.trim();
+            const info = extractMerchantInfoFromQris(finalPayload);
+            if (info.merchantName) {
+              detectedMerchant = info.merchantName;
+              setQrisMerchantName(info.merchantName);
+            }
+          }
+        } catch {
+          // Tetap gunakan compressedDataUrl jika BarcodeDetector gagal
         }
       }
 
-      toast.info(
-        "Gambar poster QRIS berhasil dimuat. Jika kode 000201 belum terisi otomatis di browser ini, tempelkan hasil scan teks QRIS atau klik 'Isi Contoh QRIS'."
-      );
+      setQrisRawPayload(finalPayload);
+      setQrisEnabled(true);
+
+      // Langsung simpan ke database otomatis begitu gambar diupload
+      startTransition(async () => {
+        const res = await updateQrisSettingsAction({
+          qrisEnabled: true,
+          qrisMerchantName: detectedMerchant || null,
+          qrisRawPayload: finalPayload,
+        });
+        if (res.ok) {
+          toast.success(
+            "Gambar QRIS berhasil di-upload, disimpan, dan langsung diaktifkan untuk Kasir & Meja!"
+          );
+        } else {
+          toast.error(res.message);
+        }
+      });
     } catch {
-      toast.info(
-        "Gambar QRIS berhasil dimuat. Silakan pastikan string payload 000201 terisi lalu klik Simpan."
-      );
+      toast.error("Gagal memproses file gambar QRIS. Pastikan format PNG/JPG.");
     } finally {
       setIsScanningQrisImage(false);
     }
@@ -602,12 +637,12 @@ export function OutletSettingsManager({
                     className="h-16 w-16 rounded border border-slate-200 object-contain"
                   />
                   <div className="text-xs text-slate-600">
-                    <p className="font-semibold text-slate-900">
-                      Gambar QRIS berhasil dipilih
+                    <p className="font-semibold text-emerald-700">
+                      Gambar QRIS Toko Aktif &amp; Tersimpan
                     </p>
                     <p>
-                      Pastikan kode <code>000201...</code> di bawah sudah terisi
-                      lalu klik <strong>Simpan Pengaturan QRIS</strong>.
+                      Gambar QRIS ini akan muncul di Popup Kasir (Order Manual)
+                      serta di Layar Pelanggan saat memilih pembayaran QRIS.
                     </p>
                   </div>
                 </div>
@@ -627,12 +662,19 @@ export function OutletSettingsManager({
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium">
-                String Payload QRIS Statis (EMVCo)
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium">
+                  String Payload QRIS Statis (EMVCo — Opsional jika sudah upload gambar)
+                </label>
+                {isUploadedQrisImage ? (
+                  <Badge variant="success" className="text-[10px]">
+                    Menggunakan Gambar QRIS Upload
+                  </Badge>
+                ) : null}
+              </div>
               <textarea
                 rows={3}
-                value={qrisRawPayload}
+                value={isUploadedQrisImage ? "" : qrisRawPayload}
                 onChange={(e) => {
                   const val = e.target.value;
                   setQrisRawPayload(val);
@@ -641,39 +683,52 @@ export function OutletSettingsManager({
                     if (info.merchantName && !qrisMerchantName.trim()) {
                       setQrisMerchantName(info.merchantName);
                     }
-                  } else {
+                  } else if (!val.trim().startsWith("data:image/")) {
                     setQrisEnabled(false);
                   }
                 }}
-                placeholder="00020101021126..."
+                placeholder={
+                  isUploadedQrisImage
+                    ? "Gambar QRIS toko sudah terpasang. (Tempel kode 000201... di sini hanya jika ingin mengganti dengan QRIS teks EMVCo)"
+                    : "00020101021126..."
+                }
                 disabled={isPending}
                 className="w-full rounded-lg border border-zinc-300 bg-white p-3 font-mono text-xs text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
               />
             </div>
 
-            {/* Pratinjau Visual QRIS Dinamis Aktif */}
+            {/* Pratinjau Visual QRIS Dinamis / Gambar Aktif */}
             {canEnableQris ? (
               <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 sm:flex-row">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    <span>Pratinjau QRIS Meja Siap Pakai</span>
+                    <span>Pratinjau QRIS Kasir &amp; Meja Siap Pakai</span>
                   </div>
                   <p className="text-xs text-slate-600">
                     Merchant:{" "}
                     <strong>{qrisMerchantName || initialOutlet.name}</strong>
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    Contoh simulasi tagihan <strong>Rp 25.000</strong> untuk{" "}
+                    Contoh tampilan tagihan <strong>Rp 25.000</strong> untuk{" "}
                     <strong>MEJA-01</strong>.
                   </p>
                 </div>
-                <div
-                  className="h-28 w-28 shrink-0 rounded-lg border border-slate-200 bg-white p-1.5 shadow-2xs"
-                  dangerouslySetInnerHTML={{
-                    __html: generateQrSvgString(qrisRawPayload.trim(), 1),
-                  }}
-                />
+                {isUploadedQrisImage ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={trimmedQrisPayload}
+                    alt="Pratinjau QRIS Toko"
+                    className="h-28 w-28 shrink-0 rounded-lg border border-slate-200 bg-white p-1.5 object-contain shadow-2xs"
+                  />
+                ) : (
+                  <div
+                    className="h-28 w-28 shrink-0 rounded-lg border border-slate-200 bg-white p-1.5 shadow-2xs"
+                    dangerouslySetInnerHTML={{
+                      __html: generateQrSvgString(trimmedQrisPayload, 1),
+                    }}
+                  />
+                )}
               </div>
             ) : null}
 

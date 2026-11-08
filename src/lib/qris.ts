@@ -6,6 +6,9 @@ import { assertIntegerRupiah } from "./money.ts";
  * dengan nominal murni (total Rupiah) dan label referensi nomor meja (MEJA-<no>).
  */
 
+export const DEFAULT_FALLBACK_STATIC_QRIS =
+  "00020101021126650014ID.CO.QRIS.WWW01189360050300000898240214123456789012340303UMI5204581253033605802ID5919KAFE NUSANTARA 16216007JAKARTA6105101106304A1B2";
+
 export interface EmvTag {
   id: string;
   value: string;

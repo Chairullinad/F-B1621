@@ -7,10 +7,12 @@ import {
   ArrowLeft,
   Banknote,
   CheckCircle2,
+  Maximize2,
   Package,
   Printer,
   QrCode,
   UtensilsCrossed,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,11 @@ import {
   calculateOrderTotals,
   formatRupiah,
 } from "@/lib/money";
+import { generateQrSvgString } from "@/lib/qrcode";
+import {
+  DEFAULT_FALLBACK_STATIC_QRIS,
+  generateDynamicQrisPayload,
+} from "@/lib/qris";
 import type { OrderType, PaymentMethod } from "@/lib/types/database";
 import {
   createManualCashierOrderAction,
@@ -63,6 +70,7 @@ export function ManualOrderPos({
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashReceivedInput, setCashReceivedInput] = useState<string>("");
+  const [showQrisModal, setShowQrisModal] = useState<boolean>(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>(
@@ -132,6 +140,59 @@ export function ManualOrderPos({
     paymentMethod === "cash"
       ? Math.max(0, parsedCashReceived - totalsPreview.total)
       : 0;
+
+  const selectedTableObj = useMemo(
+    () => initialData.tables.find((t) => t.id === selectedTableId) ?? null,
+    [initialData.tables, selectedTableId]
+  );
+
+  const qrisRenderData = useMemo(() => {
+    const rawPayload = initialData.outlet.qrisRawPayload?.trim() ?? "";
+    const isUploadedImage = rawPayload.startsWith("data:image/");
+    const amount = Math.max(1, totalsPreview.total);
+    const tableNo =
+      orderType === "dine_in" ? (selectedTableObj?.table_no ?? 1) : undefined;
+
+    let svg = "";
+    if (!isUploadedImage) {
+      const staticSource = rawPayload.startsWith("000201")
+        ? rawPayload
+        : DEFAULT_FALLBACK_STATIC_QRIS;
+      try {
+        const dynamicPayload = generateDynamicQrisPayload({
+          staticQrisPayload: staticSource,
+          amountRupiah: amount,
+          tableNo,
+        });
+        svg = generateQrSvgString(dynamicPayload, 2);
+      } catch {
+        const fallbackPayload = generateDynamicQrisPayload({
+          staticQrisPayload: DEFAULT_FALLBACK_STATIC_QRIS,
+          amountRupiah: amount,
+          tableNo,
+        });
+        svg = generateQrSvgString(fallbackPayload, 2);
+      }
+    }
+
+    return {
+      isUploadedImage,
+      uploadedImageUrl: isUploadedImage ? rawPayload : null,
+      svg,
+      merchantName: initialData.outlet.qrisMerchantName || initialData.outlet.name,
+      label:
+        orderType === "dine_in" && selectedTableObj
+          ? `MEJA-${String(selectedTableObj.table_no).padStart(2, "0")} (${selectedTableObj.name})`
+          : "TAKEAWAY / BUNGKUS",
+    };
+  }, [
+    initialData.outlet.qrisRawPayload,
+    initialData.outlet.qrisMerchantName,
+    initialData.outlet.name,
+    totalsPreview.total,
+    orderType,
+    selectedTableObj,
+  ]);
 
   function handleAddToCart(product: ManualOrderWorkspaceData["products"][number]) {
     if (!product.is_available) return;
@@ -209,6 +270,7 @@ export function ManualOrderPos({
         orderNo: res.orderNo ?? "",
         message: res.message,
       });
+      setShowQrisModal(false);
       setCart([]);
       setDiscountType("none");
       setDiscountValueInput("");
@@ -616,7 +678,12 @@ export function ManualOrderPos({
                     type="button"
                     className="flex-1"
                     variant={paymentMethod === "qris" ? "default" : "outline"}
-                    onClick={() => setPaymentMethod("qris")}
+                    onClick={() => {
+                      setPaymentMethod("qris");
+                      if (cart.length > 0) {
+                        setShowQrisModal(true);
+                      }
+                    }}
                   >
                     <QrCode className="mr-1.5 h-4 w-4" />
                     QRIS
@@ -681,25 +748,198 @@ export function ManualOrderPos({
                     </div>
                   </div>
                 )}
+
+                {paymentMethod === "qris" && (
+                  <div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-center">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
+                        QRIS {qrisRenderData.merchantName}
+                      </p>
+                      <p className="text-[11px] font-semibold text-sky-800">
+                        {qrisRenderData.label} &bull;{" "}
+                        {formatRupiah(totalsPreview.total)}
+                      </p>
+                    </div>
+
+                    <div className="mx-auto flex w-fit items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs">
+                      {qrisRenderData.isUploadedImage &&
+                      qrisRenderData.uploadedImageUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={qrisRenderData.uploadedImageUrl}
+                          alt="QRIS Toko"
+                          className="h-44 w-44 object-contain"
+                        />
+                      ) : (
+                        <div
+                          className="h-44 w-44"
+                          dangerouslySetInnerHTML={{
+                            __html: qrisRenderData.svg,
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={cart.length === 0}
+                      onClick={() => setShowQrisModal(true)}
+                      className="w-full border-sky-300 bg-white font-semibold text-sky-900 hover:bg-sky-100"
+                    >
+                      <Maximize2 className="mr-1.5 h-3.5 w-3.5" />
+                      Tampilkan Popup QRIS Layar Penuh
+                    </Button>
+                  </div>
+                )}
               </div>
 
-              <Button
-                type="button"
-                disabled={
-                  isSubmitting || cart.length === 0 || cashShortfall > 0
-                }
-                onClick={handleSubmitOrder}
-                className="min-h-12 w-full bg-emerald-700 text-base font-bold text-white hover:bg-emerald-800"
-              >
-                <CheckCircle2 className="mr-2 h-5 w-5" />
-                {isSubmitting
-                  ? "Memproses Order..."
-                  : `Terima Pembayaran & Buat Order (${formatRupiah(totalsPreview.total)})`}
-              </Button>
+              {paymentMethod === "qris" ? (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    disabled={isSubmitting || cart.length === 0}
+                    onClick={() => setShowQrisModal(true)}
+                    className="min-h-12 w-full bg-[#1E88E5] text-base font-bold text-white hover:bg-[#1976D2]"
+                  >
+                    <QrCode className="mr-2 h-5 w-5" />
+                    Buka Popup QRIS &amp; Bayar ({formatRupiah(totalsPreview.total)})
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={isSubmitting || cart.length === 0}
+                    onClick={handleSubmitOrder}
+                    className="min-h-11 w-full bg-emerald-700 text-sm font-bold text-white hover:bg-emerald-800"
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    {isSubmitting
+                      ? "Memproses Order..."
+                      : `Pembayaran QRIS Sudah Masuk — Buat Order (${formatRupiah(totalsPreview.total)})`}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={
+                    isSubmitting || cart.length === 0 || cashShortfall > 0
+                  }
+                  onClick={handleSubmitOrder}
+                  className="min-h-12 w-full bg-emerald-700 text-base font-bold text-white hover:bg-emerald-800"
+                >
+                  <CheckCircle2 className="mr-2 h-5 w-5" />
+                  {isSubmitting
+                    ? "Memproses Order..."
+                    : `Terima Pembayaran & Buat Order (${formatRupiah(totalsPreview.total)})`}
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* POPUP MODAL QRIS KASIR (ORDER MANUAL) */}
+      {showQrisModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs"
+          onClick={() => {
+            if (!isSubmitting) setShowQrisModal(false);
+          }}
+        >
+          <div
+            className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <Badge className="mb-1 bg-[#1E88E5] text-white">
+                  PEMBAYARAN QRIS KASIR
+                </Badge>
+                <h3 className="text-lg font-extrabold text-slate-900">
+                  {qrisRenderData.merchantName}
+                </h3>
+                <p className="text-xs font-medium text-slate-500">
+                  {qrisRenderData.label}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setShowQrisModal(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Tutup Popup QRIS"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="my-4 space-y-3 text-center">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 py-2.5 px-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+                  Nominal Tagihan QRIS
+                </p>
+                <p className="text-2xl font-black text-emerald-950">
+                  {formatRupiah(totalsPreview.total)}
+                </p>
+              </div>
+
+              <div className="mx-auto flex w-fit flex-col items-center justify-center rounded-2xl border-2 border-slate-900 bg-white p-4 shadow-sm">
+                {qrisRenderData.isUploadedImage &&
+                qrisRenderData.uploadedImageUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={qrisRenderData.uploadedImageUrl}
+                    alt="QRIS Toko"
+                    className="h-64 w-64 object-contain"
+                  />
+                ) : (
+                  <div
+                    className="h-64 w-64"
+                    dangerouslySetInnerHTML={{
+                      __html: qrisRenderData.svg,
+                    }}
+                  />
+                )}
+              </div>
+
+              <p className="text-xs text-slate-600">
+                Arahkan pelanggan untuk memindai QRIS di atas dengan aplikasi
+                m-Banking / e-Wallet sesuai nominal{" "}
+                <strong>{formatRupiah(totalsPreview.total)}</strong>.
+              </p>
+            </div>
+
+            {errorMsg && (
+              <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-900">
+                {errorMsg}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmitting}
+                onClick={() => setShowQrisModal(false)}
+                className="min-h-11 sm:w-1/3"
+              >
+                Kembali
+              </Button>
+              <Button
+                type="button"
+                disabled={isSubmitting || cart.length === 0}
+                onClick={handleSubmitOrder}
+                className="min-h-11 flex-1 bg-emerald-700 font-bold text-white hover:bg-emerald-800"
+              >
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                {isSubmitting
+                  ? "Memproses..."
+                  : "Pembayaran QRIS Sesuai — Selesaikan Order"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
