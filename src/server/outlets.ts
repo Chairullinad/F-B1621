@@ -309,3 +309,36 @@ export async function switchActiveOutletAction(outletId: string): Promise<Action
 
   return { ok: true, message: `Berhasil beralih ke cabang: ${out.name}` };
 }
+
+export async function resetOutletDemoTransactionsAction(
+  targetOutletId?: string
+): Promise<ActionResult> {
+  const staff = await requireStaffRole(["owner"]);
+  const admin = createSupabaseAdminClient();
+  const outletId = targetOutletId || staff.outletId;
+
+  const { data: orders } = await admin
+    .from("orders")
+    .select("id")
+    .eq("outlet_id", outletId);
+
+  const orderIds = (orders ?? []).map((o) => String(o.id));
+
+  if (orderIds.length > 0) {
+    await admin.from("refunds").delete().in("order_id", orderIds);
+    await admin.from("payments").delete().in("order_id", orderIds);
+    await admin.from("order_items").delete().in("order_id", orderIds);
+    await admin.from("orders").delete().eq("outlet_id", outletId);
+  }
+
+  await admin.from("accounting_journals").delete().eq("outlet_id", outletId);
+  await admin.from("stock_movements").delete().eq("outlet_id", outletId);
+
+  revalidatePath("/", "layout");
+
+  return {
+    ok: true,
+    message:
+      "Data transaksi demo cabang berhasil di-reset ke Rp 0. Siap untuk simulasi input baru.",
+  };
+}

@@ -1,7 +1,16 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  AlertTriangle,
+  Boxes,
+  Check,
+  History,
+  Plus,
+  UtensilsCrossed,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,17 +136,39 @@ export function InventoryManager({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 bg-[#F4F7FA] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100">
+      {/* Breadcrumb & Header ala ESB POSLite */}
+      <div>
+        <div className="text-[12px] text-slate-400 font-medium">
+          <Link href="/dashboard" className="hover:text-[#1E88E5]">
+            Beranda
+          </Link>{" "}
+          &gt;{" "}
+          <span className="text-slate-600 dark:text-slate-300">
+            Bahan Baku &amp; Resep (BOM)
+          </span>
+        </div>
+        <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100 mt-1">
+          Bahan Baku Gudang &amp; Resep Menu (BOM)
+        </h1>
+        <p className="text-[13px] text-slate-500 mt-0.5">
+          Kelola stok bahan baku, komposisi resep per porsi (auto-deduct saat pesanan dibayar), dan kartu mutasi stok.
+        </p>
+      </div>
+
       {/* Alert Banner Bahan di Bawah Minimum */}
       {lowStockItems.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-red-600 bg-red-50 px-4 py-3 text-sm text-red-950 shadow-xs">
-          <div>
-            <strong>
-              🚨 {lowStockItems.length} bahan di bawah stok minimum:
-            </strong>{" "}
-            {lowStockItems
-              .map((l) => `${l.name} (${l.current_stock} ${l.unit})`)
-              .join(", ")}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-red-600 bg-red-50 px-4 py-3 text-sm text-red-950 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+            <span>
+              <strong>
+                {lowStockItems.length} bahan di bawah stok minimum:
+              </strong>{" "}
+              {lowStockItems
+                .map((l) => `${l.name} (${l.current_stock} ${l.unit})`)
+                .join(", ")}
+            </span>
           </div>
           <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold text-white">
             Segera Buat PO / Restock
@@ -185,11 +216,23 @@ export function InventoryManager({
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b-2 border-slate-200">
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-white px-2 pt-2 rounded-t-xl shadow-2xs">
         {[
-          { id: "stock", label: "📦 Daftar Bahan Baku & Stok" },
-          { id: "recipes", label: "🍲 Resep Menu (BOM) & HPP Auto-Deduct" },
-          { id: "movements", label: "📜 Kartu Stok (Riwayat Mutasi)" },
+          {
+            id: "stock",
+            label: "Daftar Bahan Baku & Stok",
+            icon: <Boxes className="h-4 w-4" />,
+          },
+          {
+            id: "recipes",
+            label: "Resep Menu (BOM) & HPP Auto-Deduct",
+            icon: <UtensilsCrossed className="h-4 w-4" />,
+          },
+          {
+            id: "movements",
+            label: "Kartu Stok (Riwayat Mutasi)",
+            icon: <History className="h-4 w-4" />,
+          },
         ].map((t) => (
           <button
             key={t.id}
@@ -197,13 +240,14 @@ export function InventoryManager({
             onClick={() =>
               setActiveTab(t.id as "stock" | "recipes" | "movements")
             }
-            className={`-mb-0.5 border-b-2 px-4 py-2.5 text-xs font-bold transition-colors sm:text-sm ${
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-[13px] font-semibold transition-colors cursor-pointer ${
               activeTab === t.id
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-slate-500 hover:text-blue-600"
+                ? "border-[#1E88E5] text-[#1E88E5]"
+                : "border-transparent text-slate-500 hover:text-[#1E88E5]"
             }`}
           >
-            {t.label}
+            {t.icon}
+            <span>{t.label}</span>
           </button>
         ))}
       </div>
@@ -276,7 +320,7 @@ export function InventoryManager({
                         <td className="px-3 py-2.5">
                           {isLow ? (
                             <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-800">
-                              ⚠️ Restock
+                              Restock
                             </span>
                           ) : isWarn ? (
                             <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
@@ -299,10 +343,11 @@ export function InventoryManager({
           {/* Form Tambah Bahan Baku Baru */}
           <form
             onSubmit={handleCreateIngredient}
-            className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
+            className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs"
           >
-            <h3 className="mb-3 text-base font-bold text-slate-900">
-              ➕ Tambah Bahan Baku Baru
+            <h3 className="mb-3 flex items-center gap-1.5 text-base font-bold text-slate-900">
+              <Plus className="h-4 w-4 text-[#1E88E5]" />
+              <span>Tambah Bahan Baku Baru</span>
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <div>
@@ -404,11 +449,11 @@ export function InventoryManager({
       ) : null}
 
       {activeTab === "recipes" ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                🍲 Komposisi Resep Menu (Bill of Materials) &amp; Auto-Deduct
+                Komposisi Resep Menu (Bill of Materials) &amp; Auto-Deduct
               </h3>
               <p className="text-xs text-slate-500">
                 Setiap kali produk ini terjual (status <code>PAID</code>), stok
@@ -429,8 +474,7 @@ export function InventoryManager({
             >
               {initialData.products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.emoji ?? "🍽️"} {p.name} — Harga Jual{" "}
-                  {formatRupiah(p.price)}
+                  {p.name} — Harga Jual {formatRupiah(p.price)}
                 </option>
               ))}
             </select>
@@ -548,9 +592,10 @@ export function InventoryManager({
                   type="button"
                   disabled={isPending}
                   onClick={handleSaveRecipe}
-                  className="bg-blue-600 text-white hover:bg-blue-700"
+                  className="bg-[#1E88E5] text-white hover:bg-[#1976D2]"
                 >
-                  {isPending ? "Menyimpan..." : "💾 Simpan Resep & Update HPP"}
+                  <Check className="mr-1.5 h-4 w-4" />
+                  {isPending ? "Menyimpan..." : "Simpan Resep & Update HPP"}
                 </Button>
               </div>
             </div>
@@ -559,10 +604,9 @@ export function InventoryManager({
       ) : null}
 
       {activeTab === "movements" ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
           <h3 className="mb-3 text-base font-bold text-slate-900">
-            📜 Riwayat Kartu Stok (Auto-Deduct Penjualan, PO, Opname, &amp;
-            Waste)
+            Riwayat Kartu Stok (Auto-Deduct Penjualan, PO, Opname, &amp; Waste)
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs sm:text-sm">

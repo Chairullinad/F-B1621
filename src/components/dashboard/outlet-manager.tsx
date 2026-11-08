@@ -4,17 +4,33 @@ import React, { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  Building2,
+  Check,
+  Edit3,
+  FileText,
+  Image as ImageIcon,
+  MapPin,
+  Palette,
+  Phone,
+  Plus,
+  RotateCcw,
+  Settings,
+  Store,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   createOutletAction,
+  resetOutletDemoTransactionsAction,
   switchActiveOutletAction,
   updateOutletCustomizationAction,
   type OutletView,
 } from "@/server/outlets";
 
 const COLOR_PRESETS = [
+  { name: "ESB Blue", hex: "#1E88E5" },
   { name: "Denim Blue", hex: "#3B7097" },
-  { name: "Ocean Sky", hex: "#0284C7" },
   { name: "Emerald Cafe", hex: "#059669" },
   { name: "Amber Bistro", hex: "#D97706" },
   { name: "Rose Bakery", hex: "#E11D48" },
@@ -37,7 +53,6 @@ export function OutletManager({
   const [outlets, setOutlets] = useState(initialOutlets);
   const [currentActiveId, setCurrentActiveId] = useState(activeOutletId);
 
-  // Sinkronisasi otomatis saat props berubah dari server
   React.useEffect(() => {
     setOutlets(initialOutlets);
   }, [initialOutlets]);
@@ -46,17 +61,16 @@ export function OutletManager({
     setCurrentActiveId(activeOutletId);
   }, [activeOutletId]);
 
-  // Form State: Tambah Cabang Baru
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newDescription, setNewDescription] = useState("Kafe & Resto Modern");
-  const [newLogoUrl, setNewLogoUrl] = useState("/logo-1621.png");
-  const [newThemeColor, setNewThemeColor] = useState("#3B7097");
+  const [newLogoUrl, setNewLogoUrl] = useState("/logo-1621group-stacked.png");
+  const [newThemeColor, setNewThemeColor] = useState("#1E88E5");
 
-  // Edit Modal State
   const [editingOutlet, setEditingOutlet] = useState<OutletView | null>(null);
+  const [confirmResetId, setConfirmResetId] = useState<string | null>(null);
 
   const handleCreateOutlet = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,13 +102,14 @@ export function OutletManager({
   };
 
   const handleSwitchOutlet = (outletId: string) => {
+    setCurrentActiveId(outletId);
     startTransition(async () => {
       const res = await switchActiveOutletAction(outletId);
       if (res.ok) {
-        setCurrentActiveId(outletId);
         toast.success(res.message);
         router.refresh();
       } else {
+        setCurrentActiveId(activeOutletId);
         toast.error(res.message);
       }
     });
@@ -104,23 +119,39 @@ export function OutletManager({
     e.preventDefault();
     if (!editingOutlet) return;
 
+    const updatedSnapshot = { ...editingOutlet };
+    setOutlets((prev) =>
+      prev.map((o) => (o.id === updatedSnapshot.id ? updatedSnapshot : o))
+    );
+    setEditingOutlet(null);
+
     startTransition(async () => {
       const res = await updateOutletCustomizationAction({
-        id: editingOutlet.id,
-        name: editingOutlet.name,
-        address: editingOutlet.address ?? "",
-        phone: editingOutlet.phone ?? "",
-        description: editingOutlet.description ?? "",
-        logoUrl: editingOutlet.logoUrl,
-        themeColor: editingOutlet.themeColor,
+        id: updatedSnapshot.id,
+        name: updatedSnapshot.name,
+        address: updatedSnapshot.address ?? "",
+        phone: updatedSnapshot.phone ?? "",
+        description: updatedSnapshot.description ?? "",
+        logoUrl: updatedSnapshot.logoUrl,
+        themeColor: updatedSnapshot.themeColor,
       });
 
       if (res.ok) {
         toast.success(res.message);
-        setOutlets((prev) =>
-          prev.map((o) => (o.id === editingOutlet.id ? editingOutlet : o))
-        );
-        setEditingOutlet(null);
+        router.refresh();
+      } else {
+        setOutlets(initialOutlets);
+        toast.error(res.message);
+      }
+    });
+  };
+
+  const handleResetDemoData = (outletId: string) => {
+    setConfirmResetId(null);
+    startTransition(async () => {
+      const res = await resetOutletDemoTransactionsAction(outletId);
+      if (res.ok) {
+        toast.success(res.message);
         router.refresh();
       } else {
         toast.error(res.message);
@@ -129,57 +160,75 @@ export function OutletManager({
   };
 
   return (
-    <div className="space-y-6 bg-[#F4F6F9] -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800">
-      {/* Breadcrumb & Header */}
+    <div className="space-y-5 bg-[#F4F7FA] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100">
+      {/* Breadcrumb & Header ala ESB POSLite */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <div className="text-2xs text-slate-400 font-medium">
-            <Link href="/dashboard" className="hover:text-sky-600">
-              Dashboard
+          <div className="text-[12px] text-slate-400 font-medium">
+            <Link href="/dashboard" className="hover:text-[#1E88E5]">
+              Beranda
             </Link>{" "}
-            &gt; <span className="text-slate-600">Pengaturan Cabang</span>
+            &gt; <span className="text-slate-600 dark:text-slate-300">Pengaturan Cabang / Kedai</span>
           </div>
-          <h1 className="text-xl font-bold text-slate-800 mt-1 tracking-tight">
-            Pengaturan Cabang &amp; Kustomisasi Tampilan
+          <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100 mt-1">
+            Pengaturan Cabang / Kedai (Multi-Outlet)
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Kelola multi-outlet, tambah cabang baru, sesuaikan logo dan warna tema per cabang.
+          <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">
+            Kelola kedai aktif (LATTESPACE, SAIKO RAMEN), profil struk, pajak, serta reset data simulasi demo.
           </p>
         </div>
 
-        <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/dashboard/pengaturan"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition"
+          >
+            <Settings className="h-4 w-4 text-slate-500" />
+            <span>Pajak, Service &amp; QRIS Kedai</span>
+          </Link>
           <button
             type="button"
             onClick={() => setShowAddForm(!showAddForm)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#0284C7] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#0369a1] transition cursor-pointer"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1E88E5] px-4 text-[13px] font-semibold text-white shadow-2xs hover:bg-[#1976D2] transition cursor-pointer"
           >
-            <span>{showAddForm ? "✕ Tutup Form" : "+ Tambah Cabang Baru"}</span>
+            {showAddForm ? (
+              <>
+                <X className="h-4 w-4" />
+                <span>Tutup Form</span>
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" />
+                <span>Tambah Kedai / Cabang</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Form Tambah Cabang Baru (Collapsible) */}
+      {/* Form Tambah Cabang Baru */}
       {showAddForm && (
-        <div className="rounded-2xl border border-sky-200 bg-white p-5 md:p-6 shadow-sm space-y-5 animate-in fade-in slide-in-from-top-4 duration-200">
-          <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-5">
+          <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-slate-800">
-                Formulir Tambah Cabang / Outlet Baru
+              <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">
+                Tambah Kedai / Cabang Baru
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Sistem akan otomatis menginisialisasi 10 meja awal dengan QR token unik untuk cabang ini.
+              <p className="text-[13px] text-slate-500 mt-0.5">
+                Otomatis membuat profil kedai baru lengkap dengan 10 meja QR siap pakai.
               </p>
             </div>
-            <span className="rounded-full bg-sky-50 text-sky-700 px-3 py-1 text-xs font-bold border border-sky-200">
-              Multi-Outlet
+            <span className="rounded-md bg-[#EBF5FF] text-[#1E88E5] px-3 py-1 text-[12px] font-semibold">
+              Multi-Outlet ESB
             </span>
           </div>
 
           <form onSubmit={handleCreateOutlet} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  🏢 Nama Cabang *
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <Building2 className="h-4 w-4 text-slate-400" />
+                  <span>Nama Kedai / Cabang *</span>
                 </label>
                 <input
                   type="text"
@@ -187,65 +236,70 @@ export function OutletManager({
                   placeholder="Contoh: LATTESPACE atau SAIKO RAMEN"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  📞 Nomor Telepon Cabang
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <Phone className="h-4 w-4 text-slate-400" />
+                  <span>Nomor Telepon Kedai</span>
                 </label>
                 <input
                   type="text"
                   placeholder="0812-3456-7890"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  📍 Alamat Lengkap
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <MapPin className="h-4 w-4 text-slate-400" />
+                  <span>Alamat Lengkap Kedai (Tampil di Struk)</span>
                 </label>
                 <input
                   type="text"
                   placeholder="Jl. Pandanaran No. 123, Boyolali"
                   value={newAddress}
                   onChange={(e) => setNewAddress(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  📝 Deskripsi / Konsep Cabang
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <FileText className="h-4 w-4 text-slate-400" />
+                  <span>Catatan Kaki Struk / Konsep Kedai</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Coffee & Eatery Modern atau Japanese Ramen & Donburi"
+                  placeholder="Contoh: Terima kasih telah berkunjung ke Latte Space!"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  🖼️ URL / Path Logo Cabang
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <ImageIcon className="h-4 w-4 text-slate-400" />
+                  <span>Path / URL Logo Kedai</span>
                 </label>
                 <input
                   type="text"
                   value={newLogoUrl}
                   onChange={(e) => setNewLogoUrl(e.target.value)}
-                  placeholder="/logo-1621.png"
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  placeholder="/logo-1621group-stacked.png"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  🎨 Warna Tema Cabang
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
+                  <Palette className="h-4 w-4 text-slate-400" />
+                  <span>Warna Identitas Kedai</span>
                 </label>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   {COLOR_PRESETS.map((color) => (
@@ -256,7 +310,7 @@ export function OutletManager({
                       title={color.name}
                       className={`h-7 w-7 rounded-full border-2 transition-transform cursor-pointer ${
                         newThemeColor === color.hex
-                          ? "scale-115 border-slate-900 shadow-xs ring-2 ring-sky-300"
+                          ? "scale-110 border-slate-900 ring-2 ring-sky-300"
                           : "border-white hover:scale-105"
                       }`}
                       style={{ backgroundColor: color.hex }}
@@ -266,191 +320,226 @@ export function OutletManager({
                     type="color"
                     value={newThemeColor}
                     onChange={(e) => setNewThemeColor(e.target.value)}
-                    className="h-7 w-8 cursor-pointer rounded-lg border border-slate-200 bg-white p-0.5"
+                    className="h-7 w-8 cursor-pointer rounded-md border border-slate-200 bg-white p-0.5"
                     title="Pilih warna kustom"
                   />
-                  <span className="text-xs font-mono text-slate-500 font-semibold">
+                  <span className="text-[12px] font-mono text-slate-500 font-semibold">
                     {newThemeColor}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Live Preview Box */}
-            <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className="h-11 w-11 rounded-xl flex items-center justify-center text-white shadow-xs font-bold text-base"
-                  style={{ backgroundColor: newThemeColor }}
-                >
-                  🏢
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-slate-800">
-                    {newName || "Nama Cabang Baru"}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {newAddress || "Alamat Cabang"} &bull; {newPhone || "No. Telp"}
-                  </div>
-                </div>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700">
-                10 Meja Otomatis
-              </span>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={isPending}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#0284C7] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#0369a1] active:scale-[0.98] transition cursor-pointer disabled:opacity-60"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1E88E5] px-5 text-[13px] font-semibold text-white shadow-2xs hover:bg-[#1976D2] transition cursor-pointer disabled:opacity-60"
               >
-                <span>{isPending ? "⏳ Menyimpan..." : "✓ Simpan Cabang Baru"}</span>
+                <Check className="h-4 w-4" />
+                <span>{isPending ? "Menyimpan..." : "Simpan Kedai Baru"}</span>
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Daftar Cabang / Outlets Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {outlets.map((outlet) => {
-          const isActive = outlet.id === currentActiveId;
-          return (
-            <div
-              key={outlet.id}
-              className={`rounded-2xl border bg-white p-5 shadow-xs flex flex-col justify-between transition-all ${
-                isActive
-                  ? "border-[#0284C7] ring-2 ring-sky-100"
-                  : "border-slate-200/90 hover:border-slate-300"
-              }`}
-            >
-              <div>
-                {/* Header Card */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-11 w-11 rounded-xl flex items-center justify-center text-white font-bold shadow-xs shrink-0"
-                      style={{ backgroundColor: outlet.themeColor }}
-                    >
-                      <Image
-                        src={outlet.logoUrl || "/logo-1621.png"}
-                        alt={outlet.name}
-                        width={32}
-                        height={32}
-                        className="h-7 w-7 object-contain drop-shadow-xs"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-800 leading-tight">
-                        {outlet.name}
-                      </h4>
-                      <p className="text-2xs text-slate-400 mt-0.5">
-                        {outlet.description || "Kafe & Resto 1621F&B"}
-                      </p>
-                    </div>
-                  </div>
+      {/* Tabel Daftar Kedai / Cabang Bergaya ESB POSLite */}
+      <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden">
+        <div className="border-b border-slate-100 dark:border-slate-800 px-5 py-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">
+              Daftar Kedai Terdaftar ({outlets.length} Cabang)
+            </h2>
+            <p className="text-[13px] text-slate-500">
+              Klik tombol <strong>Pilih Kedai</strong> untuk beralih cabang secara instan tanpa muat ulang halaman.
+            </p>
+          </div>
+        </div>
 
-                  {isActive && (
-                    <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-2xs font-bold text-emerald-700 shrink-0">
-                      Aktif
-                    </span>
-                  )}
-                </div>
-
-                {/* Detail Info */}
-                <div className="mt-4 space-y-1.5 text-2xs text-slate-600 border-t border-slate-100 pt-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-400">📍</span>
-                    <span className="truncate">
-                      {outlet.address || "Belum ada alamat"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-400">📞</span>
-                    <span>{outlet.phone || "Belum ada telepon"}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-400">🎨</span>
-                    <span>Warna Tema:</span>
-                    <span
-                      className="h-3 w-3 rounded-full border border-slate-200 inline-block shrink-0"
-                      style={{ backgroundColor: outlet.themeColor }}
-                    />
-                    <span className="font-mono text-[10px] text-slate-500">
-                      {outlet.themeColor}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingOutlet({ ...outlet })}
-                  className="flex-1 rounded-lg border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                >
-                  Edit Tampilan
-                </button>
-
-                {!isActive ? (
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => handleSwitchOutlet(outlet.id)}
-                    className="flex-1 rounded-lg bg-[#0284C7] py-2 text-xs font-bold text-white hover:bg-[#0369a1] transition shadow-xs cursor-pointer"
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#F1F5F9] dark:bg-slate-800/80 text-[13px] font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800">
+                <th className="px-5 py-3.5">Nama Kedai / Cabang</th>
+                <th className="px-4 py-3.5">Alamat &amp; Kontak</th>
+                <th className="px-4 py-3.5">Pajak &amp; Service</th>
+                <th className="px-4 py-3.5 text-center">Status Sesi</th>
+                <th className="px-5 py-3.5 text-right">Tindakan</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[14px]">
+              {outlets.map((outlet) => {
+                const isActive = outlet.id === currentActiveId;
+                return (
+                  <tr
+                    key={outlet.id}
+                    className={`transition-colors ${
+                      isActive
+                        ? "bg-[#EBF5FF]/40 dark:bg-sky-950/20"
+                        : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                    }`}
                   >
-                    Gunakan
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="flex-1 rounded-lg bg-emerald-50 py-2 text-xs font-bold text-emerald-700 border border-emerald-200 cursor-default"
-                  >
-                    Sedang Dipakai
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white flex items-center justify-center p-1 shrink-0">
+                          <Image
+                            src="/logo-1621group-stacked.png"
+                            alt={outlet.name}
+                            width={36}
+                            height={24}
+                            className="h-full w-auto object-contain"
+                          />
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 dark:text-slate-100">
+                            {outlet.name}
+                          </div>
+                          <div className="text-[12px] text-slate-500">
+                            {outlet.description || "1621 Group Outlet"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 text-[13px] text-slate-600 dark:text-slate-300">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span>{outlet.address || "Belum diatur"}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1 text-[12px] text-slate-500">
+                        <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span>{outlet.phone || "-"}</span>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 text-[13px] text-slate-600 dark:text-slate-300">
+                      <div>
+                        PB1:{" "}
+                        <span className="font-semibold">
+                          {outlet.taxEnabled && outlet.taxPercent
+                            ? `${outlet.taxPercent}%`
+                            : "Nonaktif"}
+                        </span>
+                      </div>
+                      <div className="text-[12px] text-slate-500 mt-0.5">
+                        Service:{" "}
+                        <span className="font-semibold">
+                          {outlet.serviceEnabled && outlet.servicePercent
+                            ? `${outlet.servicePercent}%`
+                            : "Nonaktif"}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 text-center">
+                      {isActive ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-[12px] font-semibold text-emerald-700">
+                          <Store className="h-3.5 w-3.5" />
+                          <span>Kedai Aktif</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-600">
+                          Siaga
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {!isActive && (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleSwitchOutlet(outlet.id)}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1E88E5] px-3.5 text-[12px] font-semibold text-white hover:bg-[#1976D2] transition cursor-pointer"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Pilih Kedai</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingOutlet({ ...outlet })}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-[12px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition cursor-pointer"
+                        >
+                          <Edit3 className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Ubah Profil</span>
+                        </button>
+
+                        {confirmResetId === outlet.id ? (
+                          <div className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1">
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => handleResetDemoData(outlet.id)}
+                              className="rounded bg-rose-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-rose-700 cursor-pointer"
+                            >
+                              Ya, Kosongkan Omzet
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmResetId(null)}
+                              className="px-1.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                            >
+                              Batal
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmResetId(outlet.id)}
+                            title="Kosongkan transaksi demo cabang ini ke Rp 0"
+                            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-[12px] font-medium text-slate-600 dark:text-slate-300 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 transition cursor-pointer"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>Reset Transaksi</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Modal Edit Tampilan & Logo Cabang */}
+      {/* Modal Edit Profil Kedai / Cabang */}
       {editingOutlet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-800">
-                  Edit Tampilan &amp; Identitas Cabang
+                <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">
+                  Ubah Profil &amp; Identitas Kedai
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Ubah nama, alamat, nomor kontak, serta warna tema cabang.
+                <p className="text-[12px] text-slate-500">
+                  Perubahan nama, alamat, dan kontak langsung diterapkan pada cetakan struk.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingOutlet(null)}
-                className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-sm font-bold cursor-pointer"
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             <form onSubmit={handleUpdateCustomization} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  🏢 Nama Cabang
+                <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                  Nama Kedai / Cabang
                 </label>
                 <input
                   type="text"
@@ -459,101 +548,75 @@ export function OutletManager({
                   onChange={(e) =>
                     setEditingOutlet({ ...editingOutlet, name: e.target.value })
                   }
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  📍 Alamat Lengkap
+                <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                  Alamat Lengkap
                 </label>
                 <input
                   type="text"
                   value={editingOutlet.address ?? ""}
                   onChange={(e) =>
-                    setEditingOutlet({ ...editingOutlet, address: e.target.value })
+                    setEditingOutlet({
+                      ...editingOutlet,
+                      address: e.target.value,
+                    })
                   }
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  📞 Nomor Telepon
+                <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                  Nomor Telepon
                 </label>
                 <input
                   type="text"
                   value={editingOutlet.phone ?? ""}
                   onChange={(e) =>
-                    setEditingOutlet({ ...editingOutlet, phone: e.target.value })
+                    setEditingOutlet({
+                      ...editingOutlet,
+                      phone: e.target.value,
+                    })
                   }
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  🖼️ Path / URL Logo Cabang
+                <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                  Catatan Kaki Struk / Konsep Kedai
                 </label>
                 <input
                   type="text"
-                  value={editingOutlet.logoUrl}
+                  value={editingOutlet.description ?? ""}
                   onChange={(e) =>
-                    setEditingOutlet({ ...editingOutlet, logoUrl: e.target.value })
+                    setEditingOutlet({
+                      ...editingOutlet,
+                      description: e.target.value,
+                    })
                   }
-                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  🎨 Pilihan Warna Tema Cabang
-                </label>
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {COLOR_PRESETS.map((color) => (
-                    <button
-                      key={color.hex}
-                      type="button"
-                      onClick={() =>
-                        setEditingOutlet({ ...editingOutlet, themeColor: color.hex })
-                      }
-                      title={color.name}
-                      className={`h-7 w-7 rounded-full border-2 transition-transform cursor-pointer ${
-                        editingOutlet.themeColor === color.hex
-                          ? "scale-115 border-slate-900 shadow-xs ring-2 ring-sky-300"
-                          : "border-white hover:scale-105"
-                      }`}
-                      style={{ backgroundColor: color.hex }}
-                    />
-                  ))}
-                  <input
-                    type="color"
-                    value={editingOutlet.themeColor}
-                    onChange={(e) =>
-                      setEditingOutlet({ ...editingOutlet, themeColor: e.target.value })
-                    }
-                    className="h-7 w-8 cursor-pointer rounded-lg border border-slate-200 bg-white p-0.5"
-                  />
-                  <span className="text-xs font-mono text-slate-500 font-semibold">
-                    {editingOutlet.themeColor}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setEditingOutlet(null)}
-                  className="rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition"
+                  className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 cursor-pointer transition"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="rounded-xl bg-[#0284C7] py-2.5 text-xs font-bold text-white hover:bg-[#0369a1] active:scale-[0.98] transition shadow-xs cursor-pointer disabled:opacity-60"
+                  className="h-10 rounded-lg bg-[#1E88E5] text-[13px] font-semibold text-white hover:bg-[#1976D2] transition cursor-pointer disabled:opacity-60"
                 >
-                  {isPending ? "⏳ Menyimpan..." : "✓ Simpan Perubahan"}
+                  {isPending ? "Menyimpan..." : "Simpan Perubahan"}
                 </button>
               </div>
             </form>

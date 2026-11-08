@@ -198,8 +198,8 @@ export function AuditTrailExplorer({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={chainStatus.isValid ? "success" : "destructive"}>
               {chainStatus.isValid
-                ? "🔒 RANTAI HASH SHA-256 UTUH & VALID"
-                : "⚠️ PERINGATAN: RANTAI HASH RUSAK"}
+                ? "RANTAI HASH SHA-256 UTUH & VALID"
+                : "PERINGATAN: RANTAI HASH RUSAK"}
             </Badge>
             <span className="text-sm font-extrabold">
               {chainStatus.checkedRows} Baris Audit Diperiksa (Append-Only)
@@ -225,10 +225,10 @@ export function AuditTrailExplorer({
           >
             {isVerifyingChain
               ? "Memeriksa Hash..."
-              : "🔍 Verifikasi Ulang Rantai Hash"}
+              : "Verifikasi Ulang Rantai Hash"}
           </Button>
           <Button type="button" size="sm" onClick={handleExportCsv}>
-            ⬇️ Ekspor CSV ({filteredLogs.length} Baris)
+            Ekspor CSV ({filteredLogs.length} Baris)
           </Button>
         </div>
       </div>
@@ -241,14 +241,14 @@ export function AuditTrailExplorer({
             variant={viewMode === "logs" ? "default" : "outline"}
             onClick={() => setViewMode("logs")}
           >
-            📋 Semua Catatan Audit ({filteredLogs.length})
+            Semua Catatan Audit ({filteredLogs.length})
           </Button>
           <Button
             type="button"
             variant={viewMode === "order_timeline" ? "default" : "outline"}
             onClick={() => setViewMode("order_timeline")}
           >
-            🕒 Riwayat Lengkap per Order ({filteredTimelines.length} Order)
+            Riwayat Lengkap per Order ({filteredTimelines.length} Order)
           </Button>
         </div>
 

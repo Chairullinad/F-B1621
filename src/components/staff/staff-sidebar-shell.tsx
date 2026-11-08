@@ -70,9 +70,14 @@ export function StaffSidebarShell({
   const [outletMenuOpen, setOutletMenuOpen] = React.useState(false);
   const [isSwitchingOutlet, startSwitchTransition] = React.useTransition();
 
+  const [optimisticOutletId, setOptimisticOutletId] = React.useState(activeOutletId);
+  React.useEffect(() => {
+    setOptimisticOutletId(activeOutletId);
+  }, [activeOutletId]);
+
   const currentOutlet = React.useMemo(() => {
     return (
-      outlets.find((o) => o.id === activeOutletId) ??
+      outlets.find((o) => o.id === optimisticOutletId) ??
       outlets[0] ?? {
         id: "",
         name: "LATTESPACE",
@@ -80,34 +85,35 @@ export function StaffSidebarShell({
         themeColor: "#3B7097",
       }
     );
-  }, [outlets, activeOutletId]);
+  }, [outlets, optimisticOutletId]);
 
   const handleSwitchOutlet = (targetId: string) => {
     setOutletMenuOpen(false);
+    setOptimisticOutletId(targetId);
     startSwitchTransition(async () => {
       const res = await switchActiveOutletAction(targetId);
       if (res.ok) {
         toast.success(res.message);
         router.refresh();
-        window.location.reload();
       } else {
+        setOptimisticOutletId(activeOutletId);
         toast.error(res.message);
       }
     });
   };
 
-  // Daftar 6 Komponen Utama dengan Ikon Garis Monokrom Minimalis (Bebas Emoji)
+  // Daftar Grup Menu Identik ESB POSLite dengan Ikon Garis Monokrom Minimalis (Bebas Emoji)
   const allGroups: MainMenuGroup[] = React.useMemo(() => {
     return [
       {
         id: "dashboard",
-        label: "Dashboard",
+        label: "Beranda",
         icon: <LayoutDashboard className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
         roles: ["owner"],
         items: [
-          { href: "/dashboard", label: "Ringkasan Utama" },
+          { href: "/dashboard", label: "Dashboard" },
           { href: "/dashboard/stok-menu", label: "Stok Menu" },
-          { href: "/dashboard/produk", label: "Master Menu & Harga" },
+          { href: "/dashboard/keuangan", label: "Pembukuan" },
         ],
       },
       {
@@ -135,6 +141,18 @@ export function StaffSidebarShell({
         ],
       },
       {
+        id: "menu-kedai",
+        label: "Menu & Kedai",
+        icon: <Building2 className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: ["owner"],
+        items: [
+          { href: "/dashboard/produk", label: "Daftar Menu & Kategori" },
+          { href: "/dashboard/cabang", label: "Pengaturan Cabang / Kedai" },
+          { href: "/dashboard/meja", label: "Meja & QR Code" },
+          { href: "/dashboard/pengaturan", label: "Pajak, Service & QRIS" },
+        ],
+      },
+      {
         id: "inventori",
         label: "Inventori & Gudang",
         icon: <Boxes className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
@@ -149,17 +167,17 @@ export function StaffSidebarShell({
             ? [
                 {
                   href: "/dashboard/opname",
-                  label: "Stock Opname (Blind Count)",
+                  label: "Stock Opname",
                   badgeCount: badges.pending_opnames,
                 },
                 {
                   href: "/dashboard/transfer-stok",
-                  label: "Transfer Stok Antar Lokasi",
+                  label: "Transfer Stok",
                   badgeCount: badges.pending_transfers,
                 },
                 {
                   href: "/dashboard/waste",
-                  label: "Waste & Spoilage Tracking",
+                  label: "Barang Rusak (Waste)",
                 },
                 {
                   href: "/dashboard/supplier",
@@ -180,34 +198,23 @@ export function StaffSidebarShell({
         ],
       },
       {
-        id: "keuangan",
-        label: "Laporan & Keuangan",
+        id: "laporan",
+        label: "Laporan",
         icon: <Receipt className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
         roles: ["owner"],
         items: [
-          { href: "/dashboard/keuangan", label: "Laporan Keuangan 5 Tab" },
-          { href: "/dashboard/transaksi", label: "Riwayat Transaksi & Struk" },
-        ],
-      },
-      {
-        id: "cabang",
-        label: "Pengaturan Cabang",
-        icon: <Building2 className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
-        roles: ["owner"],
-        items: [
-          { href: "/dashboard/cabang", label: "Kelola & Tambah Cabang" },
+          { href: "/dashboard/transaksi", label: "Laporan Penjualan & Struk" },
+          { href: "/dashboard/keuangan?tab=labarugi", label: "Laporan Laba Rugi & Pajak" },
         ],
       },
       {
         id: "master",
-        label: "Master & Pengaturan",
+        label: "Akses & Keamanan",
         icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
         roles: ["owner"],
         items: [
-          { href: "/dashboard/pengaturan", label: "Pajak, Service & QRIS" },
-          { href: "/dashboard/meja", label: "100 Meja & Cetak QR" },
-          { href: "/dashboard/staf", label: "Hak Akses & Staf" },
-          { href: "/dashboard/audit", label: "Pembukuan & Jejak Audit" },
+          { href: "/dashboard/staf", label: "Kelola Staf & Hak Akses" },
+          { href: "/dashboard/audit", label: "Jejak Audit Sistem" },
         ],
       },
     ];

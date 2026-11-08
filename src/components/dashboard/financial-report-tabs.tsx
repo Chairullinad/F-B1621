@@ -1,7 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  BarChart3,
+  BookOpen,
+  Download,
+  Receipt,
+  Scale,
+  Wallet,
+  X,
+} from "lucide-react";
 import { formatRupiah } from "@/lib/money";
 import {
   createManualAccountingEntryAction,
@@ -102,40 +114,58 @@ export function FinancialReportTabs({ initialData }: FinancialReportTabsProps) {
     initialData;
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
+    <div className="space-y-5 bg-[#F4F7FA] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100">
+      {/* Breadcrumb & Header Banner ala ESB POSLite */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
-              SISTEM AKUNTANSI OTOMATIS
-            </span>
-            <span className="rounded-lg bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">
-              Periode: {initialData.periodLabel}
+          <div className="text-[12px] text-slate-400 font-medium">
+            <Link href="/dashboard" className="hover:text-[#1E88E5]">
+              Beranda
+            </Link>{" "}
+            &gt;{" "}
+            <span className="text-slate-600 dark:text-slate-300">
+              Pembukuan &amp; Laporan Keuangan
             </span>
           </div>
-          <h2 className="mt-1.5 text-xl font-bold text-slate-900">
-            📑 Laporan Keuangan & Akuntansi Restoran
-          </h2>
-          <p className="text-sm text-slate-600">
-            Terintegrasi langsung dengan POS Kasir, Potong Bahan BOM, PO
-            Supplier, Opname, dan Mutasi Stok tanpa manual input.
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
+              Pembukuan Kedai &amp; Akuntansi ({initialData.periodLabel})
+            </h1>
+          </div>
+          <p className="text-[13px] text-slate-500 mt-0.5">
+            Catat Kas Masuk / Kas Keluar harian serta pantau Jurnal Umum, Laba Rugi, Neraca, Arus Kas, dan Pajak secara otomatis.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleExportCsv}
-            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
           >
-            📥 Export CSV Jurnal
+            <Download className="h-4 w-4 text-slate-500" />
+            <span>Export CSV</span>
           </button>
           <button
             type="button"
-            onClick={() => setShowManualModal(true)}
-            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700"
+            onClick={() => {
+              setCategory("owner_capital");
+              setShowManualModal(true);
+            }}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 text-[13px] font-semibold text-emerald-700 hover:bg-emerald-100 cursor-pointer"
           >
-            + Catat Biaya Operasional / Modal
+            <ArrowDownCircle className="h-4 w-4" />
+            <span>+ Kas Masuk / Modal</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCategory("expense_utility");
+              setShowManualModal(true);
+            }}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#1E88E5] px-4 text-[13px] font-semibold text-white hover:bg-[#1976D2] cursor-pointer"
+          >
+            <ArrowUpCircle className="h-4 w-4" />
+            <span>+ Kas Keluar / Biaya</span>
           </button>
         </div>
       </div>
@@ -215,17 +245,18 @@ export function FinancialReportTabs({ initialData }: FinancialReportTabsProps) {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 bg-white px-2 pt-2 rounded-t-2xl shadow-xs overflow-x-auto">
+      <div className="flex border-b border-slate-200 bg-white px-2 pt-2 rounded-t-xl shadow-2xs overflow-x-auto">
         <button
           type="button"
           onClick={() => setActiveTab("jurnal")}
-          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-sm font-bold whitespace-nowrap transition ${
+          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-[13px] font-semibold whitespace-nowrap transition cursor-pointer ${
             activeTab === "jurnal"
-              ? "border-blue-600 text-blue-600"
+              ? "border-[#1E88E5] text-[#1E88E5]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>📒</span> Jurnal Umum
+          <BookOpen className="h-4 w-4" />
+          <span>Buku Kas &amp; Jurnal Umum</span>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
             {initialData.journals.length}
           </span>
@@ -233,46 +264,50 @@ export function FinancialReportTabs({ initialData }: FinancialReportTabsProps) {
         <button
           type="button"
           onClick={() => setActiveTab("labarugi")}
-          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-sm font-bold whitespace-nowrap transition ${
+          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-[13px] font-semibold whitespace-nowrap transition cursor-pointer ${
             activeTab === "labarugi"
-              ? "border-blue-600 text-blue-600"
+              ? "border-[#1E88E5] text-[#1E88E5]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>📊</span> Laba Rugi
+          <BarChart3 className="h-4 w-4" />
+          <span>Laba Rugi</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("neraca")}
-          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-sm font-bold whitespace-nowrap transition ${
+          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-[13px] font-semibold whitespace-nowrap transition cursor-pointer ${
             activeTab === "neraca"
-              ? "border-blue-600 text-blue-600"
+              ? "border-[#1E88E5] text-[#1E88E5]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>⚖️</span> Neraca
+          <Scale className="h-4 w-4" />
+          <span>Neraca</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("aruskas")}
-          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-sm font-bold whitespace-nowrap transition ${
+          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-[13px] font-semibold whitespace-nowrap transition cursor-pointer ${
             activeTab === "aruskas"
-              ? "border-blue-600 text-blue-600"
+              ? "border-[#1E88E5] text-[#1E88E5]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>💵</span> Arus Kas
+          <Wallet className="h-4 w-4" />
+          <span>Arus Kas</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("pajak")}
-          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-sm font-bold whitespace-nowrap transition ${
+          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-[13px] font-semibold whitespace-nowrap transition cursor-pointer ${
             activeTab === "pajak"
-              ? "border-blue-600 text-blue-600"
+              ? "border-[#1E88E5] text-[#1E88E5]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span>🧾</span> Rekap Pajak
+          <Receipt className="h-4 w-4" />
+          <span>Rekap Pajak</span>
         </button>
       </div>
 
@@ -746,15 +781,15 @@ export function FinancialReportTabs({ initialData }: FinancialReportTabsProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">
-                + Catat Beban Operasional / Modal Manual
+              <h3 className="text-[16px] font-bold text-slate-900">
+                Catat Kas Masuk / Kas Keluar (Pembukuan)
               </h3>
               <button
                 type="button"
                 onClick={() => setShowManualModal(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
 

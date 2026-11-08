@@ -4,6 +4,8 @@ import {
   listTablesForOwner,
 } from "@/server/master-data";
 
+export const dynamic = "force-dynamic";
+
 export default async function MejaPage() {
   const [tables, { outlet }] = await Promise.all([
     listTablesForOwner(),
@@ -11,12 +13,13 @@ export default async function MejaPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Master Meja &amp; QR (100 Meja)</h1>
-        <p className="text-sm text-zinc-600">
-          Kelola 100 meja tetap, cetak QR massal (PDF) atau per meja, dan ganti
-          token QR jika diperlukan.
+        <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
+          Meja &amp; QR Code Pelanggan — {outlet.name}
+        </h1>
+        <p className="text-[13px] text-slate-500">
+          Kelola daftar meja aktif, buka simulasi scan pelanggan di tab baru, atau cetak QR Code meja.
         </p>
       </div>
 

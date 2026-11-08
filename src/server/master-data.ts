@@ -163,7 +163,7 @@ export async function listCategoriesForOwner(): Promise<CategoryRow[]> {
 export async function createCategoryAction(rawInput: {
   name: string;
   sortOrder: number;
-}): Promise<ActionResult> {
+}): Promise<ActionResult & { category?: CategoryRow }> {
   const parsed = categoryCreateSchema.safeParse(rawInput);
   if (!parsed.success) {
     return {
@@ -176,22 +176,28 @@ export async function createCategoryAction(rawInput: {
     `Tambah kategori: ${parsed.data.name}`
   );
 
-  const { error } = await admin.from("categories").insert({
-    outlet_id: owner.outletId,
-    name: parsed.data.name,
-    sort_order: parsed.data.sortOrder,
-    is_active: true,
-  });
+  const { data: created, error } = await admin
+    .from("categories")
+    .insert({
+      outlet_id: owner.outletId,
+      name: parsed.data.name,
+      sort_order: parsed.data.sortOrder,
+      is_active: true,
+    })
+    .select("*")
+    .single();
 
-  if (error) {
-    return { ok: false, message: `Gagal menambah kategori: ${error.message}` };
+  if (error || !created) {
+    return { ok: false, message: `Gagal menambah kategori: ${error?.message}` };
   }
 
   revalidatePath("/dashboard/kategori");
   revalidatePath("/dashboard/produk");
+  revalidatePath("/dashboard/stok-menu");
   return {
     ok: true,
     message: `Kategori "${parsed.data.name}" berhasil ditambahkan.`,
+    category: created as CategoryRow,
   };
 }
 
@@ -306,7 +312,7 @@ export async function createProductAction(rawInput: {
   imageUrl: string | null;
   isAvailable: boolean;
   isActive: boolean;
-}): Promise<ActionResult> {
+}): Promise<ActionResult & { product?: ProductRow }> {
   const parsed = productCreateSchema.safeParse(rawInput);
   if (!parsed.success) {
     return {
@@ -319,27 +325,34 @@ export async function createProductAction(rawInput: {
     `Tambah produk baru: ${parsed.data.name}`
   );
 
-  const { error } = await admin.from("products").insert({
-    outlet_id: owner.outletId,
-    category_id: parsed.data.categoryId,
-    name: parsed.data.name,
-    price: parsed.data.price,
-    image_url:
-      parsed.data.imageUrl && parsed.data.imageUrl.length > 0
-        ? parsed.data.imageUrl
-        : null,
-    is_available: parsed.data.isAvailable,
-    is_active: parsed.data.isActive,
-  });
+  const { data: created, error } = await admin
+    .from("products")
+    .insert({
+      outlet_id: owner.outletId,
+      category_id: parsed.data.categoryId,
+      name: parsed.data.name,
+      price: parsed.data.price,
+      image_url:
+        parsed.data.imageUrl && parsed.data.imageUrl.length > 0
+          ? parsed.data.imageUrl
+          : null,
+      is_available: parsed.data.isAvailable,
+      is_active: parsed.data.isActive,
+    })
+    .select("*")
+    .single();
 
-  if (error) {
-    return { ok: false, message: `Gagal menambah produk: ${error.message}` };
+  if (error || !created) {
+    return { ok: false, message: `Gagal menambah produk: ${error?.message}` };
   }
 
   revalidatePath("/dashboard/produk");
+  revalidatePath("/dashboard/stok-menu");
+  revalidatePath("/order-manual");
   return {
     ok: true,
     message: `Produk "${parsed.data.name}" berhasil ditambahkan.`,
+    product: created as ProductRow,
   };
 }
 
