@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, Utensils, Volume2, VolumeX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -120,12 +121,13 @@ export function WaiterBoard({
       {/* Header Bar Layar Antar Pelayan */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <div>
-          <h1 className="text-lg font-extrabold text-zinc-900">
-            🍽️ Layar Antar Pelayan ({initialData.readyTickets.length} Pesanan
-            Siap Diantar)
+          <h1 className="flex items-center gap-2 text-lg font-extrabold text-zinc-900">
+            <Utensils className="h-5 w-5 text-slate-700" />
+            Layar Antar Meja ({initialData.readyTickets.length} Pesanan Siap
+            Diantar)
           </h1>
           <p className="text-xs text-zinc-600">
-            Ambil pesanan di pass dapur dan antar ke meja tujuan. Saat Anda
+            Ambil pesanan di pass Kitchen dan antar ke meja tujuan. Saat Anda
             menekan <strong>Sudah Diantar</strong>, sesi pantau pelanggan pada
             meja tersebut otomatis selesai.
           </p>
@@ -141,7 +143,17 @@ export function WaiterBoard({
               if (next) playWaiterChime();
             }}
           >
-            {soundEnabled ? "🔔 Nada Panggil Aktif" : "🔕 Nada Panggil Mati"}
+            {soundEnabled ? (
+              <>
+                <Volume2 className="mr-1.5 h-4 w-4" />
+                Nada Panggil Aktif
+              </>
+            ) : (
+              <>
+                <VolumeX className="mr-1.5 h-4 w-4" />
+                Nada Panggil Mati
+              </>
+            )}
           </Button>
           <Button
             type="button"
@@ -179,7 +191,7 @@ export function WaiterBoard({
         <Card>
           <CardContent className="py-16 text-center text-sm text-zinc-500">
             Belum ada pesanan yang siap diantar saat ini. Pesanan akan muncul
-            otomatis begitu dapur menekan tombol <strong>Siap Diantar</strong>.
+            otomatis begitu Kitchen menekan tombol <strong>Siap Saji</strong>.
           </CardContent>
         </Card>
       ) : (
@@ -231,7 +243,7 @@ export function WaiterBoard({
                       </div>
                       {item.note && (
                         <div className="mt-1.5 rounded-lg border border-amber-300 bg-amber-100/80 px-2.5 py-1 text-xs font-bold text-amber-950">
-                          📝 Catatan: {item.note}
+                          Catatan: {item.note}
                         </div>
                       )}
                     </div>
@@ -244,9 +256,10 @@ export function WaiterBoard({
                   onClick={() => handleMarkServed(ticket.id, ticket.version)}
                   className="min-h-12 w-full bg-zinc-900 text-base font-bold text-white hover:bg-zinc-800"
                 >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
                   {processingOrderId === ticket.id
                     ? "Memproses..."
-                    : `🍽️ Sudah Diantar (${ticket.tableName})`}
+                    : `Sudah Diantar (${ticket.tableName})`}
                 </Button>
               </CardContent>
             </Card>

@@ -351,8 +351,8 @@ export function CustomerOrderExperience({
       },
       {
         key: "paid",
-        label: "2. Pembayaran Sesuai — Sedang Disiapkan Dapur",
-        desc: "Pembayaran Anda telah diverifikasi Kasir dan pesanan sedang dimasak di Dapur.",
+        label: "2. Pembayaran Sesuai — Sedang Disiapkan Kitchen",
+        desc: "Pembayaran Anda telah diverifikasi Kasir dan pesanan sedang dimasak di Kitchen.",
       },
       {
         key: "ready",
@@ -436,13 +436,23 @@ export function CustomerOrderExperience({
           <Card className="border-red-300 bg-red-50">
             <CardHeader>
               <CardTitle className="text-base text-red-900">
-                Pesanan Dibatalkan
+                {(activeOrder.cancelReason ?? "").toLowerCase().includes("habis")
+                  ? "Mohon Maaf, Menu yang Dipesan Baru Saja Habis"
+                  : "Pesanan Dibatalkan"}
               </CardTitle>
-              <CardDescription className="text-red-800">
-                Alasan pembatalan:{" "}
-                <strong>
-                  {activeOrder.cancelReason ?? "Dibatalkan oleh Kasir"}
-                </strong>
+              <CardDescription className="text-red-800 space-y-1">
+                <span className="block">
+                  Informasi Kasir:{" "}
+                  <strong>
+                    {activeOrder.cancelReason ?? "Dibatalkan oleh Kasir"}
+                  </strong>
+                </span>
+                <span className="block text-xs">
+                  Jika Anda sudah melakukan pembayaran QRIS, silakan hubungi
+                  Kasir untuk pengembalian uang tunai atau tukar pesanan
+                  (Rebilling). Anda juga dapat langsung memesan menu lain di
+                  bawah ini.
+                </span>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -452,7 +462,7 @@ export function CustomerOrderExperience({
                 size="lg"
                 onClick={handleStartNewOrder}
               >
-                Buat Pesanan Baru
+                Pilih Menu Lain / Pesan Ulang Sekarang
               </Button>
             </CardContent>
           </Card>

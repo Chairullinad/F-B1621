@@ -78,6 +78,31 @@ const cancelOrderSchema = z.object({
     .trim()
     .min(3, "Alasan pembatalan wajib diisi (minimal 3 karakter).")
     .max(240, "Alasan pembatalan maksimal 240 karakter."),
+  outOfStockProductIds: z.array(z.string().uuid()).optional(),
+});
+
+const rebillOrderSchema = z.object({
+  orderId: z.string().uuid("ID order tidak valid."),
+  expectedVersion: z.number().int().min(1),
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Alasan rebilling minimal 3 karakter.")
+    .max(240),
+  outOfStockProductIds: z.array(z.string().uuid()).default([]),
+  alreadyPaidAmount: z.number().int().min(0).default(0),
+  settleImmediately: z.boolean().default(true),
+  settlementMethod: z.enum(["qris", "cash"]).default("qris"),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid("ID produk tidak valid."),
+        qty: z.number().int().min(1).max(100),
+        note: z.string().trim().max(160).nullable().optional(),
+      })
+    )
+    .min(1, "Pilih minimal 1 menu pengganti untuk Rebilling.")
+    .max(40),
 });
 
 // ============================================================================
@@ -1102,8 +1127,8 @@ export async function processOrderPaymentAction(rawInput: {
     orderId,
     message:
       method === "qris"
-        ? `Pembayaran QRIS Order #${orderRow.order_no} (${formatRupiah(total)}) terverifikasi! Pesanan otomatis masuk ke Layar Dapur.`
-        : `Pembayaran Tunai Order #${orderRow.order_no} berhasil! Kembalian: ${formatRupiah(changeAmount)}. Pesanan masuk ke Layar Dapur.`,
+        ? `Pembayaran QRIS Order #${orderRow.order_no} (${formatRupiah(total)}) terverifikasi! Pesanan otomatis masuk ke Layar Kitchen.`
+        : `Pembayaran Tunai Order #${orderRow.order_no} berhasil! Kembalian: ${formatRupiah(changeAmount)}. Pesanan masuk ke Layar Kitchen.`,
   };
 }
 
@@ -1118,6 +1143,7 @@ export async function cancelOrderWithRefundAction(rawInput: {
   expectedVersion: number;
   reasonCategory: RefundReasonCategory;
   reason: string;
+  outOfStockProductIds?: string[];
 }): Promise<ActionResult> {
   const parsed = cancelOrderSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -1128,11 +1154,26 @@ export async function cancelOrderWithRefundAction(rawInput: {
     };
   }
 
-  const { orderId, expectedVersion, reasonCategory, reason } = parsed.data;
+  const {
+    orderId,
+    expectedVersion,
+    reasonCategory,
+    reason,
+    outOfStockProductIds,
+  } = parsed.data;
   const { staff, admin } = await applyCashierAuditContext(
     ["owner", "cashier"],
     `Pembatalan order (${reasonCategory}): ${reason}`
   );
+
+  // Jika ada menu yang ditandai habis saat pembatalan, otomatis matikan ketersediaannya
+  if (outOfStockProductIds && outOfStockProductIds.length > 0) {
+    await admin
+      .from("products")
+      .update({ is_available: false })
+      .eq("outlet_id", staff.outletId)
+      .in("id", outOfStockProductIds);
+  }
 
   const { data: orderRow } = await admin
     .from("orders")
@@ -1273,6 +1314,7 @@ export async function cancelOrderWithRefundAction(rawInput: {
 
   revalidatePath("/kasir");
   revalidatePath("/dapur");
+  revalidatePath("/dashboard/produk");
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/keuangan");
   revalidatePath("/dashboard/transaksi");
@@ -1282,6 +1324,348 @@ export async function cancelOrderWithRefundAction(rawInput: {
       currentStatus === "pending"
         ? `Order #${orderRow.order_no} berhasil dibatalkan.`
         : `Order #${orderRow.order_no} dibatalkan dan Refund sebesar ${formatRupiah(Number(orderRow.total))} telah dicatat.`,
+  };
+}
+
+/**
+ * Server Action: Mekanisme Rebilling (Tukar Menu Habis & Hitung Selisih Otomatis).
+ * Menangani kondisi ketika pelanggan memesan (bahkan sudah transfer QRIS), tetapi
+ * menu habis di Kasir / Kitchen.
+ * - Otomatis menandai produk yang habis menjadi Nonaktif/Habis (is_available = false).
+ * - Menghitung selisih tagihan baru terhadap uang yang sudah masuk (Pas / Kembalian Kasir / Tambah Bayar).
+ * - Jika order masih PENDING: memperbarui item & opsional langsung memverifikasi PAID ke Kitchen.
+ * - Jika order sudah PAID/READY: membatalkan order lama + refund sesuai aturan DB, lalu menerbitkan
+ *   order pengganti PAID di meja yang sama secara atomik.
+ */
+export async function rebillOrderAction(rawInput: {
+  orderId: string;
+  expectedVersion: number;
+  reason: string;
+  outOfStockProductIds: string[];
+  alreadyPaidAmount: number;
+  settleImmediately: boolean;
+  settlementMethod: PaymentMethod;
+  items: Array<{ productId: string; qty: number; note?: string | null }>;
+}): Promise<ActionResult & { orderId?: string; diffAmount?: number }> {
+  const parsed = rebillOrderSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ?? "Data rebilling tidak valid.",
+    };
+  }
+
+  const {
+    orderId,
+    expectedVersion,
+    reason,
+    outOfStockProductIds,
+    alreadyPaidAmount,
+    settleImmediately,
+    settlementMethod,
+    items,
+  } = parsed.data;
+
+  const { staff, admin, ip, device } = await applyCashierAuditContext(
+    ["owner", "cashier"],
+    `Rebilling order (Menu Habis): ${reason}`
+  );
+
+  // 1. Jika ada menu yang ditandai habis, otomatis matikan is_available = false
+  if (outOfStockProductIds.length > 0) {
+    await admin
+      .from("products")
+      .update({ is_available: false })
+      .eq("outlet_id", staff.outletId)
+      .in("id", outOfStockProductIds);
+  }
+
+  // 2. Ambil order saat ini
+  const { data: orderRow } = await admin
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .eq("outlet_id", staff.outletId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!orderRow) {
+    return { ok: false, message: "Order tidak ditemukan." };
+  }
+
+  const currentStatus = orderRow.status as OrderStatus;
+  if (
+    currentStatus !== "pending" &&
+    currentStatus !== "paid" &&
+    currentStatus !== "ready"
+  ) {
+    return {
+      ok: false,
+      message: `Order berstatus ${currentStatus.toUpperCase()} tidak dapat di-rebill.`,
+    };
+  }
+
+  // 3. Validasi produk pengganti & harga snapshot dari server
+  const productIds = Array.from(new Set(items.map((i) => i.productId)));
+  const { data: dbProducts } = await admin
+    .from("products")
+    .select("id, name, price, is_active, deleted_at")
+    .eq("outlet_id", staff.outletId)
+    .in("id", productIds);
+
+  const prodMap = new Map<string, { name: string; price: number }>();
+  for (const p of dbProducts ?? []) {
+    if (p.is_active && p.deleted_at === null) {
+      prodMap.set(String(p.id), {
+        name: String(p.name),
+        price: Number(p.price),
+      });
+    }
+  }
+
+  for (const item of items) {
+    if (!prodMap.has(item.productId)) {
+      return {
+        ok: false,
+        message: "Salah satu produk pengganti tidak ditemukan atau tidak aktif.",
+      };
+    }
+  }
+
+  const orderTaxConfig: TaxAndServiceConfig = {
+    taxEnabled: orderRow.tax_rate !== null && Number(orderRow.tax_rate) > 0,
+    taxPercent:
+      orderRow.tax_rate !== null ? Number(orderRow.tax_rate) : null,
+    serviceEnabled:
+      orderRow.service_rate !== null && Number(orderRow.service_rate) > 0,
+    servicePercent:
+      orderRow.service_rate !== null ? Number(orderRow.service_rate) : null,
+    priceIncludesTax: Boolean(orderRow.price_includes_tax),
+  };
+
+  const newSubtotal = items.reduce((sum, item) => {
+    const prod = prodMap.get(item.productId)!;
+    return sum + prod.price * item.qty;
+  }, 0);
+  const cappedDiscount = Math.min(Number(orderRow.discount ?? 0), newSubtotal);
+
+  const newTotals = calculateOrderTotals({
+    items: items.map((item) => ({
+      unitPrice: prodMap.get(item.productId)!.price,
+      qty: item.qty,
+    })),
+    discount:
+      cappedDiscount > 0
+        ? { type: "amount", value: cappedDiscount }
+        : { type: "none" },
+    config: orderTaxConfig,
+  });
+
+  const oldTotal = Number(orderRow.total ?? 0);
+  const effectiveAlreadyPaid =
+    currentStatus === "paid" || currentStatus === "ready"
+      ? oldTotal
+      : alreadyPaidAmount;
+  const diffAmount = newTotals.total - effectiveAlreadyPaid;
+
+  // KASUS A: Order masih PENDING
+  if (currentStatus === "pending") {
+    const revRes = await revisePendingOrderItemsAction({
+      orderId,
+      expectedVersion,
+      reason: `Rebilling (Menu Habis): ${reason}`,
+      items,
+    });
+
+    if (!revRes.ok) {
+      return revRes;
+    }
+
+    if (settleImmediately) {
+      // Ambil version terbaru setelah revisi
+      const { data: refreshedOrder } = await admin
+        .from("orders")
+        .select("version")
+        .eq("id", orderId)
+        .single();
+
+      const nextVer = Number(refreshedOrder?.version ?? expectedVersion + 1);
+      const effectiveReceived = Math.max(effectiveAlreadyPaid, newTotals.total);
+
+      const payRes = await processOrderPaymentAction({
+        orderId,
+        expectedVersion: nextVer,
+        method: settlementMethod,
+        amountReceived: effectiveReceived,
+      });
+
+      if (!payRes.ok) {
+        return payRes;
+      }
+
+      const diffNote =
+        diffAmount === 0
+          ? "Selisih Rp 0 (Harga Sama)."
+          : diffAmount < 0
+            ? `Kembalian Tunai ke Pelanggan: ${formatRupiah(Math.abs(diffAmount))}.`
+            : `Tambahan Bayar Diterima: ${formatRupiah(diffAmount)}.`;
+
+      revalidatePath("/kasir");
+      revalidatePath("/dapur");
+      revalidatePath("/dashboard/produk");
+      return {
+        ok: true,
+        orderId,
+        diffAmount,
+        message: `Rebilling Order #${orderRow.order_no} berhasil (${formatRupiah(newTotals.total)})! ${diffNote} Pesanan langsung masuk ke Layar Kitchen.`,
+      };
+    }
+
+    revalidatePath("/kasir");
+    revalidatePath("/dashboard/produk");
+    return {
+      ok: true,
+      orderId,
+      diffAmount,
+      message: `Rebilling Order #${orderRow.order_no} berhasil disimpan (Tagihan Baru: ${formatRupiah(newTotals.total)}).`,
+    };
+  }
+
+  // KASUS B: Order sudah PAID / READY -> Batalkan order lama + refund, lalu terbitkan order baru PAID
+  const cancelRes = await cancelOrderWithRefundAction({
+    orderId,
+    expectedVersion,
+    reasonCategory: "outlet_fault",
+    reason: `Rebilling Menu Habis: ${reason}`,
+    outOfStockProductIds,
+  });
+
+  if (!cancelRes.ok) {
+    return cancelRes;
+  }
+
+  const newOrderNo = `${String(orderRow.order_no)}-RB${Math.floor(10 + Math.random() * 89)}`;
+  const nowIso = new Date().toISOString();
+
+  const { data: newOrderRow, error: newOrdErr } = await admin
+    .from("orders")
+    .insert({
+      outlet_id: staff.outletId,
+      table_id: orderRow.table_id,
+      order_no: newOrderNo,
+      source: orderRow.source,
+      order_type: orderRow.order_type,
+      payment_choice: settlementMethod,
+      status: "paid",
+      subtotal: newTotals.subtotal,
+      discount: newTotals.discount,
+      discount_reason:
+        newTotals.discount > 0 ? orderRow.discount_reason : null,
+      service_rate: orderRow.service_rate,
+      service_amount: newTotals.serviceAmount,
+      tax_rate: orderRow.tax_rate,
+      tax_amount: newTotals.taxAmount,
+      price_includes_tax: orderRow.price_includes_tax,
+      total: newTotals.total,
+      paid_at: nowIso,
+      paid_by: staff.userId,
+      created_by: staff.userId,
+    })
+    .select("id, order_no")
+    .single();
+
+  if (newOrdErr || !newOrderRow) {
+    return {
+      ok: false,
+      message:
+        newOrdErr?.message ?? "Gagal membuat order pengganti Rebilling.",
+    };
+  }
+
+  const newOrderId = String(newOrderRow.id);
+  const nextItems = items.map((item) => {
+    const prod = prodMap.get(item.productId)!;
+    return {
+      order_id: newOrderId,
+      product_id: item.productId,
+      product_name: prod.name,
+      unit_price: prod.price,
+      qty: item.qty,
+      note: item.note && item.note.length > 0 ? item.note : null,
+      line_total: prod.price * item.qty,
+    };
+  });
+
+  await admin.from("order_items").insert(nextItems);
+
+  const effectiveReceived = Math.max(effectiveAlreadyPaid, newTotals.total);
+  const changeAmount = Math.max(0, effectiveReceived - newTotals.total);
+
+  await admin.from("payments").insert({
+    order_id: newOrderId,
+    method: settlementMethod,
+    amount_received: effectiveReceived,
+    change_amount: changeAmount,
+    created_by: staff.userId,
+  });
+
+  try {
+    await recordOrderPaidInventoryAndAccounting({
+      outletId: staff.outletId,
+      orderId: newOrderId,
+      orderNo: newOrderNo,
+      orderTotal: newTotals.total,
+      paymentMethod: settlementMethod,
+      actorUserId: staff.userId,
+    });
+  } catch {
+    // Abaikan kegagalan jurnal sekunder
+  }
+
+  await admin.from("audit_logs").insert({
+    outlet_id: staff.outletId,
+    user_id: staff.userId,
+    role: staff.role,
+    device,
+    ip,
+    action: "order.rebilled_by_cashier",
+    entity: "orders",
+    entity_id: newOrderId,
+    before: {
+      old_order_id: orderId,
+      old_order_no: orderRow.order_no,
+      old_total: oldTotal,
+    },
+    after: {
+      new_order_id: newOrderId,
+      new_order_no: newOrderNo,
+      new_total: newTotals.total,
+      diff_amount: diffAmount,
+      change_returned: changeAmount,
+    },
+    reason: `Rebilling dari #${orderRow.order_no} ke #${newOrderNo}: ${reason}`,
+    prev_hash: "",
+    hash: "",
+  });
+
+  const diffNote =
+    diffAmount === 0
+      ? "Selisih Rp 0 (Harga Sama)."
+      : diffAmount < 0
+        ? `Kembalian Tunai ke Pelanggan: ${formatRupiah(Math.abs(diffAmount))}.`
+        : `Tambahan Bayar Diterima: ${formatRupiah(diffAmount)}.`;
+
+  revalidatePath("/kasir");
+  revalidatePath("/dapur");
+  revalidatePath("/dashboard/produk");
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/keuangan");
+  return {
+    ok: true,
+    orderId: newOrderId,
+    diffAmount,
+    message: `Rebilling berhasil! Order pengganti #${newOrderNo} (${formatRupiah(newTotals.total)}) diterbitkan & masuk ke Kitchen. ${diffNote}`,
   };
 }
 

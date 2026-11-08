@@ -152,3 +152,28 @@ export function generateDynamicQrisPayload(
   return `${payloadWithCrcHeader}${crc}`;
 }
 
+/**
+ * Ekstrak informasi Nama Merchant (Tag 59) dan Kota Merchant (Tag 60)
+ * dari string payload QRIS statis EMVCo.
+ */
+export function extractMerchantInfoFromQris(rawPayload: string): {
+  merchantName: string | null;
+  merchantCity: string | null;
+} {
+  try {
+    const tags = parseEmvTags(rawPayload);
+    const nameTag = tags.find((t) => t.id === "59");
+    const cityTag = tags.find((t) => t.id === "60");
+    return {
+      merchantName: nameTag?.value.trim() || null,
+      merchantCity: cityTag?.value.trim() || null,
+    };
+  } catch {
+    return {
+      merchantName: null,
+      merchantCity: null,
+    };
+  }
+}
+
+

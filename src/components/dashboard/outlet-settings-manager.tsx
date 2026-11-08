@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Upload, QrCode, CheckCircle2, Sparkles, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatRupiah } from "@/lib/money";
+import { generateQrSvgString } from "@/lib/qrcode";
+import {
+  extractMerchantInfoFromQris,
+  generateDynamicQrisPayload,
+} from "@/lib/qris";
 import type {
   InstantNotificationEvents,
   NotificationSettingsRow,
@@ -80,6 +86,10 @@ export function OutletSettingsManager({
   const [qrisEnabled, setQrisEnabled] = React.useState(
     initialOutlet.qris_enabled
   );
+  const [qrisImagePreview, setQrisImagePreview] = React.useState<string | null>(
+    null
+  );
+  const [isScanningQrisImage, setIsScanningQrisImage] = React.useState(false);
 
   // 4. State Notifikasi Email Owner
   const [ownerEmail, setOwnerEmail] = React.useState(
@@ -169,6 +179,80 @@ export function OutletSettingsManager({
       }
       toast.success(res.message);
     });
+  }
+
+  function handleFillSampleQris() {
+    const cleanMerchant = (name || "1621 GROUP").toUpperCase().slice(0, 25);
+    const lenMerchant = String(cleanMerchant.length).padStart(2, "0");
+    const sampleStatic = `00020101021126610014ID.CO.QRIS.WWW01189360050300000898740215ID10241621000010303UMI51440014ID.CO.QRIS.WWW0215ID10241621000010303UMI5204581253033605802ID59${lenMerchant}${cleanMerchant}6007JAKARTA6105101106304`;
+    const dynamicSample = generateDynamicQrisPayload({
+      staticQrisPayload: `${sampleStatic}0000`,
+      amountRupiah: 25000,
+    });
+    // Ambil base statis dengan CRC valid
+    setQrisMerchantName(cleanMerchant);
+    setQrisRawPayload(dynamicSample);
+    setQrisEnabled(true);
+    toast.success(
+      `Kode QRIS contoh untuk ${cleanMerchant} berhasil diisi! Klik 'Simpan Pengaturan QRIS' untuk mengaktifkan.`
+    );
+  }
+
+  async function handleUploadQrisImage(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const objectUrl = URL.createObjectURL(file);
+    setQrisImagePreview(objectUrl);
+    setIsScanningQrisImage(true);
+
+    try {
+      const bitmap = await createImageBitmap(file);
+      type BarcodeDetectorLike = {
+        detect: (
+          source: ImageBitmap
+        ) => Promise<Array<{ rawValue?: string }>>;
+      };
+      const BarcodeDetectorCtor = (
+        window as unknown as {
+          BarcodeDetector?: new (opts?: {
+            formats?: string[];
+          }) => BarcodeDetectorLike;
+        }
+      ).BarcodeDetector;
+
+      if (BarcodeDetectorCtor) {
+        const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
+        const results = await detector.detect(bitmap);
+        const found = results.find((r) => r.rawValue?.trim().startsWith("000201"));
+        if (found?.rawValue) {
+          const raw = found.rawValue.trim();
+          setQrisRawPayload(raw);
+          const info = extractMerchantInfoFromQris(raw);
+          if (info.merchantName) {
+            setQrisMerchantName(info.merchantName);
+          }
+          setQrisEnabled(true);
+          toast.success(
+            `Berhasil memindai QRIS dari gambar! Merchant: ${info.merchantName ?? qrisMerchantName}`
+          );
+          setIsScanningQrisImage(false);
+          return;
+        }
+      }
+
+      toast.info(
+        "Gambar poster QRIS berhasil dimuat. Jika kode 000201 belum terisi otomatis di browser ini, tempelkan hasil scan teks QRIS atau klik 'Isi Contoh QRIS'."
+      );
+    } catch {
+      toast.info(
+        "Gambar QRIS berhasil dimuat. Silakan pastikan string payload 000201 terisi lalu klik Simpan."
+      );
+    } finally {
+      setIsScanningQrisImage(false);
+    }
   }
 
   function handleSaveQris(e: React.FormEvent<HTMLFormElement>) {
@@ -447,25 +531,89 @@ export function OutletSettingsManager({
         </CardContent>
       </Card>
 
-      {/* 3. PENGATURAN QRIS TOKO */}
-      <Card>
+      {/* 3. SECTION KHUSUS POST / UPLOAD QRIS TOKO */}
+      <Card className="border-sky-200 dark:border-slate-800 shadow-xs">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-base">
-              3. Pembayaran QRIS di Meja (Tanpa Payment Gateway)
+            <CardTitle className="flex items-center gap-2 text-base">
+              <QrCode className="h-5 w-5 text-[#1E88E5]" />
+              3. Post / Upload QRIS Toko (Pembayaran QRIS di Meja)
             </CardTitle>
-            <Badge variant={qrisEnabled ? "success" : "secondary"}>
-              {qrisEnabled ? "QRIS Aktif" : "Nonaktif"}
+            <Badge variant={qrisEnabled && canEnableQris ? "success" : "secondary"}>
+              {qrisEnabled && canEnableQris ? "QRIS Aktif" : "Nonaktif"}
             </Badge>
           </div>
           <CardDescription>
-            Tempelkan string kode QRIS statis milik toko Anda (diawali{" "}
-            <code>000201...</code>). Sistem otomatis menghasilkan QRIS dengan
-            nominal pas dan label nomor meja (<code>MEJA-XX</code>).
+            Upload gambar stiker/poster QRIS toko Anda untuk dipindai otomatis,
+            atau tempelkan kode QRIS statis (diawali <code>000201...</code>).
+            Sistem otomatis menghasilkan QRIS dengan nominal pas sesuai tagihan
+            dan label meja (<code>MEJA-XX</code>).
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSaveQris} className="space-y-4">
+            {/* Kotak Upload Poster / Gambar QRIS */}
+            <div className="rounded-xl border-2 border-dashed border-sky-300 dark:border-slate-700 bg-sky-50/50 dark:bg-slate-900/50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Upload Gambar / Foto QRIS Toko
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Pilih file foto QRIS (PNG/JPG). Sistem akan otomatis
+                    membaca kode QRIS &amp; Nama Merchant Anda.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-lg bg-[#1E88E5] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1976D2] transition-colors">
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>
+                      {isScanningQrisImage
+                        ? "Memindai QR..."
+                        : "Pilih Gambar QRIS"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleUploadQrisImage}
+                      className="hidden"
+                      disabled={isPending || isScanningQrisImage}
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFillSampleQris}
+                    disabled={isPending}
+                  >
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-500" />
+                    Isi Contoh QRIS
+                  </Button>
+                </div>
+              </div>
+
+              {qrisImagePreview ? (
+                <div className="mt-3 flex items-center gap-3 rounded-lg border border-sky-200 bg-white p-2.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrisImagePreview}
+                    alt="Poster QRIS"
+                    className="h-16 w-16 rounded border border-slate-200 object-contain"
+                  />
+                  <div className="text-xs text-slate-600">
+                    <p className="font-semibold text-slate-900">
+                      Gambar QRIS berhasil dipilih
+                    </p>
+                    <p>
+                      Pastikan kode <code>000201...</code> di bawah sudah terisi
+                      lalu klik <strong>Simpan Pengaturan QRIS</strong>.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <div className="space-y-1.5">
               <label className="block text-sm font-medium">
                 Nama Merchant QRIS
@@ -473,7 +621,7 @@ export function OutletSettingsManager({
               <Input
                 value={qrisMerchantName}
                 onChange={(e) => setQrisMerchantName(e.target.value)}
-                placeholder="KAFE NUSANTARA 1621"
+                placeholder="1621 GROUP - LATTESPACE"
                 disabled={isPending}
               />
             </div>
@@ -488,7 +636,12 @@ export function OutletSettingsManager({
                 onChange={(e) => {
                   const val = e.target.value;
                   setQrisRawPayload(val);
-                  if (!val.trim().startsWith("000201")) {
+                  if (val.trim().startsWith("000201")) {
+                    const info = extractMerchantInfoFromQris(val.trim());
+                    if (info.merchantName && !qrisMerchantName.trim()) {
+                      setQrisMerchantName(info.merchantName);
+                    }
+                  } else {
                     setQrisEnabled(false);
                   }
                 }}
@@ -497,6 +650,32 @@ export function OutletSettingsManager({
                 className="w-full rounded-lg border border-zinc-300 bg-white p-3 font-mono text-xs text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
               />
             </div>
+
+            {/* Pratinjau Visual QRIS Dinamis Aktif */}
+            {canEnableQris ? (
+              <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 sm:flex-row">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>Pratinjau QRIS Meja Siap Pakai</span>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Merchant:{" "}
+                    <strong>{qrisMerchantName || initialOutlet.name}</strong>
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Contoh simulasi tagihan <strong>Rp 25.000</strong> untuk{" "}
+                    <strong>MEJA-01</strong>.
+                  </p>
+                </div>
+                <div
+                  className="h-28 w-28 shrink-0 rounded-lg border border-slate-200 bg-white p-1.5 shadow-2xs"
+                  dangerouslySetInnerHTML={{
+                    __html: generateQrSvgString(qrisRawPayload.trim(), 1),
+                  }}
+                />
+              </div>
+            ) : null}
 
             <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium">
               <input
@@ -510,14 +689,14 @@ export function OutletSettingsManager({
                 Aktifkan Pembayaran QRIS di Meja{" "}
                 {!canEnableQris ? (
                   <span className="text-xs font-normal text-amber-700">
-                    (Isi payload QRIS statis terlebih dahulu)
+                    (Upload gambar QRIS atau klik &apos;Isi Contoh QRIS&apos; terlebih dahulu)
                   </span>
                 ) : null}
               </span>
             </label>
 
             <Button type="submit" className="w-full" disabled={isPending}>
-              Simpan Pengaturan QRIS
+              Simpan &amp; Terbitkan QRIS Toko
             </Button>
           </form>
         </CardContent>
@@ -652,7 +831,8 @@ export function OutletSettingsManager({
                 });
               }}
             >
-              📧 Kirim / Uji Laporan Bulanan Sekarang (Catat di Audit)
+              <Mail className="mr-1.5 h-4 w-4" />
+              Kirim / Uji Laporan Bulanan Sekarang (Catat di Audit)
             </Button>
           </form>
         </CardContent>

@@ -126,16 +126,16 @@ export function StaffSidebarShell({
             ? [
                 {
                   href: "/kasir",
-                  label: "Layar Kasir Meja",
+                  label: "Layar Kasir, Kitchen & Antar",
                   badgeCount: badges.pending_orders,
                 },
                 { href: "/order-manual", label: "POS / Order Manual" },
               ]
             : []),
-          ...(staff.role === "owner" || staff.role === "kitchen"
-            ? [{ href: "/dapur", label: "Layar Dapur (KDS)" }]
+          ...(staff.role === "kitchen"
+            ? [{ href: "/dapur", label: "Layar Kitchen (KDS)" }]
             : []),
-          ...(staff.role === "owner" || staff.role === "waiter"
+          ...(staff.role === "waiter"
             ? [{ href: "/antar", label: "Layar Antar Meja" }]
             : []),
         ],

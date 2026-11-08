@@ -14,7 +14,7 @@ export const ROLE_LABELS_ID: Record<UserRole, string> = {
   owner: "Owner",
   cashier: "Kasir",
   warehouse: "Staff Gudang",
-  kitchen: "Dapur",
+  kitchen: "Kitchen",
   waiter: "Pelayan",
 };
 

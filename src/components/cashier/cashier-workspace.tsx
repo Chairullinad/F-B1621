@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Eye,
   Printer,
+  RefreshCw,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -30,6 +31,7 @@ import {
   applyOrderDiscountAction,
   cancelOrderWithRefundAction,
   processOrderPaymentAction,
+  rebillOrderAction,
   revisePendingOrderItemsAction,
   type CashierOrderCardView,
   type CashierWorkspaceData,
@@ -52,7 +54,7 @@ interface DraftRevisionItem {
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "MENUNGGU BAYAR",
-  paid: "DIBAYAR (MASUK DAPUR)",
+  paid: "DIBAYAR (MASUK KITCHEN)",
   ready: "SIAP ANTAR",
   served: "SELESAI DISAJIKAN",
   cancelled: "DIBATALKAN",
@@ -125,18 +127,23 @@ export function CashierWorkspace({
 
   // Mode panel aksi di kanan
   const [actionMode, setActionMode] = useState<
-    "payment" | "revision" | "discount" | "cancel"
+    "payment" | "revision" | "rebill" | "discount" | "cancel"
   >("payment");
 
   // State pembayaran tunai
   const [cashReceivedInput, setCashReceivedInput] = useState<string>("");
 
-  // State revisi item
+  // State revisi item & Rebilling (Menu Habis)
   const [draftItems, setDraftItems] = useState<DraftRevisionItem[]>([]);
   const [revisionReason, setRevisionReason] = useState("");
   const [addProductId, setAddProductId] = useState<string>(
     initialData.products[0]?.id ?? ""
   );
+  const [outOfStockProductIds, setOutOfStockProductIds] = useState<string[]>(
+    []
+  );
+  const [rebillAlreadyPaid, setRebillAlreadyPaid] = useState<boolean>(true);
+  const [rebillReason, setRebillReason] = useState<string>("Menu habis di outlet");
 
   // State diskon
   const [discountType, setDiscountType] = useState<
@@ -529,6 +536,81 @@ export function CashierWorkspace({
         expectedVersion: selectedOrder.version,
         reasonCategory: cancelCategory,
         reason: cancelReason,
+        outOfStockProductIds,
+      });
+      setFeedback({
+        type: res.ok ? "success" : "error",
+        text: res.message,
+      });
+      if (res.ok) {
+        setActionMode("payment");
+        router.refresh();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleRebillOrder() {
+    if (!selectedOrder) return;
+    setIsSubmitting(true);
+    setFeedback(null);
+    try {
+      const alreadyPaidAmt =
+        selectedOrder.status === "paid" ||
+        selectedOrder.status === "ready" ||
+        rebillAlreadyPaid
+          ? selectedOrder.total
+          : 0;
+
+      const res = await rebillOrderAction({
+        orderId: selectedOrder.id,
+        expectedVersion: selectedOrder.version,
+        reason: rebillReason.trim() || "Menu habis — ganti pesanan",
+        outOfStockProductIds,
+        alreadyPaidAmount: alreadyPaidAmt,
+        settleImmediately: alreadyPaidAmt > 0,
+        settlementMethod:
+          selectedOrder.payment?.method ?? selectedOrder.paymentChoice ?? "qris",
+        items: draftItems.map((i) => ({
+          productId: i.productId,
+          qty: i.qty,
+          note: i.note.trim() || null,
+        })),
+      });
+      setFeedback({
+        type: res.ok ? "success" : "error",
+        text: res.message,
+        paidOrderId: res.orderId,
+      });
+      if (res.ok) {
+        setActionMode("payment");
+        router.refresh();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleCancelBecauseOutOfStock() {
+    if (!selectedOrder) return;
+    setIsSubmitting(true);
+    setFeedback(null);
+    try {
+      const outNames = selectedOrder.items
+        .filter((i) => outOfStockProductIds.includes(i.productId))
+        .map((i) => i.productName);
+      const reasonText =
+        outNames.length > 0
+          ? `Maaf, Menu Habis (${outNames.join(", ")}) — Silakan pilih menu lain`
+          : rebillReason.trim() || "Maaf, menu yang dipesan sedang habis";
+
+      const res = await cancelOrderWithRefundAction({
+        orderId: selectedOrder.id,
+        expectedVersion: selectedOrder.version,
+        reasonCategory: "outlet_fault",
+        reason: reasonText,
+        outOfStockProductIds,
       });
       setFeedback({
         type: res.ok ? "success" : "error",
@@ -842,6 +924,40 @@ export function CashierWorkspace({
                           Diskon
                         </Button>
                       </>
+                    )}
+
+                    {(selectedOrder.status === "pending" ||
+                      selectedOrder.status === "paid" ||
+                      selectedOrder.status === "ready") && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={
+                          actionMode === "rebill" ? "default" : "outline"
+                        }
+                        onClick={() => {
+                          setDraftItems(
+                            selectedOrder.items.map((i) => ({
+                              productId: i.productId,
+                              productName: i.productName,
+                              unitPrice: i.unitPrice,
+                              qty: i.qty,
+                              note: i.note ?? "",
+                            }))
+                          );
+                          setOutOfStockProductIds([]);
+                          setRebillAlreadyPaid(
+                            selectedOrder.status === "paid" ||
+                              selectedOrder.status === "ready" ||
+                              Boolean(selectedOrder.customerClaimedPaidAt)
+                          );
+                          setRebillReason("Menu habis di outlet");
+                          setActionMode("rebill");
+                        }}
+                      >
+                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                        Rebilling / Menu Habis
+                      </Button>
                     )}
 
                     {selectedOrder.status !== "cancelled" &&
@@ -1234,6 +1350,291 @@ export function CashierWorkspace({
                       </div>
                     </div>
                   )}
+
+                {/* PANEL 2B: MEKANISME REBILLING / MENU HABIS */}
+                {actionMode === "rebill" && (
+                  <div className="space-y-4 rounded-xl border-2 border-sky-300 bg-sky-50/40 p-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        Mekanisme Rebilling &amp; Penanganan Menu Habis
+                      </h4>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        Gunakan fitur ini ketika pelanggan sudah memesan
+                        (termasuk sudah transfer QRIS), tetapi menu yang dipesan
+                        ternyata <strong>Habis</strong>. Anda dapat langsung
+                        menandai menu tersebut habis, lalu memilih{" "}
+                        <strong>Ganti Menu (Rebilling)</strong> dengan hitungan
+                        selisih uang otomatis, atau{" "}
+                        <strong>Batalkan &amp; Kembalikan Uang</strong>.
+                      </p>
+                    </div>
+
+                    {/* Langkah 1: Tandai Menu yang Habis */}
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 space-y-2">
+                      <p className="text-xs font-bold text-amber-950">
+                        1. Centang Menu yang Habis (Otomatis Nonaktif di Buku
+                        Menu Pelanggan):
+                      </p>
+                      <div className="space-y-1.5">
+                        {selectedOrder.items.map((item) => {
+                          const isChecked = outOfStockProductIds.includes(
+                            item.productId
+                          );
+                          return (
+                            <label
+                              key={item.id}
+                              className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs"
+                            >
+                              <span className="flex items-center gap-2 font-semibold text-slate-900">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setOutOfStockProductIds((prev) =>
+                                      checked
+                                        ? [...prev, item.productId]
+                                        : prev.filter(
+                                            (id) => id !== item.productId
+                                          )
+                                    );
+                                    if (checked) {
+                                      setDraftItems((prev) =>
+                                        prev.filter(
+                                          (d) => d.productId !== item.productId
+                                        )
+                                      );
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded border-slate-300"
+                                />
+                                {item.qty}x {item.productName} (
+                                {formatRupiah(item.unitPrice)})
+                              </span>
+                              <Badge
+                                variant={isChecked ? "destructive" : "outline"}
+                              >
+                                {isChecked
+                                  ? "Ditandai Habis & Dihapus dari Order"
+                                  : "Tersedia"}
+                              </Badge>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Langkah 2: Daftar Item Pengganti untuk Rebilling */}
+                    <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-bold text-slate-900">
+                        2. Daftar Menu Pengganti (Jika Pelanggan Ingin Tukar
+                        Pesanan):
+                      </p>
+                      {draftItems.length === 0 ? (
+                        <p className="py-2 text-xs text-slate-500">
+                          Semua item dihapus. Tambahkan menu pengganti di bawah,
+                          atau klik{" "}
+                          <strong>Batal Penuh (Info Menu Habis)</strong> jika
+                          pelanggan tidak jadi memesan.
+                        </p>
+                      ) : (
+                        <div className="divide-y divide-slate-200 rounded-lg border border-slate-200">
+                          {draftItems.map((item, idx) => (
+                            <div
+                              key={`${item.productId}-${idx}`}
+                              className="flex items-center justify-between gap-2 p-2.5"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {item.productName}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {formatRupiah(item.unitPrice)} / porsi
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleUpdateDraftQty(idx, -1)}
+                                >
+                                  -
+                                </Button>
+                                <span className="w-8 text-center text-sm font-bold">
+                                  {item.qty}
+                                </span>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleUpdateDraftQty(idx, 1)}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <select
+                          aria-label="Pilih menu pengganti"
+                          value={addProductId}
+                          onChange={(e) => setAddProductId(e.target.value)}
+                          className="h-10 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-xs"
+                        >
+                          {initialData.products
+                            .filter(
+                              (p) => !outOfStockProductIds.includes(p.id)
+                            )
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} — {formatRupiah(p.price)}
+                              </option>
+                            ))}
+                        </select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={handleAddProductToDraft}
+                        >
+                          + Tambah Menu Pengganti
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Langkah 3: Kalkulator Selisih Uang Rebilling Otomatis */}
+                    {(() => {
+                      const newDraftSubtotal = draftItems.reduce(
+                        (s, i) => s + i.unitPrice * i.qty,
+                        0
+                      );
+                      const initialPaidAmt =
+                        selectedOrder.status === "paid" ||
+                        selectedOrder.status === "ready" ||
+                        rebillAlreadyPaid
+                          ? selectedOrder.total
+                          : 0;
+                      const diff = newDraftSubtotal - initialPaidAmt;
+
+                      return (
+                        <div className="rounded-lg border border-sky-200 bg-white p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-slate-900">
+                              3. Perhitungan Uang &amp; Selisih Rebilling:
+                            </span>
+                            {selectedOrder.status === "pending" && (
+                              <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={rebillAlreadyPaid}
+                                  onChange={(e) =>
+                                    setRebillAlreadyPaid(e.target.checked)
+                                  }
+                                  className="h-4 w-4 rounded border-slate-300"
+                                />
+                                Pelanggan Sudah Transfer QRIS Awal (
+                                {formatRupiah(selectedOrder.total)})
+                              </label>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 text-xs">
+                            <div className="rounded-md bg-slate-50 p-2.5">
+                              <span className="block text-slate-500">
+                                Uang Sudah Masuk
+                              </span>
+                              <span className="text-sm font-bold text-slate-900">
+                                {formatRupiah(initialPaidAmt)}
+                              </span>
+                            </div>
+                            <div className="rounded-md bg-slate-50 p-2.5">
+                              <span className="block text-slate-500">
+                                Total Menu Pengganti
+                              </span>
+                              <span className="text-sm font-bold text-slate-900">
+                                {formatRupiah(newDraftSubtotal)}
+                              </span>
+                            </div>
+                            <div
+                              className={`rounded-md p-2.5 ${
+                                diff === 0
+                                  ? "bg-emerald-50 text-emerald-900"
+                                  : diff < 0
+                                    ? "bg-amber-50 text-amber-950"
+                                    : "bg-sky-50 text-sky-950"
+                              }`}
+                            >
+                              <span className="block font-medium">
+                                {diff === 0
+                                  ? "Selisih Pas"
+                                  : diff < 0
+                                    ? "Kembalian Kasir ke Pelanggan"
+                                    : "Pelanggan Tambah Bayar"}
+                              </span>
+                              <span className="text-sm font-extrabold">
+                                {diff === 0
+                                  ? "Rp 0 (Harga Sama)"
+                                  : formatRupiah(Math.abs(diff))}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-700">
+                        Catatan / Alasan Rebilling
+                      </label>
+                      <Input
+                        type="text"
+                        value={rebillReason}
+                        onChange={(e) => setRebillReason(e.target.value)}
+                        placeholder="Contoh: Menu habis — ditukar pelanggan ke menu pengganti"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={isSubmitting}
+                        onClick={handleCancelBecauseOutOfStock}
+                      >
+                        Batal Penuh (Info Menu Habis &amp; Kembalikan Uang)
+                      </Button>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setActionMode("payment")}
+                        >
+                          Tutup
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={
+                            isSubmitting ||
+                            draftItems.length === 0 ||
+                            rebillReason.trim().length < 3
+                          }
+                          onClick={handleRebillOrder}
+                        >
+                          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                          Proses Rebilling &amp; Masuk Kitchen
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* PANEL 3: DISKON ORDER (Hanya saat PENDING) */}
                 {selectedOrder.status === "pending" &&

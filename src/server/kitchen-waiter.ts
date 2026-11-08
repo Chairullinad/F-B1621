@@ -285,8 +285,8 @@ export async function markOrderReadyAction(rawInput: {
 
   const { orderId, expectedVersion } = parsed.data;
   const { staff, admin, ip, device } = await applyOperationalAuditContext(
-    ["owner", "kitchen"],
-    `Dapur menandai pesanan siap diantar (READY)`
+    ["owner", "kitchen", "cashier"],
+    `Kitchen menandai pesanan siap diantar (READY)`
   );
 
   const readyAtIso = new Date().toISOString();
@@ -348,7 +348,7 @@ export async function markOrderReadyAction(rawInput: {
  * - TIDAK menyertakan harga atau data pembayaran (PRD 5.9).
  */
 export async function getWaiterWorkspaceData(): Promise<WaiterWorkspaceData> {
-  const staff = await requireStaffRole(["owner", "waiter"]);
+  const staff = await requireStaffRole(["owner", "waiter", "cashier", "kitchen"]);
   const admin = createSupabaseAdminClient();
 
   const [readyRes, tablesRes] = await Promise.all([
@@ -452,7 +452,7 @@ export async function markOrderServedAction(rawInput: {
 
   const { orderId, expectedVersion } = parsed.data;
   const { staff, admin, ip, device } = await applyOperationalAuditContext(
-    ["owner", "waiter"],
+    ["owner", "waiter", "cashier"],
     `Pelayan menandai pesanan sudah diantar ke meja (SERVED)`
   );
 
