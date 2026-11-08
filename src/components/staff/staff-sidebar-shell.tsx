@@ -3,10 +3,12 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { ROLE_LABELS_ID, type StaffNavItem } from "@/lib/auth";
 import type { UserRole } from "@/lib/types/database";
 import type { StaffSidebarBadges } from "@/server/inventory";
+import { switchActiveOutletAction, type OutletView } from "@/server/outlets";
 
 interface StaffSidebarShellProps {
   staff: {
@@ -15,6 +17,8 @@ interface StaffSidebarShellProps {
   };
   navItems: ReadonlyArray<StaffNavItem>;
   badges: StaffSidebarBadges;
+  outlets?: OutletView[];
+  activeOutletId?: string;
   logoutAction: () => Promise<void>;
   children: React.ReactNode;
 }
@@ -36,13 +40,44 @@ interface MainMenuGroup {
 export function StaffSidebarShell({
   staff,
   badges,
+  outlets = [],
+  activeOutletId,
   logoutAction,
   children,
 }: StaffSidebarShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [pendingHref, setPendingHref] = React.useState<string | null>(null);
+  const [outletMenuOpen, setOutletMenuOpen] = React.useState(false);
+  const [isSwitchingOutlet, startSwitchTransition] = React.useTransition();
+
+  const currentOutlet = React.useMemo(() => {
+    return (
+      outlets.find((o) => o.id === activeOutletId) ??
+      outlets[0] ?? {
+        id: "",
+        name: "LATTESPACE",
+        description: "Coffee & Eatery",
+        themeColor: "#3B7097",
+      }
+    );
+  }, [outlets, activeOutletId]);
+
+  const handleSwitchOutlet = (targetId: string) => {
+    setOutletMenuOpen(false);
+    startSwitchTransition(async () => {
+      const res = await switchActiveOutletAction(targetId);
+      if (res.ok) {
+        toast.success(res.message);
+        router.refresh();
+        window.location.reload();
+      } else {
+        toast.error(res.message);
+      }
+    });
+  };
 
   // Daftar 6 Komponen Utama dengan Sub-item yang disembunyikan dalam Expand/Accordion
   const allGroups: MainMenuGroup[] = React.useMemo(() => {
@@ -421,28 +456,113 @@ export function StaffSidebarShell({
             </div>
           </div>
 
-          {/* Sisi Kanan: Kartu Cabang & Profil Staf (Persis Latte Space Boyolali) */}
+          {/* Sisi Kanan: Kartu Cabang & Profil Staf (Latte Space Boyolali / Saiko Ramen) */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Kartu Cabang Aktif + User Profil */}
-            <Link
-              href="/dashboard/cabang"
-              prefetch={true}
-              className="flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 transition-all border border-white/15"
-              title="Klik untuk kelola cabang"
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-slate-800 font-extrabold text-xs shadow-2xs">
-                🏢
-              </div>
-              <div className="hidden text-left sm:block">
-                <div className="text-xs font-bold leading-tight">
-                  Outlet Utama (100 Meja)
+            {/* Master Account Badge Khusus Owner */}
+            {staff.role === "owner" && (
+              <div className="hidden lg:flex items-center gap-2 rounded-xl bg-amber-400/20 border border-amber-300/40 px-3 py-1.5 text-xs font-black text-amber-200 shadow-2xs">
+                <div className="relative h-4 w-4 shrink-0 flex items-center justify-center">
+                  <Image
+                    src="/logo-1621.png"
+                    alt="1621 Group"
+                    width={16}
+                    height={16}
+                    className="h-full w-auto object-contain brightness-200"
+                  />
                 </div>
-                <div className="text-[10px] text-blue-100 font-medium">
-                  {staff.fullName} ({ROLE_LABELS_ID[staff.role]})
-                </div>
+                <span>MASTER ACCOUNT</span>
               </div>
-              <span className="text-[10px] text-white/70">▼</span>
-            </Link>
+            )}
+
+            {/* Kartu Cabang Aktif + User Profil dengan Dropdown Switcher Instan */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOutletMenuOpen(!outletMenuOpen)}
+                className="flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 transition-all border border-white/15 cursor-pointer"
+                title="Klik untuk memilih cabang aktif"
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-slate-800 font-extrabold text-xs shadow-2xs">
+                  {currentOutlet.name.includes("RAMEN") ? "🍜" : "☕"}
+                </div>
+                <div className="hidden text-left sm:block">
+                  <div className="text-xs font-bold leading-tight flex items-center gap-1">
+                    <span className="truncate max-w-[120px]">{currentOutlet.name}</span>
+                    <span className="text-[10px] text-white/70">▼</span>
+                  </div>
+                  <div className="text-[10px] text-blue-100 font-medium">
+                    {staff.fullName} ({ROLE_LABELS_ID[staff.role]})
+                  </div>
+                </div>
+                <span className="text-[10px] text-white/70 sm:hidden">▼</span>
+              </button>
+
+              {/* Dropdown Menu Cabang */}
+              {outletMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setOutletMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 z-50 w-64 rounded-2xl bg-white p-2 shadow-2xl border border-slate-200 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                      <div className="text-2xs font-extrabold text-slate-400 uppercase tracking-wider">
+                        Pilih Cabang Aktif
+                      </div>
+                      <div className="text-xs font-bold text-slate-700">
+                        1621 F&amp;B Multi-Outlet
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      {outlets.map((out) => {
+                        const isSelected = out.id === currentOutlet.id;
+                        return (
+                          <button
+                            key={out.id}
+                            type="button"
+                            onClick={() => handleSwitchOutlet(out.id)}
+                            disabled={isSwitchingOutlet}
+                            className={`flex w-full items-center justify-between gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold transition cursor-pointer ${
+                              isSelected
+                                ? "bg-[#EBF3F8] text-[#3B7097] font-bold"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-base">
+                                {out.name.includes("RAMEN") ? "🍜" : "☕"}
+                              </span>
+                              <div className="truncate">
+                                <div className="truncate font-bold">{out.name}</div>
+                                <div className="text-[10px] text-slate-400 truncate">
+                                  {out.description || "Cabang 1621 F&B"}
+                                </div>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <span className="text-sky-600 font-extrabold text-xs">✓</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {staff.role === "owner" && (
+                      <div className="pt-2 mt-1 border-t border-slate-100">
+                        <Link
+                          href="/dashboard/cabang"
+                          onClick={() => setOutletMenuOpen(false)}
+                          className="flex items-center justify-center gap-1.5 w-full rounded-xl bg-slate-50 hover:bg-slate-100 py-2 text-xs font-bold text-slate-700 transition"
+                        >
+                          <span>⚙️ Kelola Cabang &amp; Kustomisasi</span>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Tombol Cepat Kasir */}
             {(staff.role === "owner" || staff.role === "cashier") && (

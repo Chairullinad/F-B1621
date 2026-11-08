@@ -37,6 +37,15 @@ export function OutletManager({
   const [outlets, setOutlets] = useState(initialOutlets);
   const [currentActiveId, setCurrentActiveId] = useState(activeOutletId);
 
+  // Sinkronisasi otomatis saat props berubah dari server
+  React.useEffect(() => {
+    setOutlets(initialOutlets);
+  }, [initialOutlets]);
+
+  React.useEffect(() => {
+    setCurrentActiveId(activeOutletId);
+  }, [activeOutletId]);
+
   // Form State: Tambah Cabang Baru
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
@@ -67,6 +76,9 @@ export function OutletManager({
       }
 
       toast.success(res.message);
+      if (res.outlet) {
+        setOutlets((prev) => [...prev, res.outlet!]);
+      }
       setShowAddForm(false);
       setNewName("");
       setNewAddress("");
@@ -148,89 +160,94 @@ export function OutletManager({
 
       {/* Form Tambah Cabang Baru (Collapsible) */}
       {showAddForm && (
-        <div className="rounded-2xl border border-sky-200 bg-white p-5 md:p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-200">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-800">
-              Formulir Tambah Cabang / Outlet Baru
-            </h3>
-            <p className="text-2xs text-slate-500">
-              Sistem akan otomatis menginisialisasi 10 meja awal dengan QR token unik untuk cabang ini.
-            </p>
+        <div className="rounded-2xl border border-sky-200 bg-white p-5 md:p-6 shadow-sm space-y-5 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">
+                Formulir Tambah Cabang / Outlet Baru
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Sistem akan otomatis menginisialisasi 10 meja awal dengan QR token unik untuk cabang ini.
+              </p>
+            </div>
+            <span className="rounded-full bg-sky-50 text-sky-700 px-3 py-1 text-xs font-bold border border-sky-200">
+              Multi-Outlet
+            </span>
           </div>
 
           <form onSubmit={handleCreateOutlet} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Nama Cabang *
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  🏢 Nama Cabang *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: 1621F&B - Boyolali"
+                  placeholder="Contoh: LATTESPACE atau SAIKO RAMEN"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Nomor Telepon Cabang
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  📞 Nomor Telepon Cabang
                 </label>
                 <input
                   type="text"
                   placeholder="0812-3456-7890"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Alamat Lengkap
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  📍 Alamat Lengkap
                 </label>
                 <input
                   type="text"
                   placeholder="Jl. Pandanaran No. 123, Boyolali"
                   value={newAddress}
                   onChange={(e) => setNewAddress(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Deskripsi / Tagline Cabang
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  📝 Deskripsi / Konsep Cabang
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Kafe & Resto Modern Boyolali"
+                  placeholder="Contoh: Coffee & Eatery Modern atau Japanese Ramen & Donburi"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  URL / Path Logo Cabang
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  🖼️ URL / Path Logo Cabang
                 </label>
                 <input
                   type="text"
                   value={newLogoUrl}
                   onChange={(e) => setNewLogoUrl(e.target.value)}
                   placeholder="/logo-1621.png"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Warna Tema Cabang
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  🎨 Warna Tema Cabang
                 </label>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   {COLOR_PRESETS.map((color) => (
                     <button
                       key={color.hex}
@@ -249,10 +266,10 @@ export function OutletManager({
                     type="color"
                     value={newThemeColor}
                     onChange={(e) => setNewThemeColor(e.target.value)}
-                    className="h-7 w-8 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
+                    className="h-7 w-8 cursor-pointer rounded-lg border border-slate-200 bg-white p-0.5"
                     title="Pilih warna kustom"
                   />
-                  <span className="text-2xs font-mono text-slate-500">
+                  <span className="text-xs font-mono text-slate-500 font-semibold">
                     {newThemeColor}
                   </span>
                 </div>
@@ -260,45 +277,42 @@ export function OutletManager({
             </div>
 
             {/* Live Preview Box */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex items-center justify-between gap-3">
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div
-                  className="h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-xs font-bold text-xs"
+                  className="h-11 w-11 rounded-xl flex items-center justify-center text-white shadow-xs font-bold text-base"
                   style={{ backgroundColor: newThemeColor }}
                 >
                   🏢
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-800">
+                  <div className="text-sm font-bold text-slate-800">
                     {newName || "Nama Cabang Baru"}
                   </div>
-                  <div className="text-2xs text-slate-500">
+                  <div className="text-xs text-slate-500">
                     {newAddress || "Alamat Cabang"} &bull; {newPhone || "No. Telp"}
                   </div>
                 </div>
               </div>
-              <div
-                className="rounded-lg px-3 py-1 text-2xs font-bold text-white shadow-xs"
-                style={{ backgroundColor: newThemeColor }}
-              >
-                Preview Tag
-              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700">
+                10 Meja Otomatis
+              </span>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={isPending}
-                className="rounded-lg bg-[#F58220] px-5 py-2 text-xs font-bold text-white hover:bg-[#e07519] transition shadow-xs cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0284C7] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#0369a1] active:scale-[0.98] transition cursor-pointer disabled:opacity-60"
               >
-                {isPending ? "Menyimpan..." : "Simpan Cabang Baru"}
+                <span>{isPending ? "⏳ Menyimpan..." : "✓ Simpan Cabang Baru"}</span>
               </button>
             </div>
           </form>
@@ -416,22 +430,27 @@ export function OutletManager({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-800">
-                Edit Tampilan &amp; Identitas Cabang
-              </h3>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">
+                  Edit Tampilan &amp; Identitas Cabang
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Ubah nama, alamat, nomor kontak, serta warna tema cabang.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingOutlet(null)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-sm font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleUpdateCustomization} className="space-y-3">
+            <form onSubmit={handleUpdateCustomization} className="space-y-3.5">
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Nama Cabang
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  🏢 Nama Cabang
                 </label>
                 <input
                   type="text"
@@ -440,13 +459,13 @@ export function OutletManager({
                   onChange={(e) =>
                     setEditingOutlet({ ...editingOutlet, name: e.target.value })
                   }
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Alamat
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  📍 Alamat Lengkap
                 </label>
                 <input
                   type="text"
@@ -454,13 +473,13 @@ export function OutletManager({
                   onChange={(e) =>
                     setEditingOutlet({ ...editingOutlet, address: e.target.value })
                   }
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Nomor Telepon
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  📞 Nomor Telepon
                 </label>
                 <input
                   type="text"
@@ -468,13 +487,13 @@ export function OutletManager({
                   onChange={(e) =>
                     setEditingOutlet({ ...editingOutlet, phone: e.target.value })
                   }
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Path / URL Logo
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  🖼️ Path / URL Logo Cabang
                 </label>
                 <input
                   type="text"
@@ -482,15 +501,15 @@ export function OutletManager({
                   onChange={(e) =>
                     setEditingOutlet({ ...editingOutlet, logoUrl: e.target.value })
                   }
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 focus:border-[#0284C7] focus:outline-hidden"
+                  className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-800 focus:bg-white focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 transition-all outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-2xs font-semibold text-slate-600 mb-1">
-                  Pilihan Warna Tema Cabang
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  🎨 Pilihan Warna Tema Cabang
                 </label>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   {COLOR_PRESETS.map((color) => (
                     <button
                       key={color.hex}
@@ -513,9 +532,9 @@ export function OutletManager({
                     onChange={(e) =>
                       setEditingOutlet({ ...editingOutlet, themeColor: e.target.value })
                     }
-                    className="h-7 w-8 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
+                    className="h-7 w-8 cursor-pointer rounded-lg border border-slate-200 bg-white p-0.5"
                   />
-                  <span className="text-2xs font-mono text-slate-500">
+                  <span className="text-xs font-mono text-slate-500 font-semibold">
                     {editingOutlet.themeColor}
                   </span>
                 </div>
@@ -525,16 +544,16 @@ export function OutletManager({
                 <button
                   type="button"
                   onClick={() => setEditingOutlet(null)}
-                  className="rounded-lg border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="rounded-lg bg-[#F58220] py-2.5 text-xs font-bold text-white hover:bg-[#e07519] transition shadow-xs cursor-pointer"
+                  className="rounded-xl bg-[#0284C7] py-2.5 text-xs font-bold text-white hover:bg-[#0369a1] active:scale-[0.98] transition shadow-xs cursor-pointer disabled:opacity-60"
                 >
-                  {isPending ? "Menyimpan..." : "Simpan Perubahan"}
+                  {isPending ? "⏳ Menyimpan..." : "✓ Simpan Perubahan"}
                 </button>
               </div>
             </form>

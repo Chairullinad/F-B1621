@@ -108,7 +108,7 @@ export function LoginForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Email Field */}
         <div>
-          <label className="block text-2xs font-semibold text-slate-600 mb-1">
+          <label className="block text-xs font-bold text-slate-700 mb-1.5">
             Email
           </label>
           <input
@@ -118,14 +118,14 @@ export function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="lattespaceboyolali@gmail.com"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:ring-2 focus:ring-sky-100 focus:outline-hidden transition"
+            className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 focus:bg-white px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 outline-hidden transition-all"
           />
         </div>
 
         {/* Password Field */}
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-2xs font-semibold text-slate-600">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold text-slate-700">
               Kata Sandi
             </label>
             <button
@@ -133,7 +133,7 @@ export function LoginForm() {
               onClick={() =>
                 toast.info("Gunakan opsi Akun Demo di bawah atau hubungi Owner.")
               }
-              className="text-2xs font-medium text-sky-600 hover:underline"
+              className="text-xs font-semibold text-sky-600 hover:underline"
             >
               Lupa Kata Sandi?
             </button>
@@ -146,12 +146,12 @@ export function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:ring-2 focus:ring-sky-100 focus:outline-hidden transition"
+              className="w-full rounded-xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 focus:bg-white px-4 py-3 pr-11 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 outline-hidden transition-all"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 text-sm"
+              className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 text-base"
               tabIndex={-1}
             >
               {showPassword ? "🙈" : "👁️"}
@@ -163,7 +163,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full rounded-lg bg-[#F58220] py-2.5 px-4 text-xs sm:text-sm font-bold text-white shadow-xs transition hover:bg-[#e07519] active:scale-[0.98] disabled:opacity-60 cursor-pointer"
+          className="w-full rounded-xl bg-[#F58220] py-3 px-4 text-sm font-bold text-white shadow-md shadow-orange-500/20 transition hover:bg-[#e07519] active:scale-[0.98] disabled:opacity-60 cursor-pointer"
         >
           {isPending ? "Sedang Memeriksa..." : "Masuk"}
         </button>

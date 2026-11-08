@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDefaultRouteForRole } from "@/lib/auth";
@@ -135,10 +135,31 @@ export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | nul
       return null;
     }
 
+    let activeOutletId = String(profile.outlet_id);
+    if (profile.role === "owner") {
+      try {
+        const cookieStore = await cookies();
+        const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
+        if (cookieOutletId) {
+          const { data: out } = await admin
+            .from("outlets")
+            .select("id")
+            .eq("id", cookieOutletId)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (out) {
+            activeOutletId = String(out.id);
+          }
+        }
+      } catch {
+        // Abaikan jika pemanggilan cookies di context non-request
+      }
+    }
+
     return {
       userId: profile.id,
       email: user.email ?? "",
-      outletId: profile.outlet_id,
+      outletId: activeOutletId,
       fullName: profile.full_name,
       role: profile.role as UserRole,
       isActive: profile.is_active,

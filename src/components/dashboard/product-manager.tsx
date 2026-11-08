@@ -197,7 +197,7 @@ export function ProductManager({
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
                 disabled={isPending}
-                className="flex min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 shadow-xs"
+                className="flex min-h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 focus:bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-all duration-150 focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 outline-hidden"
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -285,7 +285,7 @@ export function ProductManager({
               aria-label="Filter kategori"
               value={filterCategoryId}
               onChange={(e) => setFilterCategoryId(e.target.value)}
-              className="flex min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+              className="flex min-h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 focus:bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 shadow-xs transition-all duration-150 focus:border-[#0284C7] focus:ring-4 focus:ring-sky-500/10 outline-hidden"
             >
               <option value="ALL">Semua Kategori</option>
               {categories.map((c) => (
