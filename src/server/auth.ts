@@ -33,11 +33,27 @@ const createStaffInputSchema = z.object({
     .email("Format email tidak valid."),
   password: z.string().min(8, "Kata sandi awal minimal 8 karakter."),
   role: userRoleSchema,
+  outletId: z.string().uuid().optional(),
 });
 
 const updateStaffRoleInputSchema = z.object({
   profileId: z.string().uuid("ID profil staf tidak valid."),
   role: userRoleSchema,
+});
+
+const updateStaffMemberInputSchema = z.object({
+  profileId: z.string().uuid("ID profil staf tidak valid."),
+  fullName: z.string().trim().min(2, "Nama minimal 2 karakter.").max(100),
+  role: userRoleSchema,
+  outletId: z.string().uuid("Cabang penugasan tidak valid."),
+});
+
+const resetStaffPasswordInputSchema = z.object({
+  profileId: z.string().uuid("ID profil staf tidak valid."),
+  newPassword: z
+    .string()
+    .min(8, "Kata sandi baru minimal 8 karakter.")
+    .max(100),
 });
 
 const toggleStaffActiveInputSchema = z.object({
@@ -56,6 +72,7 @@ export interface AuthenticatedStaff {
 
 export interface StaffMemberWithEmail extends ProfileRow {
   email: string;
+  outletName?: string;
 }
 
 export interface ActionResult {
@@ -313,24 +330,27 @@ export async function logoutStaffAction(): Promise<void> {
 }
 
 /**
- * Ambil seluruh daftar staf untuk Owner di halaman /dashboard/staf.
+ * Ambil seluruh daftar staf lintas cabang untuk Owner di halaman /dashboard/staf.
  */
 export async function listStaffMembersForOwner(): Promise<
   StaffMemberWithEmail[]
 > {
-  const owner = await requireStaffRole(["owner"]);
+  await requireStaffRole(["owner"]);
   const admin = createSupabaseAdminClient();
 
-  const [{ data: profiles, error: profErr }, { data: usersData }] =
-    await Promise.all([
-      admin
-        .from("profiles")
-        .select("*")
-        .eq("outlet_id", owner.outletId)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: true }),
-      admin.auth.admin.listUsers({ perPage: 200 }),
-    ]);
+  const [
+    { data: profiles, error: profErr },
+    { data: usersData },
+    { data: outletsData },
+  ] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("*")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+    admin.auth.admin.listUsers({ perPage: 200 }),
+    admin.from("outlets").select("id, name").is("deleted_at", null),
+  ]);
 
   if (profErr || !profiles) {
     return [];
@@ -341,9 +361,15 @@ export async function listStaffMembersForOwner(): Promise<
     emailMap.set(u.id, u.email ?? "-");
   }
 
+  const outletNameMap = new Map<string, string>();
+  for (const o of outletsData ?? []) {
+    outletNameMap.set(String(o.id), String(o.name));
+  }
+
   return (profiles as ProfileRow[]).map((p) => ({
     ...p,
     email: emailMap.get(p.id) ?? "-",
+    outletName: outletNameMap.get(String(p.outlet_id)) ?? "LATTESPACE",
   }));
 }
 
@@ -355,6 +381,7 @@ export async function createStaffUserAction(rawInput: {
   email: string;
   password: string;
   role: UserRole;
+  outletId?: string;
 }): Promise<ActionResult> {
   const owner = await requireStaffRole(["owner"]);
   const parsed = createStaffInputSchema.safeParse(rawInput);
@@ -367,7 +394,8 @@ export async function createStaffUserAction(rawInput: {
   }
 
   const admin = createSupabaseAdminClient();
-  const { fullName, email, password, role } = parsed.data;
+  const { fullName, email, password, role, outletId } = parsed.data;
+  const targetOutletId = outletId ?? owner.outletId;
 
   const { data: createdUser, error: createAuthErr } =
     await admin.auth.admin.createUser({
@@ -400,7 +428,7 @@ export async function createStaffUserAction(rawInput: {
 
   const { error: insertProfErr } = await admin.from("profiles").insert({
     id: createdUser.user.id,
-    outlet_id: owner.outletId,
+    outlet_id: targetOutletId,
     full_name: fullName,
     role,
     is_active: true,
@@ -458,15 +486,138 @@ export async function updateStaffRoleAction(rawInput: {
   const { error } = await admin
     .from("profiles")
     .update({ role })
-    .eq("id", profileId)
-    .eq("outlet_id", owner.outletId);
+    .eq("id", profileId);
 
   if (error) {
     return { ok: false, message: `Gagal mengubah role: ${error.message}` };
   }
 
   revalidatePath("/dashboard/staf");
-  return { ok: true, message: "Role staf berhasil diperbarui." };
+  return { ok: true, message: "Role dan hak akses staf berhasil diperbarui." };
+}
+
+/**
+ * Server Action (Khusus Owner): Ubah profil lengkap staf (Nama, Role, & Cabang Tugas).
+ */
+export async function updateStaffMemberAction(rawInput: {
+  profileId: string;
+  fullName: string;
+  role: UserRole;
+  outletId: string;
+}): Promise<ActionResult> {
+  const owner = await requireStaffRole(["owner"]);
+  const parsed = updateStaffMemberInputSchema.safeParse(rawInput);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "Data staf tidak valid.",
+    };
+  }
+
+  const { profileId, fullName, role, outletId } = parsed.data;
+  if (profileId === owner.userId && role !== "owner") {
+    return {
+      ok: false,
+      message: "Owner tidak dapat menurunkan role miliknya sendiri.",
+    };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { ip, device } = await getRequestAuditMeta();
+  await admin.rpc("set_audit_context", {
+    p_user_id: owner.userId,
+    p_role: owner.role,
+    p_device: device,
+    p_ip: ip,
+    p_reason: `Pembaruan profil/cabang/hak akses staf ${fullName}`,
+  });
+
+  const { error } = await admin
+    .from("profiles")
+    .update({
+      full_name: fullName,
+      role,
+      outlet_id: outletId,
+    })
+    .eq("id", profileId);
+
+  if (error) {
+    return {
+      ok: false,
+      message: `Gagal memperbarui profil staf: ${error.message}`,
+    };
+  }
+
+  revalidatePath("/dashboard/staf");
+  return {
+    ok: true,
+    message: `Profil, cabang tugas, dan hak akses ${fullName} berhasil diperbarui.`,
+  };
+}
+
+/**
+ * Server Action (Khusus Owner): Reset kata sandi staf secara langsung.
+ */
+export async function resetStaffPasswordAction(rawInput: {
+  profileId: string;
+  newPassword: string;
+}): Promise<ActionResult> {
+  const owner = await requireStaffRole(["owner"]);
+  const parsed = resetStaffPasswordInputSchema.safeParse(rawInput);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "Password baru tidak valid.",
+    };
+  }
+
+  const { profileId, newPassword } = parsed.data;
+  const admin = createSupabaseAdminClient();
+
+  const { data: prof } = await admin
+    .from("profiles")
+    .select("full_name, outlet_id")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  const { error: authErr } = await admin.auth.admin.updateUserById(profileId, {
+    password: newPassword,
+  });
+
+  if (authErr) {
+    return {
+      ok: false,
+      message: `Gagal mengubah kata sandi: ${authErr.message}`,
+    };
+  }
+
+  const { ip, device } = await getRequestAuditMeta();
+  await admin.from("audit_logs").insert({
+    outlet_id: String(prof?.outlet_id ?? owner.outletId),
+    user_id: owner.userId,
+    role: owner.role,
+    device,
+    ip,
+    action: "staff.password_reset_by_owner",
+    entity: "profiles",
+    entity_id: profileId,
+    before: null,
+    after: {
+      staff_name: prof?.full_name ?? profileId,
+      reset_by: owner.fullName,
+    },
+    reason: `Reset password staf ${prof?.full_name ?? ""} oleh Owner`,
+    prev_hash: "",
+    hash: "",
+  });
+
+  revalidatePath("/dashboard/staf");
+  return {
+    ok: true,
+    message: `Kata sandi untuk ${prof?.full_name ?? "staf"} berhasil diperbarui.`,
+  };
 }
 
 /**
@@ -509,8 +660,7 @@ export async function toggleStaffActiveAction(rawInput: {
   const { error } = await admin
     .from("profiles")
     .update({ is_active: isActive })
-    .eq("id", profileId)
-    .eq("outlet_id", owner.outletId);
+    .eq("id", profileId);
 
   if (error) {
     return {
