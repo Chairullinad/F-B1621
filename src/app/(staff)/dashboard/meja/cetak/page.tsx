@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { PrintTriggerButton } from "@/components/dashboard/print-trigger-button";
@@ -34,14 +35,14 @@ export default async function CetakQrMejaPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 print:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 print:hidden">
         <div>
-          <h1 className="text-xl font-bold">
-            Cetak QR Meja — {outlet.name} ({activeTables.length} Meja)
+          <h1 className="text-xl font-bold text-slate-900">
+            Cetak Standee QR Meja — {outlet.name} ({activeTables.length} Meja)
           </h1>
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-slate-600">
             Gunakan tombol <strong>Cetak / Simpan PDF</strong> di kanan untuk
-            mencetak stiker QR meja.
+            mencetak stiker atau akrilik QR meja resmi berlogo <strong>1621 Group</strong>.
           </p>
         </div>
 
@@ -51,14 +52,14 @@ export default async function CetakQrMejaPage({
           </Button>
           {tableFilter ? (
             <Button asChild variant="secondary">
-              <Link href="/dashboard/meja/cetak">Tampilkan Semua 100 Meja</Link>
+              <Link href="/dashboard/meja/cetak">Tampilkan Semua Meja Aktif</Link>
             </Button>
           ) : null}
           <PrintTriggerButton />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 print:grid-cols-3 print:gap-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 print:grid-cols-3 print:gap-4">
         {activeTables.map((table) => {
           const qrUrl = `${baseUrl}/m/${table.qr_token}`;
           const svgMarkup = generateQrSvgString(qrUrl, 2);
@@ -66,28 +67,45 @@ export default async function CetakQrMejaPage({
           return (
             <div
               key={table.id}
-              className="flex flex-col items-center justify-between rounded-xl border-2 border-zinc-900 bg-white p-4 text-center break-inside-avoid"
+              className="flex flex-col items-center justify-between rounded-2xl border-2 border-[#1B5E86] bg-white p-4 text-center shadow-xs break-inside-avoid"
             >
-              <div className="space-y-0.5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              {/* Header Brand 1621 Group + Nama Cabang */}
+              <div className="flex w-full flex-col items-center border-b border-slate-100 pb-2.5">
+                <Image
+                  src="/logo-1621group.png"
+                  alt="1621 Group"
+                  width={136}
+                  height={38}
+                  className="h-8 w-auto object-contain"
+                />
+                <span className="mt-1 rounded-full bg-[#EBF5FF] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1B5E86]">
                   {outlet.name}
-                </p>
-                <h2 className="text-2xl font-extrabold text-zinc-950">
+                </span>
+              </div>
+
+              {/* Nomor Meja */}
+              <div className="my-2.5">
+                <h2 className="inline-block rounded-lg bg-[#1B5E86] px-4 py-1 text-lg font-extrabold tracking-wide text-white uppercase">
                   {table.name}
                 </h2>
               </div>
 
+              {/* QR Code Murni Presisi Tinggi */}
               <div
-                className="my-3 h-40 w-40"
+                className="h-40 w-40 rounded-xl border-2 border-slate-200 bg-white p-2"
                 dangerouslySetInnerHTML={{ __html: svgMarkup }}
               />
 
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-zinc-900">
-                  Scan untuk Pesan &amp; Bayar di Meja
+              {/* Footer Panduan 3 Langkah & Identitas */}
+              <div className="mt-3 w-full space-y-1 border-t border-slate-100 pt-2.5">
+                <p className="text-[11px] font-bold tracking-wide text-slate-900">
+                  SCAN UNTUK PESAN DI MEJA
                 </p>
-                <p className="font-mono text-[10px] text-zinc-500">
-                  #{table.table_no} &bull; {table.qr_token.slice(0, 10)}
+                <p className="text-[10px] font-medium text-slate-600">
+                  1. Scan QR &bull; 2. Pilih Menu &bull; 3. Bayar QRIS/Kasir
+                </p>
+                <p className="font-mono text-[9px] text-slate-400">
+                  1621 GROUP POS &bull; #{table.table_no} &bull; {table.qr_token.slice(0, 8)}
                 </p>
               </div>
             </div>

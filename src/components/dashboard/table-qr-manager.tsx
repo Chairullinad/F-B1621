@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { QrCode, Printer, ExternalLink, RefreshCw, Power } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,30 +114,34 @@ export function TableQrManager({
           </div>
 
           {selectedTable ? (
-            <div className="rounded-xl border-2 border-zinc-900 bg-zinc-50 p-5">
-              <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default">Pratinjau QR Meja</Badge>
-                    <span className="text-lg font-bold">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50 p-5">
+              <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="default">Pratinjau Standee QR Meja</Badge>
+                    <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
                       {selectedTable.name} — {outletName}
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-600 break-all">
-                    URL Tujuan:{" "}
+                  <p className="text-xs text-slate-600 dark:text-slate-400 break-all">
+                    URL Tujuan Pelanggan:{" "}
                     <Link
                       href={`/m/${selectedTable.qr_token}`}
                       target="_blank"
-                      className="font-mono underline"
+                      className="font-mono text-[#1E88E5] underline"
                     >
                       {origin}/m/{selectedTable.qr_token}
                     </Link>
                   </p>
-                  <div className="flex flex-wrap gap-2 pt-2">
+                  <p className="text-xs text-slate-500 max-w-md">
+                    Desain stiker meja resmi dilengkapi dengan identitas <strong>1621 Group</strong>, nama cabang, nomor meja, dan panduan pemesanan mandiri 3 langkah.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild size="sm">
                       <Link
                         href={`/dashboard/meja/cetak?table=${selectedTable.table_no}`}
                       >
+                        <Printer className="mr-1.5 h-3.5 w-3.5" />
                         Cetak QR {selectedTable.name}
                       </Link>
                     </Button>
@@ -144,7 +150,8 @@ export function TableQrManager({
                         href={`/m/${selectedTable.qr_token}`}
                         target="_blank"
                       >
-                        Uji Buka Halaman Pelanggan
+                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                        Simulasi Scan Pelanggan
                       </Link>
                     </Button>
                     <Button
@@ -158,14 +165,48 @@ export function TableQrManager({
                   </div>
                 </div>
 
-                <div
-                  className="h-44 w-44 shrink-0 rounded-lg border border-zinc-200 bg-white p-2 shadow-xs"
-                  dangerouslySetInnerHTML={{
-                    __html: generateQrSvgString(
-                      `${origin}/m/${selectedTable.qr_token}`
-                    ),
-                  }}
-                />
+                {/* Kartu Pratinjau Standee Meja Branded 1621 Group */}
+                <div className="flex w-64 shrink-0 flex-col items-center justify-between overflow-hidden rounded-2xl border-2 border-[#1B5E86] bg-white p-4 text-center shadow-md">
+                  <div className="flex w-full flex-col items-center border-b border-slate-100 pb-2.5">
+                    <Image
+                      src="/logo-1621group.png"
+                      alt="1621 Group"
+                      width={132}
+                      height={37}
+                      className="h-8 w-auto object-contain"
+                    />
+                    <span className="mt-1 rounded-full bg-[#EBF5FF] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1B5E86]">
+                      {outletName}
+                    </span>
+                  </div>
+
+                  <div className="my-2.5">
+                    <span className="inline-block rounded-lg bg-[#1B5E86] px-4 py-1 text-base font-extrabold tracking-wide text-white uppercase shadow-xs">
+                      {selectedTable.name}
+                    </span>
+                  </div>
+
+                  <div
+                    className="h-40 w-40 rounded-xl border-2 border-slate-200 bg-white p-2 shadow-2xs"
+                    dangerouslySetInnerHTML={{
+                      __html: generateQrSvgString(
+                        `${origin}/m/${selectedTable.qr_token}`
+                      ),
+                    }}
+                  />
+
+                  <div className="mt-3 w-full space-y-1 border-t border-slate-100 pt-2.5">
+                    <p className="text-[11px] font-bold text-slate-900">
+                      SCAN UNTUK PESAN DI MEJA
+                    </p>
+                    <p className="text-[10px] font-medium text-slate-500">
+                      1. Scan QR &bull; 2. Pilih Menu &bull; 3. Bayar
+                    </p>
+                    <p className="font-mono text-[9px] text-slate-400">
+                      1621 GROUP POS &bull; #{selectedTable.table_no}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
@@ -174,11 +215,18 @@ export function TableQrManager({
             {filteredTables.map((table) => (
               <div
                 key={table.id}
-                className="flex flex-col justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4"
+                className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-2xs"
               >
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-base font-bold">{table.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#EBF5FF] text-xs font-extrabold text-[#1B5E86]">
+                        {table.table_no}
+                      </span>
+                      <span className="text-base font-bold text-slate-900 dark:text-slate-100">
+                        {table.name}
+                      </span>
+                    </div>
                     <Badge
                       variant={table.is_active ? "success" : "destructive"}
                     >
@@ -186,7 +234,7 @@ export function TableQrManager({
                     </Badge>
                   </div>
                   <p
-                    className="truncate font-mono text-xs text-zinc-500"
+                    className="truncate font-mono text-xs text-slate-500"
                     title={table.qr_token}
                   >
                     Token: {table.qr_token.slice(0, 16)}...
@@ -200,10 +248,12 @@ export function TableQrManager({
                     size="sm"
                     onClick={() => setSelectedTable(table)}
                   >
+                    <QrCode className="mr-1 h-3.5 w-3.5" />
                     Lihat QR
                   </Button>
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/dashboard/meja/cetak?table=${table.table_no}`}>
+                      <Printer className="mr-1 h-3.5 w-3.5" />
                       Cetak
                     </Link>
                   </Button>
@@ -214,6 +264,7 @@ export function TableQrManager({
                     disabled={isPending}
                     onClick={() => handleRegenerateQr(table)}
                   >
+                    <RefreshCw className="mr-1 h-3.5 w-3.5" />
                     Ganti Token
                   </Button>
                   <Button
@@ -223,6 +274,7 @@ export function TableQrManager({
                     disabled={isPending}
                     onClick={() => handleToggleActive(table)}
                   >
+                    <Power className="mr-1 h-3.5 w-3.5" />
                     {table.is_active ? "Nonaktifkan" : "Aktifkan"}
                   </Button>
                 </div>

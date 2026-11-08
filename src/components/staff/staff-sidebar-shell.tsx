@@ -295,7 +295,7 @@ export function StaffSidebarShell({
           sidebarCollapsed ? "w-18" : "w-64"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* Brand Header Kiri Atas: Logo 1621Group Stacked PNG + Tombol Lipat Sidebar (Persis ESB POSLite) */}
+        {/* Brand Header Kiri Atas: Logo 1621Group Horizontal Panjang + Tombol Lipat Sidebar (Persis ESB POSLite) */}
         <div className="flex h-15 items-center justify-between border-b border-slate-200/80 dark:border-slate-800 px-3.5 py-2 bg-white dark:bg-slate-900">
           <Link
             href={staff.role === "owner" ? "/dashboard" : "/kasir"}
@@ -304,13 +304,13 @@ export function StaffSidebarShell({
             className="flex items-center gap-2 min-w-0"
           >
             {!sidebarCollapsed ? (
-              <div className="relative h-11 w-28 flex items-center">
+              <div className="relative h-10 w-42 flex items-center">
                 <Image
-                  src="/logo-1621group-stacked.png"
+                  src="/logo-1621group.png"
                   alt="1621 Group"
-                  width={112}
-                  height={75}
-                  className="h-full w-auto object-contain"
+                  width={168}
+                  height={47}
+                  className="h-full w-auto object-contain object-left"
                   priority
                 />
               </div>
