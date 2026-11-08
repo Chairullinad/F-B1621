@@ -54,6 +54,36 @@ function formatRemainingCountdown(expiresAtIso: string | null, nowMs: number): {
   };
 }
 
+function playCustomerStatusChime(isAlert = false) {
+  try {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(isAlert ? [200, 100, 200] : [120, 60, 140]);
+    }
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = isAlert ? "sawtooth" : "sine";
+    osc.frequency.setValueAtTime(isAlert ? 360 : 587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(
+      isAlert ? 260 : 880,
+      ctx.currentTime + 0.14
+    );
+    gain.gain.setValueAtTime(0.22, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.38);
+  } catch {
+    // Abaikan jika browser memblokir audio
+  }
+}
+
 export function CustomerOrderExperience({
   data,
 }: {
@@ -73,6 +103,7 @@ export function CustomerOrderExperience({
 
   const [activeOrder, setActiveOrder] =
     React.useState<CustomerOrderTrackingView | null>(null);
+  const prevStatusRef = React.useRef<string | null>(null);
   const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
   const [servedExpireCountdown, setServedExpireCountdown] = React.useState<
     number | null
@@ -105,6 +136,40 @@ export function CustomerOrderExperience({
       setNowMs(Date.now());
     }, 1000);
     return () => window.clearInterval(interval);
+  }, [activeOrder]);
+
+  // Deteksi perubahan status pesanan di layar pelanggan untuk membunyikan nada notifikasi & getar HP
+  React.useEffect(() => {
+    if (!activeOrder) {
+      prevStatusRef.current = null;
+      return;
+    }
+    const prev = prevStatusRef.current;
+    const curr = activeOrder.status;
+    if (prev && prev !== curr) {
+      if (curr === "paid") {
+        playCustomerStatusChime(false);
+        toast.success(
+          "Pembayaran Anda telah diverifikasi Kasir! Pesanan sedang dimasak di Kitchen."
+        );
+      } else if (curr === "ready") {
+        playCustomerStatusChime(false);
+        toast.success(
+          `Pesanan Anda sudah selesai dimasak dan sedang diantar ke ${activeOrder.tableName}!`
+        );
+      } else if (curr === "served") {
+        playCustomerStatusChime(false);
+        toast.success("Pesanan sudah diantar ke meja. Selamat menikmati!");
+      } else if (curr === "cancelled" || curr === "expired") {
+        playCustomerStatusChime(true);
+        toast.error(
+          activeOrder.cancelReason
+            ? `Pesanan dibatalkan: ${activeOrder.cancelReason}`
+            : "Pesanan Anda telah dibatalkan / kedaluwarsa."
+        );
+      }
+    }
+    prevStatusRef.current = curr;
   }, [activeOrder]);
 
   // Polling status order setiap 3 detik selama order aktif dan belum expired sesinya
