@@ -94,7 +94,7 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
         className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
       >
         <h3 className="mb-3 text-base font-bold text-slate-900">
-          🗑️ Catat Waste &amp; Spoilage Baru
+          Catat Waste &amp; Spoilage Baru
         </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
@@ -176,7 +176,7 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
       {/* Tabel Riwayat Waste */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <h3 className="mb-3 text-base font-bold text-slate-900">
-          📋 Riwayat Waste &amp; Spoilage
+          Riwayat Waste &amp; Spoilage
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs sm:text-sm">

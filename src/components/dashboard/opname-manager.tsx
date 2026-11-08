@@ -92,10 +92,10 @@ export function OpnameManager({
 
   return (
     <div className="space-y-6">
-      {/* Amber Gradient Header (Blind Count Mode) */}
-      <div className="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 p-5 text-white shadow-sm">
-        <h3 className="text-lg font-extrabold">
-          🔍 Stock Opname — Blind Count Mode
+      {/* Header (Blind Count Mode) */}
+      <div className="rounded-xl bg-[#1E88E5] p-5 text-white shadow-2xs">
+        <h3 className="text-lg font-bold">
+          Stock Opname — Blind Count Mode
         </h3>
         <p className="mt-0.5 text-xs text-amber-50 sm:text-sm">
           Anda TIDAK melihat stok sistem sebelum mengisi. Isi sesuai hitungan
@@ -173,15 +173,15 @@ export function OpnameManager({
                         <span className="text-slate-400">—</span>
                       ) : Math.abs(selisih) < 0.05 ? (
                         <span className="inline-block rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
-                          ✅ Sesuai
+                          Sesuai
                         </span>
                       ) : selisih < 0 ? (
                         <span className="inline-block rounded-lg bg-red-100 px-2.5 py-1 text-xs font-bold text-red-800">
-                          ▼ {selisih} {ing.unit} (kurang)
+                          {selisih} {ing.unit} (kurang)
                         </span>
                       ) : (
                         <span className="inline-block rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
-                          ▲ +{selisih} {ing.unit} (lebih)
+                          +{selisih} {ing.unit} (lebih)
                         </span>
                       )}
                     </td>
@@ -213,7 +213,7 @@ export function OpnameManager({
         <div className="flex flex-wrap items-center gap-3">
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-600">
-              📸 TTD Digital / Nama Pemeriksa
+              TTD Digital / Nama Pemeriksa
             </label>
             <Input
               value={signature}
@@ -242,15 +242,15 @@ export function OpnameManager({
             onClick={handleSaveDraft}
             disabled={isPending}
           >
-            💾 Simpan Draft
+            Simpan Draft
           </Button>
           <Button
             type="button"
             disabled={isPending}
             onClick={handleSubmitOpname}
-            className="bg-blue-600 text-white hover:bg-blue-700"
+            className="bg-[#1E88E5] text-white hover:bg-[#1976D2]"
           >
-            {isPending ? "Mengirim..." : "✅ Submit Stock Opname"}
+            {isPending ? "Mengirim..." : "Submit Stock Opname"}
           </Button>
         </div>
       </div>
@@ -258,7 +258,7 @@ export function OpnameManager({
       {/* Daftar Riwayat & Approval Opname (Owner) */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <h3 className="mb-3 text-base font-bold text-slate-900">
-          📋 Riwayat &amp; Approval Stock Opname
+          Riwayat &amp; Approval Stock Opname
         </h3>
         {initialData.opnames.length === 0 ? (
           <p className="py-6 text-center text-xs text-slate-400">

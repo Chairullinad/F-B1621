@@ -178,13 +178,13 @@ export function SupplierPoManager({
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-bold text-slate-900">
-            🏭 Daftar Supplier — f&amp;b1621
+            Daftar Supplier — 1621 Group
           </h3>
           <Button
             type="button"
             size="sm"
             onClick={() => setShowAddSupplier(!showAddSupplier)}
-            className="bg-blue-600 text-white hover:bg-blue-700"
+            className="bg-[#1E88E5] text-white hover:bg-[#1976D2]"
           >
             {showAddSupplier ? "Tutup Form" : "+ Tambah Supplier"}
           </Button>
@@ -272,7 +272,9 @@ export function SupplierPoManager({
                   <td className="px-3 py-2.5 font-semibold text-slate-700">
                     {s.payment_term}
                   </td>
-                  <td className="px-3 py-2.5">{"⭐".repeat(s.rating)}</td>
+                  <td className="px-3 py-2.5 font-semibold text-slate-700">
+                    {s.rating}/5
+                  </td>
                   <td className="px-3 py-2.5 text-right">
                     {s.payable_balance > 0 ? (
                       <strong className="text-amber-600">
@@ -306,7 +308,7 @@ export function SupplierPoManager({
         className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
       >
         <h3 className="mb-3 text-base font-bold text-slate-900">
-          ➕ Buat Purchase Order (PO) Bahan Baku
+          Buat Purchase Order (PO) Bahan Baku
         </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
@@ -377,9 +379,9 @@ export function SupplierPoManager({
           <Button
             type="submit"
             disabled={isPending}
-            className="bg-blue-600 text-white hover:bg-blue-700"
+            className="bg-[#1E88E5] text-white hover:bg-[#1976D2]"
           >
-            {isPending ? "Membuat PO..." : "📤 Terbitkan Purchase Order"}
+            {isPending ? "Membuat PO..." : "Terbitkan Purchase Order"}
           </Button>
         </div>
       </form>
@@ -387,7 +389,7 @@ export function SupplierPoManager({
       {/* Daftar Purchase Order */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
         <h3 className="mb-3 text-base font-bold text-slate-900">
-          📋 Daftar Purchase Order (PO)
+          Daftar Purchase Order (PO)
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs sm:text-sm">
@@ -448,7 +450,7 @@ export function SupplierPoManager({
                         onClick={() => handlePayPo(p.id)}
                         className="rounded-lg bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 hover:bg-blue-200"
                       >
-                        💳 Lunasi Hutang
+                        Lunasi Hutang
                       </button>
                     ) : (
                       <span className="text-xs text-slate-400">Selesai</span>

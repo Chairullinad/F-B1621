@@ -111,7 +111,7 @@ export function TransferStockManager({
             </span>
           </div>
           <h2 className="mt-1.5 text-xl font-bold text-slate-900">
-            🔄 Transfer / Mutasi Stok Antar Penyimpanan
+            Transfer / Mutasi Stok Antar Penyimpanan
           </h2>
           <p className="text-sm text-slate-600">
             Alur terverifikasi 2 tahap: Request Transfer → Approve Pengiriman
@@ -192,7 +192,7 @@ export function TransferStockManager({
         <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <div>
             <h3 className="text-base font-bold text-slate-900">
-              📍 Posisi Stok per Lokasi Penyimpanan (Real-time)
+              Posisi Stok per Lokasi Penyimpanan (Real-time)
             </h3>
             <p className="text-xs text-slate-500">
               Distribusi stok bahan baku antara Gudang Utama, Dapur Utama, dan
@@ -206,9 +206,9 @@ export function TransferStockManager({
               <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold tracking-wider text-slate-500 uppercase">
                 <th className="px-3 py-3">Bahan Baku</th>
                 <th className="px-3 py-3">Kategori</th>
-                <th className="px-3 py-3 text-right">🏭 Gudang Utama</th>
-                <th className="px-3 py-3 text-right">🍳 Dapur Utama</th>
-                <th className="px-3 py-3 text-right">🍹 Bar Minuman</th>
+                <th className="px-3 py-3 text-right">Gudang Utama</th>
+                <th className="px-3 py-3 text-right">Dapur Utama</th>
+                <th className="px-3 py-3 text-right">Bar Minuman</th>
                 <th className="px-3 py-3 text-right">Total Stok</th>
               </tr>
             </thead>
@@ -262,7 +262,7 @@ export function TransferStockManager({
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4">
           <h3 className="text-base font-bold text-slate-900">
-            📋 Daftar Dokumen Transfer / Mutasi Stok
+            Daftar Dokumen Transfer / Mutasi Stok
           </h3>
           <p className="text-xs text-slate-500">
             Klik Approve untuk mengirim barang (In-Transit), lalu klik Terima
@@ -324,17 +324,17 @@ export function TransferStockManager({
                   <td className="px-3 py-3">
                     {trf.status === "pending" && (
                       <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
-                        ⏳ Pending Approval
+                        Pending Approval
                       </span>
                     )}
                     {trf.status === "in_transit" && (
                       <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
-                        🚚 In-Transit
+                        In-Transit
                       </span>
                     )}
                     {trf.status === "received" && (
                       <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-                        ✅ Diterima
+                        Diterima
                       </span>
                     )}
                     {trf.status === "cancelled" && (
@@ -366,12 +366,12 @@ export function TransferStockManager({
                         onClick={() => handleReceive(trf.id)}
                         className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50"
                       >
-                        📦 Terima Barang
+                        Terima Barang
                       </button>
                     )}
                     {trf.status === "received" && (
                       <span className="text-xs font-semibold text-emerald-600">
-                        Selesai ✓
+                        Selesai
                       </span>
                     )}
                   </td>
@@ -388,7 +388,7 @@ export function TransferStockManager({
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">
-                🔄 Buat Request Transfer / Mutasi Stok
+                Buat Request Transfer / Mutasi Stok
               </h3>
               <button
                 type="button"
