@@ -7,3 +7,4 @@
 CREATE INDEX IF NOT EXISTS idx_audit_logs_cashier_shifts
   ON public.audit_logs (entity, action, created_at DESC)
   WHERE entity = 'cashier_shifts';
+

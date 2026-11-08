@@ -236,7 +236,7 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
     },
     outlet: {
       id: String(rawOutlet.id ?? staff.outletId),
-      name: String(rawOutlet.name ?? "Kafe Nusantara 1621"),
+      name: String(rawOutlet.name ?? "1621 GROUP"),
       taxConfig: {
         taxEnabled: Boolean(rawOutlet.tax_enabled),
         taxPercent:

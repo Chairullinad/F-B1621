@@ -1046,3 +1046,4 @@ export function ShiftClosingManager({
     </div>
   );
 }
+

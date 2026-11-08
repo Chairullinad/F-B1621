@@ -533,7 +533,7 @@ export async function getShiftClosingWorkspaceData(): Promise<ShiftClosingWorksp
     },
     outlet: {
       id: String(rawOutlet.id ?? staff.outletId),
-      name: String(rawOutlet.name ?? "Kafe Nusantara 1621"),
+      name: String(rawOutlet.name ?? "1621 GROUP"),
       address: (rawOutlet.address as string | null) ?? null,
     },
     staffNames,
@@ -607,7 +607,7 @@ export async function saveShiftClosingReportAction(rawInput: {
     reportId,
     reportNo,
     outletId: staff.outletId,
-    outletName: String(outletRow?.name ?? "Kafe Nusantara 1621"),
+    outletName: String(outletRow?.name ?? "1621 GROUP"),
     outletAddress: (outletRow?.address as string | null) ?? null,
     shiftInCashierName: parsed.data.shiftInCashierName,
     shiftOutCashierName: parsed.data.shiftOutCashierName,
@@ -667,3 +667,4 @@ export async function saveShiftClosingReportAction(rawInput: {
     report,
   };
 }
+

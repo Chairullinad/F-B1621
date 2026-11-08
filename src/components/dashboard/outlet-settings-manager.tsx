@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import jsQR from "jsqr";
 import { Upload, QrCode, CheckCircle2, Sparkles, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -77,9 +78,18 @@ export function OutletSettingsManager({
   );
 
   // 3. State Pengaturan QRIS Toko
-  const [qrisMerchantName, setQrisMerchantName] = React.useState(
-    initialOutlet.qris_merchant_name ?? initialOutlet.name
-  );
+  const [qrisMerchantName, setQrisMerchantName] = React.useState(() => {
+    const initialMerchant = (initialOutlet.qris_merchant_name ?? "").trim();
+    if (
+      !initialMerchant ||
+      initialMerchant.toLowerCase().includes("nusantara")
+    ) {
+      return initialOutlet.name.toLowerCase().includes("nusantara")
+        ? "1621 GROUP"
+        : initialOutlet.name;
+    }
+    return initialMerchant;
+  });
   const [qrisRawPayload, setQrisRawPayload] = React.useState(
     initialOutlet.qris_raw_payload ?? ""
   );
@@ -214,8 +224,8 @@ export function OutletSettingsManager({
     try {
       const bitmap = await createImageBitmap(file);
 
-      // Kompres gambar QRIS ke Data URL agar tersimpan permanen di database
-      const maxDim = 600;
+      // 1. Kompres gambar QRIS ke Data URL agar tersimpan permanen di database
+      const maxDim = 650;
       const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -226,43 +236,117 @@ export function OutletSettingsManager({
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       }
-      const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.84);
+      const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
       setQrisImagePreview(compressedDataUrl);
 
-      let finalPayload = compressedDataUrl;
-      let detectedMerchant = qrisMerchantName.trim() || name || "1621 GROUP";
+      let decodedQrisText: string | null = null;
 
-      type BarcodeDetectorLike = {
-        detect: (
-          source: ImageBitmap
-        ) => Promise<Array<{ rawValue?: string }>>;
-      };
-      const BarcodeDetectorCtor = (
-        window as unknown as {
-          BarcodeDetector?: new (opts?: {
-            formats?: string[];
-          }) => BarcodeDetectorLike;
-        }
-      ).BarcodeDetector;
+      // 2. Pindai QR Code dengan jsQR (berfungsi di semua browser Windows/Mac/HP)
+      // Kita pindai gambar penuh dan beberapa area crop tengah poster QRIS
+      const cropZones = [
+        { sx: 0, sy: 0, sw: 1, sh: 1 }, // Gambar penuh
+        { sx: 0.1, sy: 0.15, sw: 0.8, sh: 0.7 }, // Area tengah poster QRIS
+        { sx: 0.15, sy: 0.2, sw: 0.7, sh: 0.6 }, // Fokus kotak QR tengah
+        { sx: 0.1, sy: 0.25, sw: 0.8, sh: 0.65 }, // Fokus tengah-bawah poster
+      ];
 
-      if (BarcodeDetectorCtor) {
-        try {
-          const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
-          const results = await detector.detect(bitmap);
-          const found = results.find((r) =>
-            r.rawValue?.trim().startsWith("000201")
+      const scanCanvas = document.createElement("canvas");
+      const scanCtx = scanCanvas.getContext("2d", {
+        willReadFrequently: true,
+      });
+
+      if (scanCtx) {
+        for (const zone of cropZones) {
+          const srcX = Math.floor(bitmap.width * zone.sx);
+          const srcY = Math.floor(bitmap.height * zone.sy);
+          const srcW = Math.max(1, Math.floor(bitmap.width * zone.sw));
+          const srcH = Math.max(1, Math.floor(bitmap.height * zone.sh));
+
+          const targetMax = 900;
+          const s = Math.min(1, targetMax / Math.max(srcW, srcH));
+          scanCanvas.width = Math.max(1, Math.round(srcW * s));
+          scanCanvas.height = Math.max(1, Math.round(srcH * s));
+
+          scanCtx.fillStyle = "#FFFFFF";
+          scanCtx.fillRect(0, 0, scanCanvas.width, scanCanvas.height);
+          scanCtx.drawImage(
+            bitmap,
+            srcX,
+            srcY,
+            srcW,
+            srcH,
+            0,
+            0,
+            scanCanvas.width,
+            scanCanvas.height
           );
-          if (found?.rawValue) {
-            finalPayload = found.rawValue.trim();
-            const info = extractMerchantInfoFromQris(finalPayload);
-            if (info.merchantName) {
-              detectedMerchant = info.merchantName;
-              setQrisMerchantName(info.merchantName);
-            }
+
+          const imgData = scanCtx.getImageData(
+            0,
+            0,
+            scanCanvas.width,
+            scanCanvas.height
+          );
+          const code = jsQR(imgData.data, imgData.width, imgData.height, {
+            inversionAttempts: "attemptBoth",
+          });
+          if (code?.data && code.data.trim().startsWith("000201")) {
+            decodedQrisText = code.data.trim();
+            break;
           }
-        } catch {
-          // Tetap gunakan compressedDataUrl jika BarcodeDetector gagal
         }
+      }
+
+      // 3. Fallback ke BarcodeDetector bawaan browser jika ada
+      if (!decodedQrisText) {
+        type BarcodeDetectorLike = {
+          detect: (
+            source: ImageBitmap
+          ) => Promise<Array<{ rawValue?: string }>>;
+        };
+        const BarcodeDetectorCtor = (
+          window as unknown as {
+            BarcodeDetector?: new (opts?: {
+              formats?: string[];
+            }) => BarcodeDetectorLike;
+          }
+        ).BarcodeDetector;
+
+        if (BarcodeDetectorCtor) {
+          try {
+            const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
+            const results = await detector.detect(bitmap);
+            const found = results.find((r) =>
+              r.rawValue?.trim().startsWith("000201")
+            );
+            if (found?.rawValue) {
+              decodedQrisText = found.rawValue.trim();
+            }
+          } catch {
+            // Abaikan jika gagal
+          }
+        }
+      }
+
+      const cleanFallbackName = name.toLowerCase().includes("nusantara")
+        ? "1621 GROUP"
+        : name || "1621 GROUP";
+      let detectedMerchant = qrisMerchantName.toLowerCase().includes("nusantara")
+        ? cleanFallbackName
+        : qrisMerchantName.trim() || cleanFallbackName;
+
+      // Simpan gambar poster QRIS Anda agar tampil persis sesuai foto yang di-upload,
+      // namun ambil Nama Merchant asli (Tag 59) dari QRIS yang berhasil dipindai!
+      const finalPayload = compressedDataUrl;
+
+      if (decodedQrisText) {
+        const info = extractMerchantInfoFromQris(decodedQrisText);
+        if (info.merchantName) {
+          detectedMerchant = info.merchantName;
+          setQrisMerchantName(info.merchantName);
+        }
+      } else {
+        setQrisMerchantName(detectedMerchant);
       }
 
       setQrisRawPayload(finalPayload);
@@ -277,7 +361,9 @@ export function OutletSettingsManager({
         });
         if (res.ok) {
           toast.success(
-            "Gambar QRIS berhasil di-upload, disimpan, dan langsung diaktifkan untuk Kasir & Meja!"
+            decodedQrisText
+              ? `QRIS berhasil dipindai & disimpan! Nama Merchant: ${detectedMerchant}`
+              : `Gambar QRIS berhasil disimpan untuk Merchant: ${detectedMerchant}`
           );
         } else {
           toast.error(res.message);

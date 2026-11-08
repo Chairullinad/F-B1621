@@ -494,7 +494,7 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
     },
     outlet: {
       id: String(rawOutlet.id ?? staff.outletId),
-      name: String(rawOutlet.name ?? "Kafe Nusantara 1621"),
+      name: String(rawOutlet.name ?? "1621 GROUP"),
       address: (rawOutlet.address as string | null) ?? null,
       receiptFooter: (rawOutlet.receipt_footer as string | null) ?? null,
       taxConfig: {

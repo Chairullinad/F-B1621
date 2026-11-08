@@ -16,7 +16,7 @@ import type {
 } from "@/lib/types/database";
 
 const DEFAULT_FALLBACK_STATIC_QRIS =
-  "00020101021126650014ID.CO.QRIS.WWW01189360050300000898240214123456789012340303UMI5204581253033605802ID5919KAFE NUSANTARA 16216007JAKARTA6105101106304A1B2";
+  "00020101021126650014ID.CO.QRIS.WWW01189360050300000898240214123456789012340303UMI5204581253033605802ID59101621 GROUP6007JAKARTA6105101106304A1B2";
 
 const MAX_PENDING_ORDERS_PER_TABLE = 3;
 const MAX_DISTINCT_ITEMS_PER_ORDER = 25;
@@ -218,7 +218,7 @@ export async function getCustomerTableMenuByToken(
       qrisMerchantName: String(
         (rawOutlet.qris_merchant_name as string | null) ??
           rawOutlet.name ??
-          "KAFE NUSANTARA 1621"
+          "1621 GROUP"
       ),
     },
     categories: (catRes.data ?? []) as CategoryRow[],
@@ -360,7 +360,7 @@ async function buildCustomerOrderTrackingView(params: {
     qrisMerchantName: String(
       (params.outletRecord.qris_merchant_name as string | null) ??
         params.outletRecord.name ??
-        "KAFE NUSANTARA 1621"
+        "1621 GROUP"
     ),
     paymentChoice: rawPaymentChoice,
     status,

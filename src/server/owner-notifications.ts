@@ -136,7 +136,7 @@ export async function dispatchSensitiveEventAlert(params: {
     };
   }
 
-  const outletName = String(outletRow?.name ?? "Kafe Nusantara 1621");
+  const outletName = String(outletRow?.name ?? "1621 GROUP");
   const nowFormatted = formatDateTimeWIB(new Date());
 
   const html = `
@@ -322,7 +322,7 @@ export async function generateAndSendMonthlyOwnerReport(params: {
 
   const netSales = grossSales - totalRefund;
   const settingsAndPriceChangeCount = Number(settingAuditsRes.count ?? 0);
-  const outletName = String(outletRow?.name ?? "Kafe Nusantara 1621");
+  const outletName = String(outletRow?.name ?? "1621 GROUP");
 
   const report: MonthlyReportSummary = {
     yearMonth: ymLabel,
