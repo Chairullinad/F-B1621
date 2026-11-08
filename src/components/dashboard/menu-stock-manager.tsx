@@ -3,6 +3,13 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  SlidersHorizontal,
+  Search,
+  Megaphone,
+  ArrowUpDown,
+  HelpCircle,
+} from "lucide-react";
 import type { MenuStockItem, MenuStockPageData } from "@/server/menu-stock";
 
 interface MenuStockManagerProps {
@@ -149,20 +156,20 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
       {/* 2. Filter Bar & Controls (Persis Screenshot 2) */}
       <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          {/* Tombol Filter */}
+          {/* Tombol Filter (Persis ESB POSLite) */}
           <button
             type="button"
             onClick={() => setIsFilterModalOpen(true)}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-bold transition shadow-2xs cursor-pointer ${
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border px-6 py-2 text-xs font-semibold transition shadow-2xs cursor-pointer ${
               activeFiltersCount > 0
-                ? "border-[#0284C7] bg-sky-50 text-[#0284C7]"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                ? "border-[#1E88E5] bg-sky-50 text-[#1E88E5]"
+                : "border-[#1E88E5] bg-white text-[#1E88E5] hover:bg-sky-50/50"
             }`}
           >
-            <span>⚡</span>
+            <SlidersHorizontal className="h-3.5 w-3.5" />
             <span>Filter</span>
             {activeFiltersCount > 0 && (
-              <span className="rounded-full bg-[#0284C7] px-1.5 py-0.2 text-[10px] text-white">
+              <span className="rounded-full bg-[#1E88E5] px-1.5 py-0.2 text-[10px] text-white">
                 {activeFiltersCount}
               </span>
             )}
@@ -178,56 +185,57 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                 setSearchTerm(e.target.value);
                 setPage(1);
               }}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-3.5 pr-9 text-xs text-slate-700 placeholder:text-slate-400 focus:border-[#0284C7] focus:outline-hidden"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-3.5 pr-9 text-xs text-slate-700 placeholder:text-slate-400 focus:border-[#1E88E5] focus:outline-hidden"
             />
-            <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 text-xs pointer-events-none">
-              🔍
+            <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 pointer-events-none">
+              <Search className="h-3.5 w-3.5" />
             </span>
           </div>
         </div>
 
         {/* Notice Callout (Persis Screenshot 2) */}
-        <div className="flex items-center gap-2 rounded-lg bg-rose-50/70 border border-rose-100 p-2.5 text-2xs text-rose-800">
-          <span className="text-sm">⚠️</span>
+        <div className="flex items-center gap-2.5 rounded-lg bg-[#FFF8F6] border border-orange-100/80 p-3 text-xs text-slate-700">
+          <Megaphone className="h-4 w-4 text-rose-500 shrink-0" />
           <span>
-            Stok Menu terintegrasi langsung dengan Aplikasi Kasir &amp; Pengurangan Otomatis Bahan Baku (BOM).
+            <strong className="font-semibold text-slate-900">Stok Menu</strong>{" "}
+            terintegrasi langsung dengan Aplikasi POS 1621F&amp;B &amp; Pengurangan Otomatis Bahan Baku (BOM).
           </span>
         </div>
 
         {/* 3. Tabel Stok Menu (Persis Screenshot 2) */}
         <div className="overflow-x-auto rounded-lg border border-slate-100">
           <table className="w-full text-left text-xs">
-            <thead className="bg-sky-50/50 text-slate-600 font-semibold border-b border-slate-200/70">
+            <thead className="bg-[#EBF5FF]/70 text-slate-700 font-semibold border-b border-slate-200/70">
               <tr>
-                <th className="py-2.5 px-3 w-12">No.</th>
-                <th className="py-2.5 px-3">
-                  <div className="flex items-center gap-1 cursor-pointer">
+                <th className="py-3 px-3.5 w-12">No.</th>
+                <th className="py-3 px-3.5">
+                  <div className="flex items-center justify-between gap-1 cursor-pointer">
                     <span>Menu</span>
-                    <span className="text-2xs text-slate-400">↕</span>
+                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-2.5 px-3">
-                  <div className="flex items-center gap-1 cursor-pointer">
+                <th className="py-3 px-3.5">
+                  <div className="flex items-center justify-between gap-1 cursor-pointer">
                     <span>Kategori</span>
-                    <span className="text-2xs text-slate-400">↕</span>
+                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-2.5 px-3">
-                  <div className="flex items-center gap-1 cursor-pointer">
+                <th className="py-3 px-3.5">
+                  <div className="flex items-center gap-1.5 cursor-pointer">
                     <span>Status</span>
-                    <span className="text-2xs text-sky-500 font-bold">🛈</span>
+                    <HelpCircle className="h-3.5 w-3.5 text-[#1E88E5]" />
                   </div>
                 </th>
-                <th className="py-2.5 px-3">
-                  <div className="flex items-center gap-1 cursor-pointer">
+                <th className="py-3 px-3.5">
+                  <div className="flex items-center justify-between gap-1 cursor-pointer">
                     <span>Ketersediaan</span>
-                    <span className="text-2xs text-slate-400">↕</span>
+                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="py-2.5 px-3 text-right">
-                  <div className="flex items-center justify-end gap-1 cursor-pointer">
+                <th className="py-3 px-3.5 text-right">
+                  <div className="flex items-center justify-end gap-1.5 cursor-pointer">
                     <span>Jumlah Stok</span>
-                    <span className="text-2xs text-slate-400">↕</span>
+                    <ArrowUpDown className="h-3 w-3 text-slate-400" />
                   </div>
                 </th>
               </tr>

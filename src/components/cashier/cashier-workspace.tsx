@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Banknote,
+  Bell,
+  CheckCircle2,
+  Eye,
+  Printer,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -309,10 +318,10 @@ export function CashierWorkspace({
         }
       });
 
-    // Polling ringan setiap 15 detik untuk memastikan kedaluwarsa 15 menit tetap presisi
+    // Polling setiap 3 detik untuk memastikan order meja dan kedaluwarsa tampil real-time
     const interval = setInterval(() => {
       router.refresh();
-    }, 15000);
+    }, 3000);
 
     return () => {
       clearInterval(interval);
@@ -541,8 +550,9 @@ export function CashierWorkspace({
         <div className="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-bold text-emerald-950">
-                🔔 Notifikasi Pembayaran QRIS Masuk (
+              <p className="flex items-center gap-1.5 text-sm font-bold text-emerald-950">
+                <Bell className="h-4 w-4 text-emerald-700" />
+                Notifikasi Pembayaran QRIS Masuk (
                 {qrisClaimedPendingOrders.length} Meja Menunggu Verifikasi)
               </p>
               <p className="text-xs text-emerald-800">
@@ -581,13 +591,21 @@ export function CashierWorkspace({
           }`}
         >
           <span>{feedback.text}</span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {feedback.paidOrderId && (
-              <Link href={`/struk/${feedback.paidOrderId}`}>
-                <Button type="button" size="sm" variant="default">
-                  Cetak Struk Sekarang
-                </Button>
-              </Link>
+              <>
+                <Link href={`/struk/${feedback.paidOrderId}?autoprint=1`}>
+                  <Button type="button" size="sm" variant="default">
+                    <Printer className="mr-1.5 h-4 w-4" />
+                    Cetak Struk Sekarang
+                  </Button>
+                </Link>
+                <Link href={`/struk/${feedback.paidOrderId}`}>
+                  <Button type="button" size="sm" variant="outline">
+                    Lihat Struk
+                  </Button>
+                </Link>
+              </>
             )}
             <Button
               type="button"
@@ -637,7 +655,17 @@ export function CashierWorkspace({
               if (next) playNotificationBeep(false);
             }}
           >
-            {soundEnabled ? "🔊 Suara Aktif" : "🔇 Suara Mati"}
+            {soundEnabled ? (
+              <>
+                <Volume2 className="mr-1.5 h-4 w-4" />
+                Suara Aktif
+              </>
+            ) : (
+              <>
+                <VolumeX className="mr-1.5 h-4 w-4" />
+                Suara Mati
+              </>
+            )}
           </Button>
           <Link href="/order-manual">
             <Button type="button" variant="secondary">
@@ -718,16 +746,20 @@ export function CashierWorkspace({
 
                   {/* Badge Notifikasi Pelanggan Sudah Bayar QRIS */}
                   {isQrisClaimed && (
-                    <div className="mt-2.5 rounded-lg border border-emerald-400 bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-950">
-                      🔔 {ord.tableName} • Pelanggan Konfirmasi Sudah Bayar QRIS
-                      • Cek Mutasi {formatRupiah(ord.total)}
+                    <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-emerald-400 bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-950">
+                      <Bell className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                      <span>
+                        {ord.tableName} • Pelanggan Konfirmasi Sudah Bayar QRIS
+                        • Cek Mutasi {formatRupiah(ord.total)}
+                      </span>
                     </div>
                   )}
 
                   {/* Indikator dibuka kasir lain (Presence) */}
                   {openedByOthers.length > 0 && (
-                    <div className="mt-2 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900">
-                      👀 Sedang dibuka oleh: {openedByOthers.join(", ")}
+                    <div className="mt-2 flex items-center gap-1.5 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900">
+                      <Eye className="h-3.5 w-3.5 shrink-0 text-amber-700" />
+                      <span>Sedang dibuka oleh: {openedByOthers.join(", ")}</span>
                     </div>
                   )}
                 </button>
@@ -830,11 +862,19 @@ export function CashierWorkspace({
 
                     {selectedOrder.status !== "pending" &&
                       selectedOrder.status !== "expired" && (
-                        <Link href={`/struk/${selectedOrder.id}`}>
-                          <Button type="button" size="sm" variant="secondary">
-                            🖨️ Lihat / Cetak Struk
-                          </Button>
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <Link href={`/struk/${selectedOrder.id}?autoprint=1`}>
+                            <Button type="button" size="sm" variant="default">
+                              <Printer className="mr-1.5 h-4 w-4" />
+                              Cetak Struk
+                            </Button>
+                          </Link>
+                          <Link href={`/struk/${selectedOrder.id}`}>
+                            <Button type="button" size="sm" variant="secondary">
+                              Lihat Struk
+                            </Button>
+                          </Link>
+                        </div>
                       )}
                   </div>
                 </div>
@@ -974,9 +1014,10 @@ export function CashierWorkspace({
                           onClick={handleVerifyQrisPayment}
                           className="mt-3 w-full bg-emerald-700 text-white hover:bg-emerald-800"
                         >
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
                           {isSubmitting
                             ? "Memproses..."
-                            : `✅ Pembayaran Sesuai — Terima QRIS (${selectedOrder.tableName} • ${formatRupiah(selectedOrder.total)})`}
+                            : `Pembayaran Sesuai — Terima QRIS (${selectedOrder.tableName} • ${formatRupiah(selectedOrder.total)})`}
                         </Button>
                       </div>
 
@@ -1058,9 +1099,10 @@ export function CashierWorkspace({
                           onClick={handleAcceptCashPayment}
                           className="mt-3 w-full"
                         >
+                          <Banknote className="mr-1.5 h-4 w-4" />
                           {isSubmitting
                             ? "Memproses..."
-                            : `💵 Bayar Tunai (${formatRupiah(selectedOrder.total)})`}
+                            : `Bayar Tunai (${formatRupiah(selectedOrder.total)})`}
                         </Button>
                       </div>
                     </div>

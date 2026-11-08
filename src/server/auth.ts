@@ -136,24 +136,22 @@ export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | nul
     }
 
     let activeOutletId = String(profile.outlet_id);
-    if (profile.role === "owner") {
-      try {
-        const cookieStore = await cookies();
-        const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
-        if (cookieOutletId) {
-          const { data: out } = await admin
-            .from("outlets")
-            .select("id")
-            .eq("id", cookieOutletId)
-            .is("deleted_at", null)
-            .maybeSingle();
-          if (out) {
-            activeOutletId = String(out.id);
-          }
+    try {
+      const cookieStore = await cookies();
+      const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
+      if (cookieOutletId) {
+        const { data: out } = await admin
+          .from("outlets")
+          .select("id")
+          .eq("id", cookieOutletId)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (out) {
+          activeOutletId = String(out.id);
         }
-      } catch {
-        // Abaikan jika pemanggilan cookies di context non-request
       }
+    } catch {
+      // Abaikan jika pemanggilan cookies di context non-request
     }
 
     return {

@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  Banknote,
+  CheckCircle2,
+  Package,
+  Printer,
+  QrCode,
+  UtensilsCrossed,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -220,20 +229,29 @@ export function ManualOrderPos({
       {completedOrder && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 text-emerald-950 shadow-sm">
           <div>
-            <p className="text-sm font-extrabold">
-              ✅ {completedOrder.message}
+            <p className="flex items-center gap-1.5 text-sm font-extrabold">
+              <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+              {completedOrder.message}
             </p>
             <p className="text-xs text-emerald-800">
               Pesanan sudah masuk ke Layar Dapur secara real-time.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {completedOrder.orderId && (
-              <Link href={`/struk/${completedOrder.orderId}`}>
-                <Button type="button" size="sm">
-                  🖨️ Cetak Struk (#{completedOrder.orderNo})
-                </Button>
-              </Link>
+              <>
+                <Link href={`/struk/${completedOrder.orderId}?autoprint=1`}>
+                  <Button type="button" size="sm">
+                    <Printer className="mr-1.5 h-4 w-4" />
+                    Cetak Struk (#{completedOrder.orderNo})
+                  </Button>
+                </Link>
+                <Link href={`/struk/${completedOrder.orderId}`}>
+                  <Button type="button" size="sm" variant="outline">
+                    Lihat Struk
+                  </Button>
+                </Link>
+              </>
             )}
             <Button
               type="button"
@@ -268,7 +286,8 @@ export function ManualOrderPos({
                 </div>
                 <Link href="/kasir">
                   <Button type="button" variant="outline" size="sm">
-                    ← Kembali ke Antrean Kasir
+                    <ArrowLeft className="mr-1.5 h-4 w-4" />
+                    Kembali ke Antrean Kasir
                   </Button>
                 </Link>
               </div>
@@ -284,7 +303,8 @@ export function ManualOrderPos({
                     variant={orderType === "dine_in" ? "default" : "outline"}
                     onClick={() => setOrderType("dine_in")}
                   >
-                    🍽️ Makan di Tempat
+                    <UtensilsCrossed className="mr-1.5 h-4 w-4" />
+                    Makan di Tempat
                   </Button>
                   <Button
                     type="button"
@@ -292,7 +312,8 @@ export function ManualOrderPos({
                     variant={orderType === "takeaway" ? "default" : "outline"}
                     onClick={() => setOrderType("takeaway")}
                   >
-                    🥡 Takeaway / Bungkus
+                    <Package className="mr-1.5 h-4 w-4" />
+                    Takeaway / Bungkus
                   </Button>
                 </div>
 
@@ -369,8 +390,8 @@ export function ManualOrderPos({
                       }`}
                     >
                       <div className="flex items-start gap-2.5">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xl shadow-2xs">
-                          {product.emoji || "🍽️"}
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 shadow-2xs">
+                          <UtensilsCrossed className="h-4 w-4" />
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-1">
@@ -588,7 +609,8 @@ export function ManualOrderPos({
                     variant={paymentMethod === "cash" ? "default" : "outline"}
                     onClick={() => setPaymentMethod("cash")}
                   >
-                    💵 Tunai
+                    <Banknote className="mr-1.5 h-4 w-4" />
+                    Tunai
                   </Button>
                   <Button
                     type="button"
@@ -596,7 +618,8 @@ export function ManualOrderPos({
                     variant={paymentMethod === "qris" ? "default" : "outline"}
                     onClick={() => setPaymentMethod("qris")}
                   >
-                    📱 QRIS
+                    <QrCode className="mr-1.5 h-4 w-4" />
+                    QRIS
                   </Button>
                 </div>
 
@@ -668,9 +691,10 @@ export function ManualOrderPos({
                 onClick={handleSubmitOrder}
                 className="min-h-12 w-full bg-emerald-700 text-base font-bold text-white hover:bg-emerald-800"
               >
+                <CheckCircle2 className="mr-2 h-5 w-5" />
                 {isSubmitting
                   ? "Memproses Order..."
-                  : `✅ Terima Pembayaran & Buat Order (${formatRupiah(totalsPreview.total)})`}
+                  : `Terima Pembayaran & Buat Order (${formatRupiah(totalsPreview.total)})`}
               </Button>
             </CardContent>
           </Card>

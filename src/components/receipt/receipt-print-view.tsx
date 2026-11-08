@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateTimeWIB } from "@/lib/datetime";
 import { formatRupiah } from "@/lib/money";
@@ -18,6 +19,16 @@ export function ReceiptPrintView({
   const [paperSize, setPaperSize] = useState<"58mm" | "80mm">("80mm");
   const [printCount, setPrintCount] = useState(0);
   const [auditNotice, setAuditNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("autoprint") === "1") {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   async function handlePrint() {
     try {
@@ -39,7 +50,8 @@ export function ReceiptPrintView({
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm print:hidden">
         <Link href="/kasir">
           <Button type="button" variant="outline" size="sm">
-            ← Kembali ke Kasir
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Kembali ke Kasir
           </Button>
         </Link>
 
@@ -61,7 +73,8 @@ export function ReceiptPrintView({
             80mm
           </Button>
           <Button type="button" size="sm" onClick={handlePrint}>
-            🖨️ {printCount > 0 ? "Cetak Ulang Struk" : "Cetak Struk"}
+            <Printer className="mr-1.5 h-4 w-4" />
+            {printCount > 0 ? "Cetak Ulang Struk" : "Cetak Struk"}
           </Button>
         </div>
       </div>
@@ -80,11 +93,11 @@ export function ReceiptPrintView({
       >
         {/* Header Outlet */}
         <div className="border-b border-dashed border-zinc-400 pb-2.5 text-center">
-          <div className="mx-auto mb-1.5 flex h-11 w-11 items-center justify-center">
+          <div className="mx-auto mb-1.5 flex h-14 w-28 items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-1621.png"
-              alt="Logo 1621F&B"
+              src="/logo-1621group-stacked.png"
+              alt="Logo 1621 Group"
               className="h-full w-full object-contain"
             />
           </div>

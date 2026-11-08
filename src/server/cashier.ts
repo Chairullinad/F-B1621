@@ -1304,13 +1304,14 @@ export async function getOrderReceiptDetail(
     .from("orders")
     .select("*")
     .eq("id", orderId)
-    .eq("outlet_id", staff.outletId)
     .is("deleted_at", null)
     .maybeSingle();
 
   if (!orderRow) {
     return null;
   }
+
+  const orderOutletId = String(orderRow.outlet_id ?? staff.outletId);
 
   const [
     { data: outletRow },
@@ -1321,7 +1322,7 @@ export async function getOrderReceiptDetail(
     { data: cashierProfile },
     { data: qrisAudit },
   ] = await Promise.all([
-    admin.from("outlets").select("*").eq("id", staff.outletId).single(),
+    admin.from("outlets").select("*").eq("id", orderOutletId).single(),
     orderRow.table_id
       ? admin
           .from("tables")
@@ -1362,13 +1363,36 @@ export async function getOrderReceiptDetail(
     (qrisAudit?.length ?? 0) > 0 ? "qris" : rawPaymentMethod;
 
   const total = Number(orderRow.total ?? 0);
+  const resolvedOutletName = String(outletRow?.name ?? "LATTESPACE");
+  const rawFooter = (outletRow?.receipt_footer as string | null) ?? null;
+  let cleanReceiptFooter = `Terima kasih atas kunjungan Anda di ${resolvedOutletName} (1621 Group)!`;
+
+  if (rawFooter && rawFooter.trim().length > 0) {
+    if (rawFooter.trim().startsWith("{")) {
+      try {
+        const parsedMeta = JSON.parse(rawFooter) as {
+          description?: string;
+          phone?: string;
+        };
+        const parts: string[] = [];
+        if (parsedMeta.description) parts.push(parsedMeta.description);
+        if (parsedMeta.phone) parts.push(`Telp: ${parsedMeta.phone}`);
+        parts.push(`Terima kasih atas kunjungan Anda di ${resolvedOutletName}!`);
+        cleanReceiptFooter = parts.join(" • ");
+      } catch {
+        // Gunakan default footer
+      }
+    } else {
+      cleanReceiptFooter = rawFooter;
+    }
+  }
 
   return {
     orderId,
     orderNo: String(orderRow.order_no),
-    outletName: String(outletRow?.name ?? "Kafe Nusantara 1621"),
+    outletName: resolvedOutletName,
     outletAddress: (outletRow?.address as string | null) ?? null,
-    receiptFooter: (outletRow?.receipt_footer as string | null) ?? null,
+    receiptFooter: cleanReceiptFooter,
     orderType: (orderRow.order_type as OrderType) ?? "dine_in",
     tableName:
       tableRow?.name ??
@@ -1436,9 +1460,8 @@ export async function recordReceiptReprintAction(rawInput: {
 
   const { data: orderRow } = await admin
     .from("orders")
-    .select("id, order_no, total")
+    .select("id, outlet_id, order_no, total")
     .eq("id", parsedId.data)
-    .eq("outlet_id", staff.outletId)
     .maybeSingle();
 
   if (!orderRow) {
@@ -1446,7 +1469,7 @@ export async function recordReceiptReprintAction(rawInput: {
   }
 
   await admin.from("audit_logs").insert({
-    outlet_id: staff.outletId,
+    outlet_id: String(orderRow.outlet_id ?? staff.outletId),
     user_id: staff.userId,
     role: staff.role,
     device,
