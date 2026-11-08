@@ -3,6 +3,14 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  TrendingUp,
+  TrendingDown,
+  Lightbulb,
+  Bell,
+  Sparkles,
+  X as CloseIcon,
+} from "lucide-react";
 import { formatRupiah } from "@/lib/money";
 import type {
   CompositionSlice,
@@ -173,7 +181,8 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
               onClick={() => setShowTipsModal(true)}
               className="inline-flex items-center justify-center gap-1.5 w-full rounded-xl bg-[#00A896] hover:bg-[#009282] active:scale-[0.98] py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition cursor-pointer"
             >
-              <span>✦</span> Lihat 5 Menu Terlaris (Tips Bisnis)
+              <Sparkles className="h-4 w-4" />
+              <span>Lihat 5 Menu Terlaris (Tips Bisnis)</span>
             </button>
           </div>
         </div>
@@ -362,7 +371,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
           </div>
           {/* Badge Bel Oranye Peringatan */}
           <div className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs sm:text-sm font-semibold text-amber-900 shadow-2xs">
-            <span className="text-base">🔔</span>
+            <Bell className="h-4 w-4 text-amber-700" />
             <span>Di bawah batas aman stok:</span>
             <span className="rounded-md bg-amber-200 px-2 py-0.5 font-bold text-amber-950">
               {data.criticalStockCount} item
@@ -580,7 +589,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-base shrink-0">
-                  📈
+                  <TrendingUp className="h-4 w-4" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -623,7 +632,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="h-8 w-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-base shrink-0">
-                  📉
+                  <TrendingDown className="h-4 w-4" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -667,7 +676,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
         {/* Kotak Rekomendasi Penjualan (Lightbulb) */}
         <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 md:p-6 shadow-xs space-y-3">
           <div className="flex items-center gap-2.5 text-slate-900 dark:text-slate-100 font-bold text-sm sm:text-base">
-            <span className="text-xl">💡</span>
+            <Lightbulb className="h-5 w-5 text-amber-500" />
             <h4>Rekomendasi untuk meningkatkan penjualan Anda</h4>
           </div>
           <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed pl-1">
@@ -740,7 +749,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
                 onClick={() => setShowTipsModal(false)}
                 className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-bold cursor-pointer"
               >
-                ✕
+                <CloseIcon className="h-4 w-4" />
               </button>
             </div>
 
@@ -755,7 +764,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
               <div className="space-y-2.5">
                 <div className="flex items-start gap-2.5">
                   <div className="h-7 w-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
-                    📈
+                    <TrendingUp className="h-4 w-4" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Menu Terlaris</h4>
@@ -786,7 +795,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
               <div className="space-y-2.5">
                 <div className="flex items-start gap-2.5">
                   <div className="h-7 w-7 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-sm shrink-0">
-                    📉
+                    <TrendingDown className="h-4 w-4" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Menu Kurang Laris</h4>
@@ -817,7 +826,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
             {/* Rekomendasi 5 Poin */}
             <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-4 space-y-2">
               <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-sm">
-                <span>💡</span>
+                <Lightbulb className="h-4 w-4 text-amber-500" />
                 <h4>Rekomendasi untuk meningkatkan penjualan Anda</h4>
               </div>
               <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-300 font-medium pl-1 leading-relaxed">

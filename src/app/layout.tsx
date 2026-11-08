@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/components/providers/query-provider";
@@ -7,10 +7,10 @@ import { PwaRegister } from "@/components/pwa/pwa-register";
 import { NavigationLoadingIndicator } from "@/components/ui/navigation-loading-indicator";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
-  variable: "--font-plus-jakarta",
+  variable: "--font-inter",
   display: "swap",
 });
 
@@ -25,8 +25,8 @@ export const metadata: Metadata = {
     title: "1621F&B",
   },
   icons: {
-    icon: "/logo-1621group.png",
-    apple: "/logo-1621group.png",
+    icon: "/logo-1621group-stacked.png",
+    apple: "/logo-1621group-stacked.png",
   },
 };
 
@@ -62,7 +62,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${plusJakartaSans.variable} font-sans min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased`}
+        className={`${inter.variable} font-sans min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased text-[16px]`}
       >
         <QueryProvider>
           <PwaRegister />
