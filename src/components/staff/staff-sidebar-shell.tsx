@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { ROLE_LABELS_ID, type StaffNavItem } from "@/lib/auth";
 import type { UserRole } from "@/lib/types/database";
 import type { StaffSidebarBadges } from "@/server/inventory";
@@ -252,7 +253,7 @@ export function StaffSidebarShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F0F3F7] text-slate-900">
+    <div className="flex min-h-screen bg-[#F0F3F7] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
@@ -261,45 +262,48 @@ export function StaffSidebarShell({
         />
       )}
 
-      {/* Modern Light Clean Sidebar (#FFFFFF bergaya ESB POSLite) */}
+      {/* Modern Light / Dark Clean Sidebar (bergaya ESB POSLite) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white text-slate-800 shadow-xl transition-all duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-xl transition-all duration-200 lg:translate-x-0 ${
           sidebarCollapsed ? "w-18" : "w-64"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* Brand Header */}
-        <div className="flex h-15 items-center justify-between border-b border-slate-200 px-4 py-3 bg-[#FAFBFD]">
+        {/* Brand Header: Logo 1621Group Transparan Bersih */}
+        <div className="flex h-15 items-center justify-between border-b border-slate-200 dark:border-slate-800 px-4 py-3 bg-[#FAFBFD] dark:bg-slate-900">
           <Link
             href={staff.role === "owner" ? "/dashboard" : "/kasir"}
             prefetch={true}
             onClick={() => setMobileOpen(false)}
             className="flex items-center gap-2.5 min-w-0"
           >
-            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
-              <Image
-                src="/logo-1621.png"
-                alt="Logo 1621F&B"
-                width={36}
-                height={36}
-                className="h-full w-full object-contain"
-                priority
-              />
-            </div>
-            {!sidebarCollapsed && (
-              <div className="min-w-0">
-                <div className="truncate text-base font-extrabold tracking-tight text-[#0F1B27]">
-                  1621F&amp;B
-                </div>
-                <div className="truncate text-[10px] font-semibold text-[#3B7097]">
-                  POSLite &bull; F&amp;B System
-                </div>
+            {!sidebarCollapsed ? (
+              <div className="relative h-9 w-36 flex items-center">
+                <Image
+                  src="/logo-1621group.png"
+                  alt="1621 Group"
+                  width={144}
+                  height={36}
+                  className="h-full w-auto object-contain dark:brightness-125"
+                  priority
+                />
+              </div>
+            ) : (
+              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+                <Image
+                  src="/logo-1621group.png"
+                  alt="1621 Group"
+                  width={32}
+                  height={32}
+                  className="h-full w-auto object-contain"
+                  priority
+                />
               </div>
             )}
           </Link>
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 lg:hidden"
             aria-label="Tutup menu"
           >
             ✕
@@ -354,9 +358,9 @@ export function StaffSidebarShell({
                   )}
                 </button>
 
-                {/* Sub-item yang Tersembunyi (Expandable) */}
+                {/* Sub-item yang Tersembunyi (Expandable) dengan Background Instant Prefetching */}
                 {isOpen && !sidebarCollapsed && (
-                  <div className="mt-1 space-y-0.5 pl-6 pr-1 border-l-2 border-[#DCE6ED] ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="mt-1 space-y-0.5 pl-6 pr-1 border-l-2 border-[#DCE6ED] dark:border-slate-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
                     {group.items.map((item) => {
                       const active = isItemActive(item.href);
                       return (
@@ -364,14 +368,16 @@ export function StaffSidebarShell({
                           key={item.href + item.label}
                           href={item.href}
                           prefetch={true}
+                          onMouseEnter={() => router.prefetch(item.href)}
+                          onTouchStart={() => router.prefetch(item.href)}
                           onClick={() => {
                             setPendingHref(item.href);
                             setMobileOpen(false);
                           }}
                           className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[11px] font-semibold transition-all ${
                             active
-                              ? "bg-[#EBF3F8] text-[#3B7097] font-bold shadow-2xs"
-                              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                              ? "bg-[#EBF3F8] dark:bg-sky-950/60 text-[#3B7097] dark:text-sky-300 font-bold shadow-2xs"
+                              : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
                           }`}
                         >
                           <span className="truncate">{item.label}</span>
@@ -391,7 +397,7 @@ export function StaffSidebarShell({
         </nav>
 
         {/* User Profile Footer */}
-        <div className="border-t border-slate-200 bg-[#FAFBFD] p-3 text-xs">
+        <div className="border-t border-slate-200 dark:border-slate-800 bg-[#FAFBFD] dark:bg-slate-900 p-3 text-xs">
           <div className="flex items-center justify-between gap-2">
             {!sidebarCollapsed && (
               <div className="min-w-0">
@@ -422,8 +428,8 @@ export function StaffSidebarShell({
           sidebarCollapsed ? "lg:pl-18" : "lg:pl-64"
         }`}
       >
-        {/* Full-Width Topbar Biru Penuh (#3B7097 bergaya ESB POSLite) */}
-        <header className="sticky top-0 z-30 flex h-15 items-center justify-between gap-3 bg-[#3B7097] px-4 text-white shadow-md sm:px-6">
+        {/* Full-Width Topbar Biru Penuh (#3B7097 bergaya ESB POSLite / Dark Mode Slate-900) */}
+        <header className="sticky top-0 z-30 flex h-15 items-center justify-between gap-3 bg-[#3B7097] dark:bg-slate-900 border-b border-transparent dark:border-slate-800 px-4 text-white shadow-md sm:px-6 transition-colors">
           <div className="flex items-center gap-3">
             {/* Tombol Mobile Toggle */}
             <button
@@ -446,24 +452,34 @@ export function StaffSidebarShell({
             </button>
 
             {/* Logo Brand di Topbar */}
-            <div className="flex items-center gap-2">
-              <span className="text-base font-extrabold tracking-tight sm:text-lg">
-                1621F&amp;B
-              </span>
+            <div className="flex items-center gap-2.5">
+              <div className="relative h-7 w-28 flex items-center">
+                <Image
+                  src="/logo-1621group.png"
+                  alt="1621 Group"
+                  width={112}
+                  height={28}
+                  className="h-full w-auto object-contain brightness-0 invert drop-shadow-xs"
+                  priority
+                />
+              </div>
               <span className="hidden rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold text-white border border-white/20 sm:inline-block">
                 ⚡ Live Cloud Connected
               </span>
             </div>
           </div>
 
-          {/* Sisi Kanan: Kartu Cabang & Profil Staf (Latte Space Boyolali / Saiko Ramen) */}
+          {/* Sisi Kanan: Kartu Cabang & Profil Staf (Latte Space Boyolali / Saiko Ramen) + Theme Toggle */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Filter Mode Gelap & Terang dengan Ikon Bulan 🌙 / Matahari ☀️ */}
+            <ThemeToggle />
+
             {/* Master Account Badge Khusus Owner */}
             {staff.role === "owner" && (
               <div className="hidden lg:flex items-center gap-2 rounded-xl bg-amber-400/20 border border-amber-300/40 px-3 py-1.5 text-xs font-black text-amber-200 shadow-2xs">
                 <div className="relative h-4 w-4 shrink-0 flex items-center justify-center">
                   <Image
-                    src="/logo-1621.png"
+                    src="/logo-1621group.png"
                     alt="1621 Group"
                     width={16}
                     height={16}

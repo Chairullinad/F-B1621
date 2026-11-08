@@ -1,10 +1,18 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { PwaRegister } from "@/components/pwa/pwa-register";
 import { NavigationLoadingIndicator } from "@/components/ui/navigation-loading-indicator";
 import "./globals.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "1621F&B — Sistem POS, Inventory, & Akuntansi F&B",
@@ -17,8 +25,8 @@ export const metadata: Metadata = {
     title: "1621F&B",
   },
   icons: {
-    icon: "/logo-1621.png",
-    apple: "/logo-1621.png",
+    icon: "/logo-1621group.png",
+    apple: "/logo-1621group.png",
   },
 };
 
@@ -35,8 +43,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id">
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <html lang="id" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const stored = localStorage.getItem('fnb1621_theme');
+                const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
+      </head>
+      <body
+        className={`${plusJakartaSans.variable} font-sans min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased`}
+      >
         <QueryProvider>
           <PwaRegister />
           <Suspense fallback={null}>

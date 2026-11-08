@@ -22,6 +22,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
   const [selectedOutletId, setSelectedOutletId] = useState<string>(initialData.filter.outletId);
   const [stockPage, setStockPage] = useState<number>(1);
   const [activeHourlyTooltip, setActiveHourlyTooltip] = useState<HourlySalesPoint | null>(null);
+  const [showTipsModal, setShowTipsModal] = useState<boolean>(false);
 
   const data = initialData;
 
@@ -167,12 +168,13 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
             </p>
           </div>
           <div className="mt-5">
-            <a
-              href="#tabel-menu-terlaris"
-              className="inline-flex items-center justify-center gap-1.5 w-full rounded-xl bg-[#00A896] py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-[#009282] transition"
+            <button
+              type="button"
+              onClick={() => setShowTipsModal(true)}
+              className="inline-flex items-center justify-center gap-1.5 w-full rounded-xl bg-[#00A896] hover:bg-[#009282] active:scale-[0.98] py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs transition cursor-pointer"
             >
-              <span>✦</span> Lihat Menu Terlaris
-            </a>
+              <span>✦</span> Lihat 5 Menu Terlaris (Tips Bisnis)
+            </button>
           </div>
         </div>
 
@@ -554,73 +556,162 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
         </div>
       </div>
 
-      {/* 7. Bottom Row: Menu Terlaris & Cabang Terbaik */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" id="tabel-menu-terlaris">
-        {/* Tabel Menu Terlaris */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-3.5">
-            <div>
-              <h4 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
-                Menu Terlaris ({data.staff.outletName})
-              </h4>
-              <p className="text-xs text-slate-500">Peringkat 5 teratas berdasarkan omset</p>
-            </div>
-            <span className="rounded-md bg-sky-50 text-sky-700 px-2 py-1 text-xs font-bold">
-              Top 5
+      {/* 7. Section Tips Bisnis (Persis Screenshot Rekomendasi 5 Menu Terlaris & Kurang Laris) */}
+      <div className="space-y-4" id="tabel-menu-terlaris">
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 md:p-6 shadow-xs space-y-5">
+          {/* Header Tips Bisnis */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+              Tips Bisnis
+            </h3>
+            <span className="text-xs text-slate-400 font-medium">
+              Data diperbarui pada {data.businessTips.lastUpdatedDateStr}
             </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
-                <tr>
-                  <th className="py-2.5 px-3.5">Nama Menu</th>
-                  <th className="py-2.5 px-3.5 text-right">Nilai (Porsi)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {data.topProducts.map((p) => (
-                  <tr key={p.name} className="hover:bg-slate-50/60">
-                    <td className="py-3 px-3.5 font-bold text-slate-800">
-                      {p.name}
-                    </td>
-                    <td className="py-3 px-3.5 text-right font-extrabold text-slate-900">
-                      {formatRupiah(p.totalSales)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* Banner Amber: Capai 10 transaksi per hari */}
+          <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-[#FFFBEB] dark:bg-amber-950/40 p-3.5 text-xs sm:text-sm font-medium text-[#92400E] dark:text-amber-200 flex items-center gap-2">
+            <span>Capai <strong>10 transaksi</strong> per hari untuk akurasi data yang lebih baik!</span>
+          </div>
+
+          {/* Grid Dua Kolom: Menu Terlaris vs Menu Kurang Laris */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Kolom Kiri: Menu Terlaris */}
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-base shrink-0">
+                  📈
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Menu Terlaris
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Pastikan stok menu favorit pelanggan selalu tersedia
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200/90 dark:border-slate-800">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead className="bg-[#F1F5F9] dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Nama Menu</th>
+                      <th className="py-2.5 px-3.5 text-right whitespace-nowrap">Saran Stok Mingguan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200 font-medium">
+                    {data.businessTips.topProducts.map((p, idx) => (
+                      <tr
+                        key={p.name}
+                        className={idx % 2 === 1 ? "bg-slate-50/60 dark:bg-slate-800/30" : "bg-white dark:bg-slate-900"}
+                      >
+                        <td className="py-2.5 px-3.5 font-bold text-slate-800 dark:text-slate-100">
+                          {p.name}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-extrabold text-slate-900 dark:text-slate-100">
+                          {p.weeklySuggestedStock}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Kolom Kanan: Menu Kurang Laris */}
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-base shrink-0">
+                  📉
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Menu Kurang Laris
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Anda bisa sesuaikan stok untuk menu di bawah ini
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200/90 dark:border-slate-800">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead className="bg-[#F1F5F9] dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200/80 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3.5">Nama Menu</th>
+                      <th className="py-2.5 px-3.5 text-right whitespace-nowrap">Saran Stok Mingguan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200 font-medium">
+                    {data.businessTips.bottomProducts.map((p, idx) => (
+                      <tr
+                        key={p.name}
+                        className={idx % 2 === 1 ? "bg-slate-50/60 dark:bg-slate-800/30" : "bg-white dark:bg-slate-900"}
+                      >
+                        <td className="py-2.5 px-3.5 font-bold text-slate-800 dark:text-slate-100">
+                          {p.name}
+                        </td>
+                        <td className="py-2.5 px-3.5 text-right font-extrabold text-slate-900 dark:text-slate-100">
+                          {p.weeklySuggestedStock}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Tabel Cabang Terbaik */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs">
+        {/* Kotak Rekomendasi Penjualan (Lightbulb) */}
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 md:p-6 shadow-xs space-y-3">
+          <div className="flex items-center gap-2.5 text-slate-900 dark:text-slate-100 font-bold text-sm sm:text-base">
+            <span className="text-xl">💡</span>
+            <h4>Rekomendasi untuk meningkatkan penjualan Anda</h4>
+          </div>
+          <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed pl-1">
+            <li>Sediakan stok bahan baku sesuai perkiraan penjualan yang terjadi, untuk meningkatkan efektifitas penjualan Anda.</li>
+            <li>Buatlah menu dengan varian atau menu bundling antara menu terlaris dan kurang laris untuk memaksimalkan stok bahan baku Anda.</li>
+            <li>Buatlah Promo Spesial menggunakan menu kurang laris pada hari atau jam tertentu.</li>
+            <li>Lakukan eksplorasi menu dengan Varian baru untuk meningkatkan minat pelanggan.</li>
+            <li>Fitur ini membutuhkan minimal 1 bulan data, segera pakai aplikasi POSLite Anda sekarang!</li>
+          </ol>
+        </div>
+
+        {/* Disclaimer Note di Bagian Bawah */}
+        <div className="text-center pt-1 pb-3 text-2xs sm:text-xs text-slate-400">
+          Terdapat kemungkinan data yang ditampilkan tidak akurat. Harap periksa kembali kesesuaian data.
+        </div>
+
+        {/* Tabel Komparasi Cabang Terbaik */}
+        <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
           <div className="flex items-center justify-between mb-3.5">
             <div>
-              <h4 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+              <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                 Cabang Dengan Penjualan Terbaik
               </h4>
-              <p className="text-xs text-slate-500">Komparasi antar cabang 1621 F&amp;B</p>
+              <p className="text-xs text-slate-500">Komparasi performa antar cabang 1621 F&amp;B</p>
             </div>
-            <span className="rounded-md bg-emerald-50 text-emerald-700 px-2 py-1 text-xs font-bold">
+            <span className="rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 text-xs font-bold border border-emerald-200 dark:border-emerald-800">
               1621 Group
             </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
+              <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-100 dark:border-slate-800">
                 <tr>
                   <th className="py-2.5 px-3.5">Nama Cabang</th>
                   <th className="py-2.5 px-3.5 text-right">Penjualan</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
                 {data.bestOutlets.map((b) => (
-                  <tr key={b.name} className="hover:bg-slate-50/60">
-                    <td className="py-3 px-3.5 font-bold text-slate-800">
+                  <tr key={b.name} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <td className="py-3 px-3.5 font-bold text-slate-800 dark:text-slate-100">
                       {b.name}
                     </td>
-                    <td className="py-3 px-3.5 text-right font-extrabold text-slate-900">
+                    <td className="py-3 px-3.5 text-right font-extrabold text-slate-900 dark:text-slate-100">
                       {formatRupiah(b.totalSales)}
                     </td>
                   </tr>
@@ -630,6 +721,126 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
           </div>
         </div>
       </div>
+
+      {/* MODAL POPUP: Tips Bisnis 5 Menu Terlaris (Muncul saat tombol diklik) */}
+      {showTipsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 p-5 sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  Tips Bisnis — {data.staff.outletName}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Data diperbarui pada {data.businessTips.lastUpdatedDateStr}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTipsModal(false)}
+                className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Banner Amber: Capai 10 transaksi per hari */}
+            <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-[#FFFBEB] dark:bg-amber-950/40 p-3.5 text-xs sm:text-sm font-medium text-[#92400E] dark:text-amber-200 flex items-center gap-2">
+              <span>Capai <strong>10 transaksi</strong> per hari untuk akurasi data yang lebih baik!</span>
+            </div>
+
+            {/* Grid Dua Kolom */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Menu Terlaris */}
+              <div className="space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <div className="h-7 w-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
+                    📈
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Menu Terlaris</h4>
+                    <p className="text-xs text-slate-500">Pastikan stok menu favorit selalu tersedia</p>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 overflow-hidden">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-[#F1F5F9] dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-3">Nama Menu</th>
+                        <th className="py-2.5 px-3 text-right">Saran Stok</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {data.businessTips.topProducts.map((p, idx) => (
+                        <tr key={p.name} className={idx % 2 === 1 ? "bg-slate-50/60 dark:bg-slate-800/30" : ""}>
+                          <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">{p.name}</td>
+                          <td className="py-2 px-3 text-right font-extrabold text-slate-900 dark:text-slate-100">{p.weeklySuggestedStock}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Menu Kurang Laris */}
+              <div className="space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <div className="h-7 w-7 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-sm shrink-0">
+                    📉
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Menu Kurang Laris</h4>
+                    <p className="text-xs text-slate-500">Sesuaikan stok untuk menu di bawah ini</p>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 overflow-hidden">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-[#F1F5F9] dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-3">Nama Menu</th>
+                        <th className="py-2.5 px-3 text-right">Saran Stok</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {data.businessTips.bottomProducts.map((p, idx) => (
+                        <tr key={p.name} className={idx % 2 === 1 ? "bg-slate-50/60 dark:bg-slate-800/30" : ""}>
+                          <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">{p.name}</td>
+                          <td className="py-2 px-3 text-right font-extrabold text-slate-900 dark:text-slate-100">{p.weeklySuggestedStock}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Rekomendasi 5 Poin */}
+            <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-sm">
+                <span>💡</span>
+                <h4>Rekomendasi untuk meningkatkan penjualan Anda</h4>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-300 font-medium pl-1 leading-relaxed">
+                <li>Sediakan stok bahan baku sesuai perkiraan penjualan yang terjadi, untuk meningkatkan efektifitas penjualan Anda.</li>
+                <li>Buatlah menu dengan varian atau menu bundling antara menu terlaris dan kurang laris untuk memaksimalkan stok bahan baku Anda.</li>
+                <li>Buatlah Promo Spesial menggunakan menu kurang laris pada hari atau jam tertentu.</li>
+                <li>Lakukan eksplorasi menu dengan Varian baru untuk meningkatkan minat pelanggan.</li>
+                <li>Fitur ini membutuhkan minimal 1 bulan data, segera pakai aplikasi POSLite Anda sekarang!</li>
+              </ol>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowTipsModal(false)}
+                className="rounded-xl bg-[#0284C7] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#0369a1] transition cursor-pointer"
+              >
+                Tutup Tips Bisnis
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
