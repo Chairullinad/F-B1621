@@ -1,5 +1,6 @@
 import { OperationalTabsShell } from "@/components/cashier/operational-tabs-shell";
 import { getCashierWorkspaceData } from "@/server/cashier";
+import { getShiftClosingWorkspaceData } from "@/server/cashier-shift";
 import {
   getKitchenWorkspaceData,
   getWaiterWorkspaceData,
@@ -12,25 +13,30 @@ export default async function KasirPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const [{ tab }, cashierData, kitchenData, waiterData] = await Promise.all([
-    searchParams,
-    getCashierWorkspaceData(),
-    getKitchenWorkspaceData(),
-    getWaiterWorkspaceData(),
-  ]);
+  const [{ tab }, cashierData, kitchenData, waiterData, shiftData] =
+    await Promise.all([
+      searchParams,
+      getCashierWorkspaceData(),
+      getKitchenWorkspaceData(),
+      getWaiterWorkspaceData(),
+      getShiftClosingWorkspaceData(),
+    ]);
 
   const initialTab =
     tab === "kitchen" || tab === "dapur"
       ? "kitchen"
       : tab === "antar"
         ? "antar"
-        : "kasir";
+        : tab === "shift"
+          ? "shift"
+          : "kasir";
 
   return (
     <OperationalTabsShell
       cashierData={cashierData}
       kitchenData={kitchenData}
       waiterData={waiterData}
+      shiftData={shiftData}
       initialTab={initialTab}
     />
   );

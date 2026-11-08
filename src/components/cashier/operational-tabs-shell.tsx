@@ -1,11 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { ChefHat, MonitorSmartphone, Utensils } from "lucide-react";
+import {
+  ChefHat,
+  ClipboardCheck,
+  MonitorSmartphone,
+  Utensils,
+} from "lucide-react";
 import { CashierWorkspace } from "@/components/cashier/cashier-workspace";
+import { ShiftClosingManager } from "@/components/cashier/shift-closing-manager";
 import { KitchenBoard } from "@/components/kitchen/kitchen-board";
 import { WaiterBoard } from "@/components/waiter/waiter-board";
 import type { CashierWorkspaceData } from "@/server/cashier";
+import type { ShiftClosingWorkspaceData } from "@/server/cashier-shift";
 import type {
   KitchenWorkspaceData,
   WaiterWorkspaceData,
@@ -15,16 +22,22 @@ export function OperationalTabsShell({
   cashierData,
   kitchenData,
   waiterData,
+  shiftData,
   initialTab = "kasir",
 }: {
   cashierData: CashierWorkspaceData;
   kitchenData: KitchenWorkspaceData;
   waiterData: WaiterWorkspaceData;
-  initialTab?: "kasir" | "kitchen" | "antar";
+  shiftData: ShiftClosingWorkspaceData;
+  initialTab?: "kasir" | "kitchen" | "antar" | "shift";
 }) {
   const [activeTab, setActiveTab] = React.useState<
-    "kasir" | "kitchen" | "antar"
+    "kasir" | "kitchen" | "antar" | "shift"
   >(initialTab);
+
+  React.useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const pendingCount = cashierData.pendingOrders.length;
   const kitchenCount = kitchenData.paidTickets.length;
@@ -32,8 +45,8 @@ export function OperationalTabsShell({
 
   return (
     <div className="space-y-4">
-      {/* Navigasi 3 Tab Operasional Terpadu (Layar Kasir, Layar Kitchen, Layar Antar) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-2xs">
+      {/* Navigasi 4 Tab Operasional Terpadu (Layar Kasir, Layar Kitchen, Layar Antar, Tutupan Shift) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-2xs print:hidden">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
@@ -106,6 +119,19 @@ export function OperationalTabsShell({
               {waiterCount}
             </span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("shift")}
+            className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "shift"
+                ? "bg-emerald-700 text-white shadow-xs"
+                : "text-emerald-800 dark:text-emerald-300 bg-emerald-50/70 hover:bg-emerald-100 dark:bg-emerald-950/30"
+            }`}
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            <span>Tutupan Shift &amp; Cetak Struk</span>
+          </button>
         </div>
 
         <p className="hidden pr-2 text-xs text-slate-500 xl:block">
@@ -117,6 +143,8 @@ export function OperationalTabsShell({
       {activeTab === "kasir" && <CashierWorkspace initialData={cashierData} />}
       {activeTab === "kitchen" && <KitchenBoard initialData={kitchenData} />}
       {activeTab === "antar" && <WaiterBoard initialData={waiterData} />}
+      {activeTab === "shift" && <ShiftClosingManager initialData={shiftData} />}
     </div>
   );
 }
+

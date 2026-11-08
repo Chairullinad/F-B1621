@@ -130,6 +130,7 @@ export function StaffSidebarShell({
                   badgeCount: badges.pending_orders,
                 },
                 { href: "/order-manual", label: "POS / Order Manual" },
+                { href: "/kasir?tab=shift", label: "Tutupan Shift & Struk" },
               ]
             : []),
           ...(staff.role === "kitchen"
