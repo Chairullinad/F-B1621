@@ -149,9 +149,6 @@ export function ManualOrderPos({
   const qrisRenderData = useMemo(() => {
     const rawPayload = initialData.outlet.qrisRawPayload?.trim() ?? "";
     const isUploadedImage = rawPayload.startsWith("data:image/");
-    const amount = Math.max(1, totalsPreview.total);
-    const tableNo =
-      orderType === "dine_in" ? (selectedTableObj?.table_no ?? 1) : undefined;
 
     let svg = "";
     if (!isUploadedImage) {
@@ -159,19 +156,9 @@ export function ManualOrderPos({
         ? rawPayload
         : DEFAULT_FALLBACK_STATIC_QRIS;
       try {
-        const dynamicPayload = generateDynamicQrisPayload({
-          staticQrisPayload: staticSource,
-          amountRupiah: amount,
-          tableNo,
-        });
-        svg = generateQrSvgString(dynamicPayload, 2);
+        svg = generateQrSvgString(staticSource, 2);
       } catch {
-        const fallbackPayload = generateDynamicQrisPayload({
-          staticQrisPayload: DEFAULT_FALLBACK_STATIC_QRIS,
-          amountRupiah: amount,
-          tableNo,
-        });
-        svg = generateQrSvgString(fallbackPayload, 2);
+        svg = generateQrSvgString(DEFAULT_FALLBACK_STATIC_QRIS, 2);
       }
     }
 
@@ -189,7 +176,6 @@ export function ManualOrderPos({
     initialData.outlet.qrisRawPayload,
     initialData.outlet.qrisMerchantName,
     initialData.outlet.name,
-    totalsPreview.total,
     orderType,
     selectedTableObj,
   ]);
@@ -680,9 +666,7 @@ export function ManualOrderPos({
                     variant={paymentMethod === "qris" ? "default" : "outline"}
                     onClick={() => {
                       setPaymentMethod("qris");
-                      if (cart.length > 0) {
-                        setShowQrisModal(true);
-                      }
+                      setShowQrisModal(true);
                     }}
                   >
                     <QrCode className="mr-1.5 h-4 w-4" />
@@ -784,7 +768,6 @@ export function ManualOrderPos({
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={cart.length === 0}
                       onClick={() => setShowQrisModal(true)}
                       className="w-full border-sky-300 bg-white font-semibold text-sky-900 hover:bg-sky-100"
                     >
@@ -902,11 +885,14 @@ export function ManualOrderPos({
                 )}
               </div>
 
-              <p className="text-xs text-slate-600">
-                Arahkan pelanggan untuk memindai QRIS di atas dengan aplikasi
-                m-Banking / e-Wallet sesuai nominal{" "}
-                <strong>{formatRupiah(totalsPreview.total)}</strong>.
-              </p>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-center text-xs text-emerald-950">
+                <p className="font-bold text-emerald-800">
+                  Ketik / Pastikan Nominal Tagihan: {formatRupiah(totalsPreview.total)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-emerald-700">
+                  Arahkan pelanggan scan QRIS di atas dengan m-Banking / e-Wallet (BCA, Mandiri, BRI, BNI, GoPay, OVO, ShopeePay, Dana, dll) dan ketik nominal tagihan di atas.
+                </p>
+              </div>
             </div>
 
             {errorMsg && (

@@ -559,35 +559,49 @@ export function CustomerOrderExperience({
               {activeOrder.paymentChoice === "qris" ? (
                 <div className="space-y-4 text-center">
                   {activeOrder.qrisSvg ? (
-                    <div className="mx-auto flex flex-col items-center rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
-                      <p className="text-xs font-bold uppercase tracking-wider text-zinc-700">
-                        QRIS {activeOrder.qrisMerchantName}
-                      </p>
-                      <p className="text-[11px] text-zinc-500">
-                        Label: MEJA-
-                        {String(activeOrder.tableNo).padStart(2, "0")} &bull;{" "}
-                        {formatRupiah(activeOrder.total)}
-                      </p>
-                      {activeOrder.qrisSvg.startsWith("data:image/") ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={activeOrder.qrisSvg}
-                          alt="QRIS Toko"
-                          className="my-2 h-56 w-56 object-contain"
-                        />
-                      ) : (
-                        <div
-                          className="my-2 h-56 w-56"
-                          dangerouslySetInnerHTML={{
-                            __html: activeOrder.qrisSvg,
-                          }}
-                        />
-                      )}
-                      <p className="text-xs text-zinc-600">
-                        Scan atau screenshot QRIS di atas menggunakan aplikasi
-                        m-Banking / e-Wallet Anda sesuai tagihan{" "}
-                        <strong>{formatRupiah(activeOrder.total)}</strong>.
-                      </p>
+                    <div className="mx-auto flex flex-col items-center rounded-2xl border-2 border-slate-900 bg-white p-4 shadow-sm">
+                      <div className="mb-2 text-center">
+                        <Badge variant="outline" className="mb-1 text-[11px] font-bold">
+                          QRIS PEMBAYARAN TOKO
+                        </Badge>
+                        <p className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
+                          {activeOrder.qrisMerchantName}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-600">
+                          Label: MEJA-{String(activeOrder.tableNo).padStart(2, "0")} &bull; Order #{activeOrder.orderNo}
+                        </p>
+                      </div>
+
+                      <div className="relative my-2 flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3 shadow-inner">
+                        {activeOrder.qrisSvg.startsWith("data:image/") ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={activeOrder.qrisSvg}
+                            alt="QRIS Toko Utuh"
+                            className="h-64 w-64 max-w-full rounded-lg object-contain"
+                          />
+                        ) : (
+                          <div
+                            className="h-64 w-64 max-w-full"
+                            dangerouslySetInnerHTML={{
+                              __html: activeOrder.qrisSvg,
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Kotak Instruksi Nominal Jelas & Tebal */}
+                      <div className="w-full rounded-xl border-2 border-emerald-500 bg-emerald-50/80 p-3 text-center text-emerald-950">
+                        <p className="text-xs font-medium text-emerald-800">
+                          Ketik / Pastikan Nominal Tagihan:
+                        </p>
+                        <p className="text-2xl font-black text-emerald-900">
+                          {formatRupiah(activeOrder.total)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-emerald-700">
+                          Scan QRIS di atas dengan m-Banking / e-Wallet (BCA, Mandiri, GoPay, OVO, ShopeePay, dll). Jika nominal belum terisi otomatis, silakan ketik nominal di atas.
+                        </p>
+                      </div>
                     </div>
                   ) : null}
 

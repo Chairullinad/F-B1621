@@ -88,23 +88,68 @@ function playNotificationBeep(isQrisClaim: boolean) {
         .webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = isQrisClaim ? "triangle" : "sine";
-    osc.frequency.setValueAtTime(isQrisClaim ? 880 : 660, ctx.currentTime);
-    if (isQrisClaim) {
-      osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.14);
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
     }
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.36);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.36);
+
+    const playTone = (freq: number, startDelay: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = isQrisClaim ? "triangle" : "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + startDelay);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime + startDelay);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        ctx.currentTime + startDelay + duration
+      );
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + startDelay);
+      osc.stop(ctx.currentTime + startDelay + duration);
+    };
+
+    if (isQrisClaim) {
+      // 3 nada ceria untuk konfirmasi pembayaran QRIS: C5 -> E5 -> G5
+      playTone(523.25, 0, 0.22);
+      playTone(659.25, 0.16, 0.22);
+      playTone(783.99, 0.32, 0.38);
+    } else {
+      // 2 nada ding-dong untuk pesanan baru: D5 -> A5
+      playTone(587.33, 0, 0.22);
+      playTone(880.0, 0.18, 0.35);
+    }
   } catch {
     // Abaikan jika browser memblokir autoplay audio sebelum interaksi
   }
 }
+
+// Alarm terus-menerus (looping chimes) sampai kasir mematikan atau menerima order
+class ContinuousOrderAlarm {
+  private intervalId: number | null = null;
+  private isQris = false;
+
+  start(isQris: boolean) {
+    this.isQris = isQris;
+    if (this.intervalId !== null) return;
+    playNotificationBeep(this.isQris);
+    this.intervalId = window.setInterval(() => {
+      playNotificationBeep(this.isQris);
+    }, 1800);
+  }
+
+  stop() {
+    if (this.intervalId !== null) {
+      window.clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+  }
+
+  isPlaying() {
+    return this.intervalId !== null;
+  }
+}
+
+const orderAlarmService = new ContinuousOrderAlarm();
 
 export function CashierWorkspace({
   initialData,
@@ -165,7 +210,11 @@ export function CashierWorkspace({
   const [cancelReason, setCancelReason] = useState<string>("");
   const [showQrisPopup, setShowQrisPopup] = useState<boolean>(false);
 
-  // Deteksi order baru / klaim QRIS baru untuk bunyi notifikasi
+  // Pop-up Order Baru Masuk & Alarm Aktif
+  const [incomingOrderAlert, setIncomingOrderAlert] =
+    useState<CashierOrderCardView | null>(null);
+
+  // Deteksi order baru / klaim QRIS baru untuk bunyi notifikasi terus-menerus
   const prevPendingIdsRef = useRef<Set<string>>(
     new Set(initialData.pendingOrders.map((o) => o.id))
   );
@@ -187,27 +236,47 @@ export function CashierWorkspace({
         .map((o) => o.id)
     );
 
-    let hasNewQrisClaim = false;
-    let hasNewOrder = false;
+    let newlyClaimedOrder: CashierOrderCardView | undefined;
+    let newlyCreatedOrder: CashierOrderCardView | undefined;
 
     for (const id of currentClaimedIds) {
       if (!prevClaimedIdsRef.current.has(id)) {
-        hasNewQrisClaim = true;
+        newlyClaimedOrder = initialData.pendingOrders.find((o) => o.id === id);
+        break;
       }
     }
     for (const id of currentPendingIds) {
       if (!prevPendingIdsRef.current.has(id)) {
-        hasNewOrder = true;
+        newlyCreatedOrder = initialData.pendingOrders.find((o) => o.id === id);
+        break;
       }
     }
 
-    if (soundEnabled && (hasNewQrisClaim || hasNewOrder)) {
-      playNotificationBeep(hasNewQrisClaim);
+    if (soundEnabled && (newlyClaimedOrder || newlyCreatedOrder)) {
+      const targetAlert = newlyClaimedOrder ?? newlyCreatedOrder!;
+      setIncomingOrderAlert(targetAlert);
+      orderAlarmService.start(Boolean(newlyClaimedOrder));
     }
 
     prevPendingIdsRef.current = currentPendingIds;
     prevClaimedIdsRef.current = currentClaimedIds;
   }, [initialData.pendingOrders, soundEnabled]);
+
+  // Hentikan alarm saat komponen dilepas (unmount)
+  useEffect(() => {
+    return () => {
+      orderAlarmService.stop();
+    };
+  }, []);
+
+  const dismissAlarmOnly = useCallback(() => {
+    orderAlarmService.stop();
+  }, []);
+
+  const handleDismissOrderAlert = useCallback(() => {
+    orderAlarmService.stop();
+    setIncomingOrderAlert(null);
+  }, []);
 
   const allOrders = useMemo(
     () => [...initialData.pendingOrders, ...initialData.recentOrders],
@@ -220,6 +289,8 @@ export function CashierWorkspace({
   }, [allOrders, selectedOrderId]);
 
   const selectOrder = useCallback((order: CashierOrderCardView) => {
+    orderAlarmService.stop();
+    setIncomingOrderAlert(null);
     setSelectedOrderId(order.id);
     setActionMode("payment");
     setCashReceivedInput(String(order.total));
@@ -393,6 +464,8 @@ export function CashierWorkspace({
 
   async function handleVerifyQrisPayment() {
     if (!selectedOrder) return;
+    orderAlarmService.stop();
+    setIncomingOrderAlert(null);
     setIsSubmitting(true);
     setFeedback(null);
     try {
@@ -415,6 +488,8 @@ export function CashierWorkspace({
 
   async function handleAcceptCashPayment() {
     if (!selectedOrder) return;
+    orderAlarmService.stop();
+    setIncomingOrderAlert(null);
     setIsSubmitting(true);
     setFeedback(null);
     try {
@@ -1957,23 +2032,10 @@ export function CashierWorkspace({
                           ? raw
                           : DEFAULT_FALLBACK_STATIC_QRIS;
                         try {
-                          return generateQrSvgString(
-                            generateDynamicQrisPayload({
-                              staticQrisPayload: source,
-                              amountRupiah: Math.max(1, selectedOrder.total),
-                              tableNo: selectedOrder.tableNo ?? undefined,
-                              orderNo: selectedOrder.orderNo,
-                            }),
-                            2
-                          );
+                          return generateQrSvgString(source, 2);
                         } catch {
                           return generateQrSvgString(
-                            generateDynamicQrisPayload({
-                              staticQrisPayload: DEFAULT_FALLBACK_STATIC_QRIS,
-                              amountRupiah: Math.max(1, selectedOrder.total),
-                              tableNo: selectedOrder.tableNo ?? undefined,
-                              orderNo: selectedOrder.orderNo,
-                            }),
+                            DEFAULT_FALLBACK_STATIC_QRIS,
                             2
                           );
                         }
@@ -1983,10 +2045,14 @@ export function CashierWorkspace({
                 )}
               </div>
 
-              <p className="text-xs text-slate-600">
-                Silakan scan QRIS di atas dengan m-Banking / e-Wallet sesuai
-                tagihan <strong>{formatRupiah(selectedOrder.total)}</strong>.
-              </p>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-center text-xs text-emerald-950">
+                <p className="font-bold text-emerald-800">
+                  Ketik / Pastikan Nominal Tagihan: {formatRupiah(selectedOrder.total)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-emerald-700">
+                  Arahkan pelanggan scan QRIS di atas dengan m-Banking / e-Wallet (BCA, Mandiri, BRI, BNI, GoPay, OVO, ShopeePay, Dana, dll) dan ketik nominal tagihan di atas.
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -2012,6 +2078,116 @@ export function CashierWorkspace({
                 {isSubmitting
                   ? "Memproses..."
                   : "Pembayaran QRIS Sesuai — Terima Order"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP MODAL PESANAN BARU / KLAIM QRIS MASUK DARI MEJA */}
+      {incomingOrderAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl border-2 border-emerald-500 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800 animate-pulse">
+                  <Bell className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">
+                    {incomingOrderAlert.customerClaimedPaidAt
+                      ? "Konfirmasi Pembayaran QRIS Masuk!"
+                      : "Pesanan Baru Masuk dari Meja!"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {incomingOrderAlert.customerClaimedPaidAt
+                      ? "Pelanggan telah menekan tombol 'Saya Sudah Bayar' pada layar meja."
+                      : "Pelanggan baru saja mengirim pesanan dari layar meja."}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDismissOrderAlert}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Tutup Notifikasi"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="my-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3.5 text-sm border border-slate-200">
+                <div>
+                  <p className="text-xs font-medium text-slate-500">Nomor Meja</p>
+                  <p className="text-base font-black text-slate-900">
+                    {incomingOrderAlert.tableNo
+                      ? `Meja ${incomingOrderAlert.tableNo}`
+                      : "Takeaway / Manual"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-medium text-slate-500">Nomor Order</p>
+                  <p className="font-mono text-sm font-bold text-slate-900">
+                    #{incomingOrderAlert.orderNo}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500">Metode</p>
+                  <Badge variant="outline" className="mt-0.5 font-bold uppercase text-[11px]">
+                    {incomingOrderAlert.paymentChoice === "qris"
+                      ? "QRIS di Meja"
+                      : "Tunai di Kasir"}
+                  </Badge>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-medium text-slate-500">Total Tagihan</p>
+                  <p className="text-base font-black text-emerald-700">
+                    {formatRupiah(incomingOrderAlert.total)}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1 text-xs font-bold text-slate-700">
+                  Rincian Item ({incomingOrderAlert.items.reduce((acc, it) => acc + it.qty, 0)} item):
+                </p>
+                <div className="max-h-36 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2.5 divide-y divide-slate-100 text-xs">
+                  {incomingOrderAlert.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between py-1.5 first:pt-0 last:pb-0">
+                      <span className="font-medium text-slate-800">
+                        {item.qty}x {item.productName}
+                      </span>
+                      <span className="font-mono text-slate-600">
+                        {formatRupiah(item.lineTotal)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={dismissAlarmOnly}
+                className="min-h-11 sm:w-1/3 border-slate-300 font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                <VolumeX className="mr-1.5 h-4 w-4" />
+                Matikan Alarm
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  selectOrder(incomingOrderAlert);
+                  setActiveTab("pending");
+                  handleDismissOrderAlert();
+                }}
+                className="min-h-11 flex-1 bg-emerald-700 font-bold text-white hover:bg-emerald-800 shadow-sm"
+              >
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                Terima Pesanan &amp; Buka Order
               </Button>
             </div>
           </div>

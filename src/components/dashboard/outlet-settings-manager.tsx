@@ -222,19 +222,60 @@ export function OutletSettingsManager({
     setIsScanningQrisImage(true);
 
     try {
-      const bitmap = await createImageBitmap(file);
+      let bitmapWidth = 0;
+      let bitmapHeight = 0;
+      let drawSource: CanvasImageSource;
+
+      if (typeof createImageBitmap !== "undefined") {
+        try {
+          const bmp = await createImageBitmap(file);
+          bitmapWidth = bmp.width;
+          bitmapHeight = bmp.height;
+          drawSource = bmp;
+        } catch {
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const el = new Image();
+              el.onload = () => resolve(el);
+              el.onerror = reject;
+              el.src = reader.result as string;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          bitmapWidth = img.naturalWidth || img.width;
+          bitmapHeight = img.naturalHeight || img.height;
+          drawSource = img;
+        }
+      } else {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const el = new Image();
+            el.onload = () => resolve(el);
+            el.onerror = reject;
+            el.src = reader.result as string;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        bitmapWidth = img.naturalWidth || img.width;
+        bitmapHeight = img.naturalHeight || img.height;
+        drawSource = img;
+      }
 
       // 1. Kompres gambar QRIS ke Data URL agar tersimpan permanen di database
       const maxDim = 650;
-      const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+      const scale = Math.min(1, maxDim / Math.max(bitmapWidth, bitmapHeight));
       const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.width = Math.max(1, Math.round(bitmapWidth * scale));
+      canvas.height = Math.max(1, Math.round(bitmapHeight * scale));
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(drawSource, 0, 0, canvas.width, canvas.height);
       }
       const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
       setQrisImagePreview(compressedDataUrl);
@@ -257,10 +298,10 @@ export function OutletSettingsManager({
 
       if (scanCtx) {
         for (const zone of cropZones) {
-          const srcX = Math.floor(bitmap.width * zone.sx);
-          const srcY = Math.floor(bitmap.height * zone.sy);
-          const srcW = Math.max(1, Math.floor(bitmap.width * zone.sw));
-          const srcH = Math.max(1, Math.floor(bitmap.height * zone.sh));
+          const srcX = Math.floor(bitmapWidth * zone.sx);
+          const srcY = Math.floor(bitmapHeight * zone.sy);
+          const srcW = Math.max(1, Math.floor(bitmapWidth * zone.sw));
+          const srcH = Math.max(1, Math.floor(bitmapHeight * zone.sh));
 
           const targetMax = 900;
           const s = Math.min(1, targetMax / Math.max(srcW, srcH));
@@ -270,7 +311,7 @@ export function OutletSettingsManager({
           scanCtx.fillStyle = "#FFFFFF";
           scanCtx.fillRect(0, 0, scanCanvas.width, scanCanvas.height);
           scanCtx.drawImage(
-            bitmap,
+            drawSource,
             srcX,
             srcY,
             srcW,
@@ -315,7 +356,9 @@ export function OutletSettingsManager({
         if (BarcodeDetectorCtor) {
           try {
             const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
-            const results = await detector.detect(bitmap);
+            const results = await detector.detect(
+              drawSource as unknown as ImageBitmap
+            );
             const found = results.find((r) =>
               r.rawValue?.trim().startsWith("000201")
             );
@@ -369,8 +412,13 @@ export function OutletSettingsManager({
           toast.error(res.message);
         }
       });
-    } catch {
-      toast.error("Gagal memproses file gambar QRIS. Pastikan format PNG/JPG.");
+    } catch (err) {
+      console.error("Gagal memproses file gambar QRIS:", err);
+      toast.error(
+        err instanceof Error
+          ? `Gagal memproses gambar: ${err.message}`
+          : "Gagal memproses file gambar QRIS. Pastikan format PNG/JPG."
+      );
     } finally {
       setIsScanningQrisImage(false);
     }

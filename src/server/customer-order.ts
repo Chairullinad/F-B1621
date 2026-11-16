@@ -323,24 +323,24 @@ async function buildCustomerOrderTrackingView(params: {
       (params.outletRecord.qris_raw_payload as string | null)?.trim() ??
       DEFAULT_FALLBACK_STATIC_QRIS;
     if (rawStaticPayload.startsWith("data:image/")) {
+      // Gambar QRIS utuh milik toko (Base64)
       qrisSvg = rawStaticPayload;
     } else {
+      // Prioritaskan SVG dari payload statis toko langsung agar kompatibel 100% saat pelanggan scan
       try {
-        const dynamicPayload = generateDynamicQrisPayload({
-          staticQrisPayload: rawStaticPayload,
-          amountRupiah: total,
-          tableNo: params.tableNo,
-          orderNo,
-        });
-        qrisSvg = generateQrSvgString(dynamicPayload, 2);
+        qrisSvg = generateQrSvgString(rawStaticPayload, 2);
       } catch {
-        const fallbackPayload = generateDynamicQrisPayload({
-          staticQrisPayload: DEFAULT_FALLBACK_STATIC_QRIS,
-          amountRupiah: total,
-          tableNo: params.tableNo,
-          orderNo,
-        });
-        qrisSvg = generateQrSvgString(fallbackPayload, 2);
+        try {
+          const dynamicPayload = generateDynamicQrisPayload({
+            staticQrisPayload: rawStaticPayload,
+            amountRupiah: total,
+            tableNo: params.tableNo,
+            orderNo,
+          });
+          qrisSvg = generateQrSvgString(dynamicPayload, 2);
+        } catch {
+          qrisSvg = generateQrSvgString(DEFAULT_FALLBACK_STATIC_QRIS, 2);
+        }
       }
     }
   }
