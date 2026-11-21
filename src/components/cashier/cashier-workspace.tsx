@@ -28,10 +28,7 @@ import { Input } from "@/components/ui/input";
 import { formatDateTimeWIB, formatTimeWIB } from "@/lib/datetime";
 import { formatRupiah } from "@/lib/money";
 import { generateQrSvgString } from "@/lib/qrcode";
-import {
-  DEFAULT_FALLBACK_STATIC_QRIS,
-  generateDynamicQrisPayload,
-} from "@/lib/qris";
+import { DEFAULT_FALLBACK_STATIC_QRIS } from "@/lib/qris";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { OrderStatus, RefundReasonCategory } from "@/lib/types/database";
 import {

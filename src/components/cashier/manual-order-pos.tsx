@@ -30,10 +30,7 @@ import {
   formatRupiah,
 } from "@/lib/money";
 import { generateQrSvgString } from "@/lib/qrcode";
-import {
-  DEFAULT_FALLBACK_STATIC_QRIS,
-  generateDynamicQrisPayload,
-} from "@/lib/qris";
+import { DEFAULT_FALLBACK_STATIC_QRIS } from "@/lib/qris";
 import type { OrderType, PaymentMethod } from "@/lib/types/database";
 import {
   createManualCashierOrderAction,
