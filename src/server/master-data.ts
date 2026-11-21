@@ -51,9 +51,16 @@ const productCreateSchema = z.object({
   imageUrl: z
     .string()
     .trim()
-    .url("URL foto produk tidak valid.")
-    .nullable()
-    .or(z.literal("")),
+    .refine(
+      (val) =>
+        val === "" ||
+        val.startsWith("/") ||
+        val.startsWith("http://") ||
+        val.startsWith("https://") ||
+        val.startsWith("data:image/"),
+      "URL foto produk tidak valid."
+    )
+    .nullable(),
   isAvailable: z.boolean(),
   isActive: z.boolean(),
 });
