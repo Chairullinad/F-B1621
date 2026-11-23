@@ -864,9 +864,18 @@ export function CustomerOrderExperience({
               }`}
             >
               <div className="flex items-center gap-3 p-3.5 pb-0">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 shadow-2xs">
-                  <UtensilsCrossed className="h-5 w-5" />
-                </div>
+                {product.image_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className="h-14 w-14 shrink-0 rounded-xl border border-slate-200 bg-white object-cover shadow-2xs"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 shadow-2xs">
+                    <UtensilsCrossed className="h-5 w-5" />
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-1.5">
                     <CardTitle className="text-sm font-bold leading-tight text-slate-900">

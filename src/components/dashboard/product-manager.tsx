@@ -7,10 +7,12 @@ import {
   Check,
   Edit3,
   FolderPlus,
+  ImagePlus,
   Plus,
   Search,
   Tag,
   Trash2,
+  Upload,
   UtensilsCrossed,
   X,
 } from "lucide-react";
@@ -79,6 +81,59 @@ export function ProductManager({
   const [editIsAvailable, setEditIsAvailable] = React.useState(true);
 
   const [isPending, startTransition] = React.useTransition();
+  const [isProcessingImage, setIsProcessingImage] = React.useState(false);
+
+  async function compressProductImageToDataUrl(file: File): Promise<string> {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = reader.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const maxDim = 480;
+    const w = img.naturalWidth || img.width || 480;
+    const h = img.naturalHeight || img.height || 480;
+    const scale = Math.min(1, maxDim / Math.max(w, h));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }
+    return canvas.toDataURL("image/jpeg", 0.82);
+  }
+
+  async function handleUploadImage(
+    e: React.ChangeEvent<HTMLInputElement>,
+    mode: "create" | "edit"
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsProcessingImage(true);
+    try {
+      const dataUrl = await compressProductImageToDataUrl(file);
+      if (mode === "create") {
+        setImageUrl(dataUrl);
+      } else {
+        setEditImageUrl(dataUrl);
+      }
+      toast.success("Foto menu berhasil dimuat! Klik Simpan untuk menerapkan.");
+    } catch {
+      toast.error("Gagal membaca file gambar. Pastikan format JPG/PNG/WEBP.");
+    } finally {
+      setIsProcessingImage(false);
+      e.target.value = "";
+    }
+  }
 
   const categoryNameMap = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -399,9 +454,18 @@ export function ProductManager({
                   >
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 shrink-0">
-                          <UtensilsCrossed className="h-4 w-4" />
-                        </div>
+                        {product.image_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="h-11 w-11 rounded-lg border border-slate-200 dark:border-slate-700 object-cover bg-white shrink-0"
+                          />
+                        ) : (
+                          <div className="h-11 w-11 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 shrink-0">
+                            <UtensilsCrossed className="h-4 w-4" />
+                          </div>
+                        )}
                         <span className="font-semibold text-slate-800 dark:text-slate-100">
                           {product.name}
                         </span>
@@ -547,17 +611,59 @@ export function ProductManager({
                 )}
               </div>
 
-              <div>
-                <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1">
-                  URL Foto Menu (Opsional)
+              <div className="space-y-2">
+                <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-200">
+                  Foto Menu (Upload File / URL)
                 </label>
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
-                />
+
+                <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-3">
+                  {imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={imageUrl}
+                      alt="Pratinjau Menu"
+                      className="h-16 w-16 rounded-lg border border-slate-200 bg-white object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400">
+                      <ImagePlus className="h-6 w-6" />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-[#1E88E5] px-3 text-[12px] font-semibold text-white hover:bg-[#1976D2] transition">
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>
+                          {isProcessingImage ? "Memuat..." : "Upload Foto"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleUploadImage(e, "create")}
+                          className="hidden"
+                          disabled={isPending || isProcessingImage}
+                        />
+                      </label>
+                      {imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl("")}
+                          className="inline-flex h-8 items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-[12px] font-semibold text-rose-600 hover:bg-rose-100 cursor-pointer"
+                        >
+                          Hapus Foto
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Atau tempel URL/path foto (cth: https://... atau /menu/...)"
+                      value={imageUrl.startsWith("data:image/") ? "" : imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="w-full h-8 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 text-[12px] text-slate-700 dark:text-slate-200 focus:border-[#1E88E5] outline-hidden"
+                    />
+                  </div>
+                </div>
               </div>
 
               <label className="flex items-center gap-2 pt-1 text-[13px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
@@ -658,6 +764,65 @@ export function ProductManager({
                   onChange={(e) => setEditPriceStr(e.target.value)}
                   className="w-full h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 text-[14px] text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] outline-hidden"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-200">
+                  Foto Menu (Upload File / URL)
+                </label>
+
+                <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-3">
+                  {editImageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={editImageUrl}
+                      alt="Pratinjau Menu"
+                      className="h-16 w-16 rounded-lg border border-slate-200 bg-white object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400">
+                      <ImagePlus className="h-6 w-6" />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-[#1E88E5] px-3 text-[12px] font-semibold text-white hover:bg-[#1976D2] transition">
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>
+                          {isProcessingImage ? "Memuat..." : "Upload / Ganti Foto"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleUploadImage(e, "edit")}
+                          className="hidden"
+                          disabled={isPending || isProcessingImage}
+                        />
+                      </label>
+                      {editImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setEditImageUrl("")}
+                          className="inline-flex h-8 items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-[12px] font-semibold text-rose-600 hover:bg-rose-100 cursor-pointer"
+                        >
+                          Hapus Foto
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Atau tempel URL/path foto (cth: https://... atau /menu/...)"
+                      value={
+                        editImageUrl.startsWith("data:image/")
+                          ? ""
+                          : editImageUrl
+                      }
+                      onChange={(e) => setEditImageUrl(e.target.value)}
+                      className="w-full h-8 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 text-[12px] text-slate-700 dark:text-slate-200 focus:border-[#1E88E5] outline-hidden"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">

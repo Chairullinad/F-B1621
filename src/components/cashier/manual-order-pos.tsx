@@ -435,9 +435,18 @@ export function ManualOrderPos({
                       }`}
                     >
                       <div className="flex items-start gap-2.5">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 shadow-2xs">
-                          <UtensilsCrossed className="h-4 w-4" />
-                        </span>
+                        {product.image_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="h-11 w-11 shrink-0 rounded-lg border border-slate-200 bg-white object-cover shadow-2xs"
+                          />
+                        ) : (
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 shadow-2xs">
+                            <UtensilsCrossed className="h-4 w-4" />
+                          </span>
+                        )}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-1">
                             <span className="text-sm font-bold leading-tight text-slate-900">
