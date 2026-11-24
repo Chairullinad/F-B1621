@@ -100,20 +100,20 @@ export function TransferStockManager({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm sm:flex-row sm:items-center">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded-lg bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700">
+            <span className="rounded-lg bg-indigo-100 dark:bg-indigo-950/60 px-2.5 py-1 text-xs font-bold text-indigo-700 dark:text-indigo-300">
               MUTASI INTERNAL 3 LOKASI
             </span>
-            <span className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+            <span className="rounded-lg bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
               Auto-Jurnal In-Transit
             </span>
           </div>
-          <h2 className="mt-1.5 text-xl font-bold text-slate-900">
+          <h2 className="mt-1.5 text-xl font-bold text-slate-900 dark:text-slate-100">
             Transfer / Mutasi Stok Antar Penyimpanan
           </h2>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Alur terverifikasi 2 tahap: Request Transfer → Approve Pengiriman
             (In-Transit) → Konfirmasi Terima di Lokasi Tujuan.
           </p>
@@ -131,8 +131,8 @@ export function TransferStockManager({
         <div
           className={`rounded-xl border px-4 py-3 text-sm font-medium ${
             feedback.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+              : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200"
           }`}
         >
           {feedback.message}
@@ -141,60 +141,60 @@ export function TransferStockManager({
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
             Menunggu Approval
           </p>
           <p className="mt-1.5 text-2xl font-bold text-amber-600">
             {pendingCount} Dokumen
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Perlu persetujuan Owner / Kasir
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
             Sedang Dikirim (In-Transit)
           </p>
           <p className="mt-1.5 text-2xl font-bold text-blue-600">
             {inTransitCount} Pengiriman
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Menunggu konfirmasi terima di tujuan
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
             Transfer Selesai
           </p>
           <p className="mt-1.5 text-2xl font-bold text-emerald-600">
             {receivedCount} Mutasi
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Stok lokasi tujuan telah bertambah
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
             Nilai Barang Termutasi
           </p>
-          <p className="mt-1.5 text-2xl font-bold text-slate-900">
+          <p className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">
             {formatRupiah(totalValueTransferred)}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Tercatat di Jurnal Umum otomatis
           </p>
         </div>
       </div>
 
       {/* Tabel Posisi Stok per Lokasi Penyimpanan */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
         <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <div>
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
               Posisi Stok per Lokasi Penyimpanan (Real-time)
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Distribusi stok bahan baku antara Gudang Utama, Dapur Utama, dan
               Bar Minuman
             </p>
@@ -203,7 +203,7 @@ export function TransferStockManager({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold tracking-wider text-slate-500 uppercase">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
                 <th className="px-3 py-3">Bahan Baku</th>
                 <th className="px-3 py-3">Kategori</th>
                 <th className="px-3 py-3 text-right">Gudang Utama</th>
@@ -212,7 +212,7 @@ export function TransferStockManager({
                 <th className="px-3 py-3 text-right">Total Stok</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {initialData.ingredients.map((ing) => {
                 const st = ing.storage_stock ?? {
                   gudang: ing.current_stock,
@@ -220,34 +220,34 @@ export function TransferStockManager({
                   bar: 0,
                 };
                 return (
-                  <tr key={ing.id} className="hover:bg-slate-50/80">
-                    <td className="px-3 py-3 font-semibold text-slate-900">
+                  <tr key={ing.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60">
+                    <td className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100">
                       {ing.name}
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-600">
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium">
+                    <td className="px-3 py-3 text-xs text-slate-600 dark:text-slate-400">
+                      <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
                         {ing.category}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-semibold text-slate-800">
+                    <td className="px-3 py-3 text-right font-mono font-semibold text-slate-800 dark:text-slate-200">
                       {Number(st.gudang ?? 0).toLocaleString("id-ID")}{" "}
                       <span className="text-xs font-normal text-slate-400">
                         {ing.unit}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-semibold text-blue-700">
+                    <td className="px-3 py-3 text-right font-mono font-semibold text-blue-700 dark:text-blue-400">
                       {Number(st.dapur ?? 0).toLocaleString("id-ID")}{" "}
                       <span className="text-xs font-normal text-slate-400">
                         {ing.unit}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-semibold text-purple-700">
+                    <td className="px-3 py-3 text-right font-mono font-semibold text-purple-700 dark:text-purple-400">
                       {Number(st.bar ?? 0).toLocaleString("id-ID")}{" "}
                       <span className="text-xs font-normal text-slate-400">
                         {ing.unit}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-bold text-slate-900">
+                    <td className="px-3 py-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
                       {ing.current_stock.toLocaleString("id-ID")} {ing.unit}
                     </td>
                   </tr>
@@ -259,12 +259,12 @@ export function TransferStockManager({
       </div>
 
       {/* Daftar Riwayat & Approval Transfer Stok */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
         <div className="mb-4">
-          <h3 className="text-base font-bold text-slate-900">
+          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
             Daftar Dokumen Transfer / Mutasi Stok
           </h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Klik Approve untuk mengirim barang (In-Transit), lalu klik Terima
             Barang saat tiba di lokasi tujuan.
           </p>
@@ -273,7 +273,7 @@ export function TransferStockManager({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold tracking-wider text-slate-500 uppercase">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase">
                 <th className="px-3 py-3">No. Transfer</th>
                 <th className="px-3 py-3">Tanggal</th>
                 <th className="px-3 py-3">Asal → Tujuan</th>
@@ -284,61 +284,61 @@ export function TransferStockManager({
                 <th className="px-3 py-3 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {initialData.transfers.map((trf) => (
-                <tr key={trf.id} className="hover:bg-slate-50/80">
-                  <td className="px-3 py-3 font-mono text-xs font-bold text-slate-900">
+                <tr key={trf.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60">
+                  <td className="px-3 py-3 font-mono text-xs font-bold text-slate-900 dark:text-slate-100">
                     {trf.transfer_no}
                   </td>
-                  <td className="px-3 py-3 text-xs text-slate-600">
+                  <td className="px-3 py-3 text-xs text-slate-600 dark:text-slate-400">
                     {trf.transfer_date}
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-1.5 text-xs font-semibold">
-                      <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-700">
+                      <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-slate-700 dark:text-slate-300">
                         {trf.from_location}
                       </span>
                       <span className="text-slate-400">→</span>
-                      <span className="rounded bg-blue-50 px-2 py-0.5 text-blue-700">
+                      <span className="rounded bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 text-blue-700 dark:text-blue-300">
                         {trf.to_location}
                       </span>
                     </div>
                   </td>
-                  <td className="px-3 py-3 font-semibold text-slate-900">
+                  <td className="px-3 py-3 font-semibold text-slate-900 dark:text-slate-100">
                     {trf.ingredient_name_snapshot}{" "}
-                    <span className="font-mono text-xs font-bold text-blue-600">
+                    <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
                       ({trf.qty} {trf.unit})
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-right font-mono font-semibold text-slate-800">
+                  <td className="px-3 py-3 text-right font-mono font-semibold text-slate-800 dark:text-slate-200">
                     {formatRupiah(trf.total_value)}
                   </td>
-                  <td className="px-3 py-3 text-xs text-slate-600">
+                  <td className="px-3 py-3 text-xs text-slate-600 dark:text-slate-400">
                     <div>Kirim: {trf.sender_name}</div>
                     {trf.receiver_name && (
-                      <div className="text-emerald-700">
+                      <div className="text-emerald-700 dark:text-emerald-400">
                         Terima: {trf.receiver_name}
                       </div>
                     )}
                   </td>
                   <td className="px-3 py-3">
                     {trf.status === "pending" && (
-                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                      <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-950/60 px-2.5 py-0.5 text-xs font-bold text-amber-800 dark:text-amber-300">
                         Pending Approval
                       </span>
                     )}
                     {trf.status === "in_transit" && (
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-800">
+                      <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-950/60 px-2.5 py-0.5 text-xs font-bold text-blue-800 dark:text-blue-300">
                         In-Transit
                       </span>
                     )}
                     {trf.status === "received" && (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                         Diterima
                       </span>
                     )}
                     {trf.status === "cancelled" && (
-                      <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-800">
+                      <span className="inline-flex items-center rounded-full bg-rose-100 dark:bg-rose-950/60 px-2.5 py-0.5 text-xs font-bold text-rose-800 dark:text-rose-300">
                         Dibatalkan
                       </span>
                     )}
@@ -384,16 +384,16 @@ export function TransferStockManager({
 
       {/* Modal Buat Transfer Stok */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 dark:bg-slate-950/75 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 Buat Request Transfer / Mutasi Stok
               </h3>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 ✕
               </button>
@@ -402,7 +402,7 @@ export function TransferStockManager({
             <form onSubmit={handleCreateTransfer} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                  <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Lokasi Asal
                   </label>
                   <select
@@ -412,7 +412,7 @@ export function TransferStockManager({
                         e.target.value as (typeof LOCATIONS)[number]
                       )
                     }
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
                   >
                     {LOCATIONS.map((loc) => (
                       <option key={loc} value={loc}>
@@ -422,7 +422,7 @@ export function TransferStockManager({
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                  <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Lokasi Tujuan
                   </label>
                   <select
@@ -432,7 +432,7 @@ export function TransferStockManager({
                         e.target.value as (typeof LOCATIONS)[number]
                       )
                     }
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
                   >
                     {LOCATIONS.map((loc) => (
                       <option key={loc} value={loc}>
@@ -444,13 +444,13 @@ export function TransferStockManager({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-bold text-slate-700">
+                <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                   Pilih Bahan Baku
                 </label>
                 <select
                   value={ingredientId}
                   onChange={(e) => setIngredientId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
                 >
                   {initialData.ingredients.map((ing) => {
                     const st = ing.storage_stock ?? {
@@ -471,7 +471,7 @@ export function TransferStockManager({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                  <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Kuantitas Transfer ({selectedIngredient?.unit ?? "unit"})
                   </label>
                   <input
@@ -481,14 +481,14 @@ export function TransferStockManager({
                     required
                     value={qty}
                     onChange={(e) => setQty(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                  <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Estimasi Nilai Mutasi
                   </label>
-                  <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 font-mono text-sm font-bold text-slate-800">
+                  <div className="flex h-10 items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-3 font-mono text-sm font-bold text-slate-800 dark:text-slate-100">
                     {formatRupiah(
                       Math.round(
                         (Number(qty) || 0) *
@@ -500,7 +500,7 @@ export function TransferStockManager({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-bold text-slate-700">
+                <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                   Catatan Mutasi (Opsional)
                 </label>
                 <input
@@ -508,7 +508,7 @@ export function TransferStockManager({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Contoh: Persiapan shift sore dapur utama"
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
                 />
               </div>
 
@@ -516,7 +516,7 @@ export function TransferStockManager({
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   Batal
                 </button>

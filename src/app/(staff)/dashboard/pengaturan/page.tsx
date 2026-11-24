@@ -10,7 +10,7 @@ export default async function PengaturanPage() {
         <h1 className="text-2xl font-bold">
           Pengaturan Outlet, Pajak, QRIS &amp; Notifikasi
         </h1>
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-zinc-600 dark:text-slate-400">
           Kelola profil outlet, waktu kedaluwarsa order, pajak &amp; service
           charge (default mati), QRIS toko, batas diskon kasir, dan notifikasi
           email Owner. Setiap perubahan tercatat di Jejak Audit.

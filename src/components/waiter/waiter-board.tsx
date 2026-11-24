@@ -119,14 +119,14 @@ export function WaiterBoard({
   return (
     <div className="space-y-4">
       {/* Header Bar Layar Antar Pelayan */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
         <div>
-          <h1 className="flex items-center gap-2 text-lg font-extrabold text-zinc-900">
-            <Utensils className="h-5 w-5 text-slate-700" />
+          <h1 className="flex items-center gap-2 text-lg font-extrabold text-zinc-900 dark:text-slate-100">
+            <Utensils className="h-5 w-5 text-slate-700 dark:text-slate-300" />
             Layar Antar Meja ({initialData.readyTickets.length} Pesanan Siap
             Diantar)
           </h1>
-          <p className="text-xs text-zinc-600">
+          <p className="text-xs text-zinc-600 dark:text-slate-400">
             Ambil pesanan di pass Kitchen dan antar ke meja tujuan. Saat Anda
             menekan <strong>Sudah Diantar</strong>, sesi pantau pelanggan pada
             meja tersebut otomatis selesai.
@@ -170,8 +170,8 @@ export function WaiterBoard({
         <div
           className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium ${
             feedback.type === "success"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-              : "border-red-300 bg-red-50 text-red-950"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+              : "border-red-300 bg-red-50 text-red-950 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
           }`}
         >
           <span>{feedback.text}</span>
@@ -189,7 +189,7 @@ export function WaiterBoard({
       {/* Daftar Kartu Pesanan Siap Antar */}
       {initialData.readyTickets.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-sm text-zinc-500">
+          <CardContent className="py-16 text-center text-sm text-zinc-500 dark:text-slate-400">
             Belum ada pesanan yang siap diantar saat ini. Pesanan akan muncul
             otomatis begitu Kitchen menekan tombol <strong>Siap Saji</strong>.
           </CardContent>
@@ -199,25 +199,25 @@ export function WaiterBoard({
           {initialData.readyTickets.map((ticket) => (
             <Card
               key={ticket.id}
-              className="flex flex-col justify-between border-2 border-emerald-600 bg-white shadow-sm"
+              className="flex flex-col justify-between border-2 border-emerald-600 dark:border-emerald-700 bg-white dark:bg-slate-900 shadow-sm"
             >
-              <CardHeader className="border-b border-emerald-100 bg-emerald-50/60 pb-3">
+              <CardHeader className="border-b border-emerald-100 dark:border-emerald-900/60 bg-emerald-50/60 dark:bg-emerald-950/30 pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <Badge variant="success" className="mb-1">
                       SIAP DIANTAR KE MEJA
                     </Badge>
-                    <CardTitle className="text-2xl font-extrabold text-zinc-900">
+                    <CardTitle className="text-2xl font-extrabold text-zinc-900 dark:text-slate-100">
                       {ticket.tableName}
                     </CardTitle>
-                    <CardDescription className="mt-0.5 font-mono text-xs font-semibold text-zinc-700">
+                    <CardDescription className="mt-0.5 font-mono text-xs font-semibold text-zinc-700 dark:text-slate-300">
                       Order #{ticket.orderNo} • Siap pukul{" "}
                       {formatTimeWIB(ticket.readyAt)}
                     </CardDescription>
                   </div>
 
                   {ticket.tableNo !== null && (
-                    <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl bg-zinc-900 text-white">
+                    <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl bg-zinc-900 dark:bg-slate-800 text-white">
                       <span className="text-[10px] uppercase leading-none opacity-80">
                         Meja
                       </span>
@@ -230,19 +230,19 @@ export function WaiterBoard({
               </CardHeader>
 
               <CardContent className="flex flex-1 flex-col justify-between space-y-4 pt-4">
-                <div className="divide-y divide-zinc-200">
+                <div className="divide-y divide-zinc-200 dark:divide-slate-800">
                   {ticket.items.map((item) => (
                     <div key={item.id} className="py-2.5 first:pt-0">
                       <div className="flex items-baseline gap-2.5">
                         <span className="inline-flex min-w-9 items-center justify-center rounded-lg bg-emerald-700 px-2 py-1 text-base font-extrabold text-white">
                           {item.qty}x
                         </span>
-                        <span className="text-base font-bold text-zinc-900">
+                        <span className="text-base font-bold text-zinc-900 dark:text-slate-100">
                           {item.productName}
                         </span>
                       </div>
                       {item.note && (
-                        <div className="mt-1.5 rounded-lg border border-amber-300 bg-amber-100/80 px-2.5 py-1 text-xs font-bold text-amber-950">
+                        <div className="mt-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-100/80 dark:bg-amber-950/50 px-2.5 py-1 text-xs font-bold text-amber-950 dark:text-amber-200">
                           Catatan: {item.note}
                         </div>
                       )}
@@ -254,7 +254,7 @@ export function WaiterBoard({
                   type="button"
                   disabled={processingOrderId === ticket.id}
                   onClick={() => handleMarkServed(ticket.id, ticket.version)}
-                  className="min-h-12 w-full bg-zinc-900 text-base font-bold text-white hover:bg-zinc-800"
+                  className="min-h-12 w-full bg-zinc-900 text-base font-bold text-white hover:bg-zinc-800 dark:bg-emerald-600 dark:hover:bg-emerald-500"
                 >
                   <CheckCircle2 className="mr-1.5 h-4 w-4" />
                   {processingOrderId === ticket.id

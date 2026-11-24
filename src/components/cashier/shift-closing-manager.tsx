@@ -307,7 +307,7 @@ export function ShiftClosingManager({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Nama Kasir Shift In (Pembuka Shift)
                   </label>
                   <Input
@@ -322,7 +322,7 @@ export function ShiftClosingManager({
                           key={`in-${n}`}
                           type="button"
                           onClick={() => setShiftInCashierName(n)}
-                          className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                          className="rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                         >
                           {n}
                         </button>
@@ -332,7 +332,7 @@ export function ShiftClosingManager({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Nama Kasir Shift Out (Penutup / Penerima Shift)
                   </label>
                   <Input
@@ -347,7 +347,7 @@ export function ShiftClosingManager({
                           key={`out-${n}`}
                           type="button"
                           onClick={() => setShiftOutCashierName(n)}
-                          className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                          className="rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                         >
                           {n}
                         </button>
@@ -358,10 +358,10 @@ export function ShiftClosingManager({
               </div>
 
               {/* Pilih Cepat Jam Shift */}
-              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+              <div className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                    <Clock className="h-3.5 w-3.5 text-slate-500" />
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <Clock className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                     Rentang Waktu Shift (WIB)
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -394,7 +394,7 @@ export function ShiftClosingManager({
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div>
-                    <label className="mb-1 block text-[11px] font-medium text-slate-600">
+                    <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                       Waktu Shift In (Mulai)
                     </label>
                     <Input
@@ -404,7 +404,7 @@ export function ShiftClosingManager({
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[11px] font-medium text-slate-600">
+                    <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                       Waktu Shift Out (Selesai)
                     </label>
                     <Input
@@ -456,7 +456,7 @@ export function ShiftClosingManager({
             <CardContent className="space-y-3">
               {/* Preset Cepat Pengeluaran */}
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-semibold text-slate-500">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   Isi Cepat:
                 </span>
                 {[
@@ -474,7 +474,7 @@ export function ShiftClosingManager({
                       setNewExpQty(preset.qty);
                       setNewExpAmount(preset.amount);
                     }}
-                    className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                   >
                     + {preset.name} ({preset.qty})
                   </button>
@@ -516,19 +516,19 @@ export function ShiftClosingManager({
               </div>
 
               {expenses.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 py-4 text-center text-xs text-slate-500">
+                <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 py-4 text-center text-xs text-slate-500 dark:text-slate-400">
                   Belum ada pengeluaran kas di shift ini. Tambahkan di atas jika
                   kasir membeli es batu, sayur, atau kebutuhan mendadak lainnya.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+                <div className="divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                   {expenses.map((exp, idx) => (
                     <div
                       key={exp.id}
                       className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
                     >
                       <div>
-                        <span className="font-semibold text-slate-900">
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">
                           {idx + 1}. {exp.itemName}
                         </span>
                         <Badge variant="outline" className="ml-2 text-[11px]">
@@ -536,13 +536,13 @@ export function ShiftClosingManager({
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-red-600">
+                        <span className="font-bold text-red-600 dark:text-red-400">
                           - {formatRupiah(exp.amount)}
                         </span>
                         <button
                           type="button"
                           onClick={() => handleRemoveExpense(exp.id)}
-                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          className="rounded p-1 text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-600 dark:hover:text-red-400"
                           aria-label={`Hapus ${exp.itemName}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -570,7 +570,7 @@ export function ShiftClosingManager({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Kas Awal / Modal Laci (Rp)
                   </label>
                   <Input
@@ -586,7 +586,7 @@ export function ShiftClosingManager({
                         key={val}
                         type="button"
                         onClick={() => setOpeningCashInput(String(val))}
-                        className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                        className="rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                       >
                         {formatRupiah(val)}
                       </button>
@@ -595,7 +595,7 @@ export function ShiftClosingManager({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Kas Akhir Aktual (Uang Fisik di Laci)
                   </label>
                   <Input
@@ -611,7 +611,7 @@ export function ShiftClosingManager({
                     onClick={() =>
                       setActualClosingCashInput(String(expectedClosingCash))
                     }
-                    className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100"
+                    className="rounded border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60"
                   >
                     Isi Sesuai Ekspektasi ({formatRupiah(expectedClosingCash)})
                   </button>
@@ -619,14 +619,14 @@ export function ShiftClosingManager({
               </div>
 
               {/* Ringkasan Angka Kas & Selisih */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-2 text-sm">
-                <div className="flex justify-between text-slate-600">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 p-3.5 space-y-2 text-sm">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Kas Awal (Modal Laci)</span>
-                  <span className="font-semibold text-slate-900">
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
                     {formatRupiah(openingCash)}
                   </span>
                 </div>
-                <div className="flex justify-between text-emerald-700">
+                <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                   <span>
                     (+) Pembayaran Tunai Masuk ({metrics.cashOrderCount} order)
                   </span>
@@ -634,7 +634,7 @@ export function ShiftClosingManager({
                     + {formatRupiah(metrics.cashRevenue)}
                   </span>
                 </div>
-                <div className="flex justify-between text-sky-700">
+                <div className="flex justify-between text-sky-700 dark:text-sky-400">
                   <span>
                     (i) Pembayaran QRIS Masuk ({metrics.qrisOrderCount} order —
                     Non-Laci)
@@ -644,14 +644,14 @@ export function ShiftClosingManager({
                   </span>
                 </div>
                 {metrics.cashRefundTotal > 0 && (
-                  <div className="flex justify-between text-red-600">
+                  <div className="flex justify-between text-red-600 dark:text-red-400">
                     <span>(-) Refund Tunai Pembatalan</span>
                     <span className="font-semibold">
                       - {formatRupiah(metrics.cashRefundTotal)}
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between text-red-600">
+                <div className="flex justify-between text-red-600 dark:text-red-400">
                   <span>
                     (-) Pengeluaran Shift ({expenses.length} item belanja)
                   </span>
@@ -659,16 +659,16 @@ export function ShiftClosingManager({
                     - {formatRupiah(totalExpenses)}
                   </span>
                 </div>
-                <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900">
+                <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-2 font-bold text-slate-900 dark:text-slate-100">
                   <span>Total Kas Akhir Seharusnya di Laci</span>
                   <span>{formatRupiah(expectedClosingCash)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-slate-900">
+                <div className="flex justify-between font-bold text-slate-900 dark:text-slate-100">
                   <span>Total Kas Fisik Aktual di Laci</span>
                   <span>{formatRupiah(actualClosingCash)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-slate-200 pt-2">
-                  <span className="font-extrabold text-slate-900">
+                <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-2">
+                  <span className="font-extrabold text-slate-900 dark:text-slate-100">
                     Status Selisih Kas Laci
                   </span>
                   <Badge
@@ -691,7 +691,7 @@ export function ShiftClosingManager({
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                   Catatan Penutup Shift
                 </label>
                 <textarea
@@ -699,7 +699,7 @@ export function ShiftClosingManager({
                   value={closingNotes}
                   onChange={(e) => setClosingNotes(e.target.value)}
                   placeholder="Tulis catatan serah terima shift, kendala, atau keterangan selisih..."
-                  className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-900"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
               </div>
 
@@ -734,23 +734,23 @@ export function ShiftClosingManager({
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <History className="h-4 w-4 text-slate-600" />
+                  <History className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                   Riwayat Tutupan Shift Terakhir ({recentReports.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">
+                <div className="divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800">
                   {recentReports.map((rep) => (
                     <div
                       key={rep.reportId}
                       className="flex flex-wrap items-center justify-between gap-2 p-3 text-xs"
                     >
                       <div>
-                        <p className="font-bold text-slate-900">
+                        <p className="font-bold text-slate-900 dark:text-slate-100">
                           #{rep.reportNo} &bull; {rep.shiftInCashierName} &rarr;{" "}
                           {rep.shiftOutCashierName}
                         </p>
-                        <p className="text-slate-500">
+                        <p className="text-slate-500 dark:text-slate-400">
                           Ditutup: {formatDateTimeWIB(rep.closedAtIso)} &bull;
                           Kas Akhir: {formatRupiah(rep.actualClosingCash)} (
                           {rep.cashDifference === 0
@@ -782,7 +782,7 @@ export function ShiftClosingManager({
         <div className="lg:col-span-5">
           <div
             id="shift-closing-printable"
-            className="mx-auto w-full max-w-[380px] rounded-2xl border-2 border-slate-900 bg-white p-5 font-mono text-xs text-black shadow-md"
+            className="mx-auto w-full max-w-[380px] rounded-2xl border-2 border-slate-900 dark:border-slate-700 bg-white p-5 font-mono text-xs text-black shadow-md"
           >
             {/* HEADER STRUK TUTUPAN SHIFT */}
             <div className="border-b-2 border-dashed border-black pb-3 text-center">

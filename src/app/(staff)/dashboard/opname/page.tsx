@@ -12,7 +12,7 @@ export default async function StockOpnamePage() {
         <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
           Stock Opname &amp; Persetujuan Owner
         </h1>
-        <p className="text-[13px] text-slate-500">
+        <p className="text-[13px] text-slate-500 dark:text-slate-400">
           Mode perhitungan fisik buta (Blind Count) tanpa membocorkan angka stok sistem, dilengkapi kalkulasi selisih Rupiah.
         </p>
       </div>

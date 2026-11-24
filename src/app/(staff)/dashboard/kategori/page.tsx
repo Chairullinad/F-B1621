@@ -8,7 +8,7 @@ export default async function KategoriPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Master Kategori</h1>
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-zinc-600 dark:text-slate-400">
           Kelola nama kategori dan urutan tampil pada layar pelanggan dan kasir.
           Setiap perubahan dicatat otomatis di Jejak Audit.
         </p>

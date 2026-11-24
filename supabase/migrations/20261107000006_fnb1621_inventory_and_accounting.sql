@@ -336,6 +336,14 @@ $$;
 -- ============================================================================
 -- 14. SEED DATA AWAL f&b1621 (INVENTORY, RESEP, SUPPLIER, PO, OPNAME, WASTE, JURNAL)
 -- ============================================================================
+INSERT INTO public.outlets (id, name, receipt_footer)
+VALUES (
+  '00000000-0000-0000-0000-000000001621',
+  'f&b1621',
+  'Terima kasih telah berkunjung ke f&b1621!'
+)
+ON CONFLICT (id) DO NOTHING;
+
 UPDATE public.outlets
 SET
   name = 'f&b1621',

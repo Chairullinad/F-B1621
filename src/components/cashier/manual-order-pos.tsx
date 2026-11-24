@@ -272,13 +272,13 @@ export function ManualOrderPos({
     <div className="space-y-4">
       {/* Banner Sukses Pembuatan Order Manual */}
       {completedOrder && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 text-emerald-950 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-emerald-500 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 p-4 text-emerald-950 dark:text-emerald-200 shadow-sm">
           <div>
             <p className="flex items-center gap-1.5 text-sm font-extrabold">
-              <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+              <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
               {completedOrder.message}
             </p>
-            <p className="text-xs text-emerald-800">
+            <p className="text-xs text-emerald-800 dark:text-emerald-300">
               Pesanan sudah masuk ke Layar Dapur secara real-time.
             </p>
           </div>
@@ -311,7 +311,7 @@ export function ManualOrderPos({
       )}
 
       {errorMsg && (
-        <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
+        <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm font-medium text-red-900 dark:text-red-200">
           {errorMsg}
         </div>
       )}
@@ -368,7 +368,7 @@ export function ManualOrderPos({
                       aria-label="Pilih Meja Pelanggan"
                       value={selectedTableId}
                       onChange={(e) => setSelectedTableId(e.target.value)}
-                      className="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-semibold"
+                      className="h-11 w-full rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm font-semibold text-zinc-900 dark:text-slate-100"
                     >
                       {initialData.tables.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -381,7 +381,7 @@ export function ManualOrderPos({
               </div>
 
               {/* Filter Kategori & Pencarian Menu */}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 dark:border-slate-800 pt-3">
                 <div className="flex flex-wrap gap-1.5">
                   <Button
                     type="button"
@@ -428,10 +428,10 @@ export function ManualOrderPos({
                       onClick={() => handleAddToCart(product)}
                       className={`flex min-h-24 flex-col justify-between rounded-xl border p-3 text-left transition-all ${
                         !product.is_available
-                          ? "cursor-not-allowed border-zinc-200 bg-zinc-100 opacity-60"
+                          ? "cursor-not-allowed border-zinc-200 bg-zinc-100 opacity-60 dark:border-slate-800 dark:bg-slate-800/50"
                           : inCart
-                            ? "border-2 border-blue-600 bg-blue-50/50 shadow-xs"
-                            : "border-slate-200 bg-white hover:border-slate-400 hover:shadow-xs"
+                            ? "border-2 border-blue-600 bg-blue-50/50 shadow-xs dark:border-sky-500 dark:bg-sky-950/40"
+                            : "border-slate-200 bg-white hover:border-slate-400 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
                       }`}
                     >
                       <div className="flex items-start gap-2.5">
@@ -440,16 +440,16 @@ export function ManualOrderPos({
                           <img
                             src={product.image_url}
                             alt={product.name}
-                            className="h-11 w-11 shrink-0 rounded-lg border border-slate-200 bg-white object-cover shadow-2xs"
+                            className="h-11 w-11 shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 bg-white object-cover shadow-2xs"
                           />
                         ) : (
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 shadow-2xs">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-2xs">
                             <UtensilsCrossed className="h-4 w-4" />
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-1">
-                            <span className="text-sm font-bold leading-tight text-slate-900">
+                            <span className="text-sm font-bold leading-tight text-slate-900 dark:text-slate-100">
                               {product.name}
                             </span>
                             {inCart && (
@@ -461,7 +461,7 @@ export function ManualOrderPos({
                         </div>
                       </div>
                       <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs font-extrabold text-blue-700">
+                        <span className="text-xs font-extrabold text-blue-700 dark:text-sky-400">
                           {formatRupiah(product.price)}
                         </span>
                         {!product.is_available && (
@@ -481,7 +481,7 @@ export function ManualOrderPos({
         {/* Kolom Kanan: Keranjang, Diskon, & Pembayaran */}
         <div className="lg:col-span-5">
           <Card>
-            <CardHeader className="border-b border-zinc-100 pb-3">
+            <CardHeader className="border-b border-zinc-100 dark:border-slate-800 pb-3">
               <CardTitle className="text-lg">
                 Rincian Order &amp; Pembayaran
               </CardTitle>
@@ -497,20 +497,20 @@ export function ManualOrderPos({
 
             <CardContent className="space-y-4 pt-4">
               {cart.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-zinc-300 py-10 text-center text-sm text-zinc-500">
+                <div className="rounded-xl border border-dashed border-zinc-300 dark:border-slate-700 py-10 text-center text-sm text-zinc-500 dark:text-slate-400">
                   Keranjang masih kosong. Klik menu di sebelah kiri untuk
                   menambahkan pesanan.
                 </div>
               ) : (
-                <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200">
+                <div className="divide-y divide-zinc-200 dark:divide-slate-800 rounded-xl border border-zinc-200 dark:border-slate-800">
                   {cart.map((item, idx) => (
                     <div key={item.productId} className="space-y-2 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <p className="text-sm font-bold text-zinc-900">
+                          <p className="text-sm font-bold text-zinc-900 dark:text-slate-100">
                             {item.productName}
                           </p>
-                          <p className="text-xs text-zinc-500">
+                          <p className="text-xs text-zinc-500 dark:text-slate-400">
                             {formatRupiah(item.unitPrice)} x {item.qty} ={" "}
                             <strong>
                               {formatRupiah(item.unitPrice * item.qty)}
@@ -558,9 +558,9 @@ export function ManualOrderPos({
               )}
 
               {/* Pengaturan Diskon (Opsional) */}
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 space-y-2.5">
+              <div className="rounded-xl border border-zinc-200 dark:border-slate-800 bg-zinc-50/60 dark:bg-slate-800/50 p-3 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-600">
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-slate-300">
                     Diskon Order
                   </span>
                   <div className="flex gap-1">
@@ -620,19 +620,19 @@ export function ManualOrderPos({
               </div>
 
               {/* Ringkasan Angka */}
-              <div className="space-y-1.5 rounded-xl border border-zinc-200 bg-white p-3.5 text-sm">
-                <div className="flex justify-between text-zinc-600">
+              <div className="space-y-1.5 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 text-sm">
+                <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                   <span>Subtotal</span>
                   <span>{formatRupiah(totalsPreview.subtotal)}</span>
                 </div>
                 {totalsPreview.discount > 0 && (
-                  <div className="flex justify-between text-emerald-700">
+                  <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                     <span>Diskon</span>
                     <span>- {formatRupiah(totalsPreview.discount)}</span>
                   </div>
                 )}
                 {totalsPreview.serviceAmount > 0 && (
-                  <div className="flex justify-between text-zinc-600">
+                  <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                     <span>
                       Service Charge ({totalsPreview.serviceRate ?? 0}%)
                     </span>
@@ -640,7 +640,7 @@ export function ManualOrderPos({
                   </div>
                 )}
                 {totalsPreview.taxAmount > 0 && (
-                  <div className="flex justify-between text-zinc-600">
+                  <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                     <span>
                       Pajak Restoran ({totalsPreview.taxRate ?? 0}%
                       {totalsPreview.priceIncludesTax ? " • Termasuk" : ""})
@@ -648,14 +648,14 @@ export function ManualOrderPos({
                     <span>{formatRupiah(totalsPreview.taxAmount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-extrabold text-zinc-900">
+                <div className="flex justify-between border-t border-zinc-200 dark:border-slate-800 pt-2 text-base font-extrabold text-zinc-900 dark:text-slate-100">
                   <span>Total Bayar</span>
                   <span>{formatRupiah(totalsPreview.total)}</span>
                 </div>
               </div>
 
               {/* Metode Pembayaran */}
-              <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-3.5">
+              <div className="space-y-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -708,7 +708,7 @@ export function ManualOrderPos({
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-zinc-700">
+                        <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-slate-300">
                           Uang Diterima (Rp)
                         </label>
                         <Input
@@ -719,15 +719,15 @@ export function ManualOrderPos({
                           onChange={(e) => setCashReceivedInput(e.target.value)}
                         />
                       </div>
-                      <div className="flex flex-col justify-center rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5">
-                        <span className="text-[11px] text-zinc-500">
+                      <div className="flex flex-col justify-center rounded-lg border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/70 px-3 py-1.5">
+                        <span className="text-[11px] text-zinc-500 dark:text-slate-400">
                           {cashShortfall > 0 ? "Kurang" : "Kembalian"}
                         </span>
                         <span
                           className={`text-sm font-extrabold ${
                             cashShortfall > 0
-                              ? "text-red-600"
-                              : "text-emerald-700"
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-emerald-700 dark:text-emerald-400"
                           }`}
                         >
                           {cashShortfall > 0
@@ -740,12 +740,12 @@ export function ManualOrderPos({
                 )}
 
                 {paymentMethod === "qris" && (
-                  <div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-center">
+                  <div className="space-y-3 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-950/30 p-3 text-center">
                     <div className="space-y-0.5">
-                      <p className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-slate-100">
                         QRIS {qrisRenderData.merchantName}
                       </p>
-                      <p className="text-[11px] font-semibold text-sky-800">
+                      <p className="text-[11px] font-semibold text-sky-800 dark:text-sky-300">
                         {qrisRenderData.label} &bull;{" "}
                         {formatRupiah(totalsPreview.total)}
                       </p>
@@ -775,7 +775,7 @@ export function ManualOrderPos({
                       variant="outline"
                       size="sm"
                       onClick={() => setShowQrisModal(true)}
-                      className="w-full border-sky-300 bg-white font-semibold text-sky-900 hover:bg-sky-100"
+                      className="w-full border-sky-300 bg-white font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-700 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-950/60"
                     >
                       <Maximize2 className="mr-1.5 h-3.5 w-3.5" />
                       Tampilkan Popup QRIS Layar Penuh
@@ -836,18 +836,18 @@ export function ManualOrderPos({
           }}
         >
           <div
-            className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className="relative w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <Badge className="mb-1 bg-[#1E88E5] text-white">
                   PEMBAYARAN QRIS KASIR
                 </Badge>
-                <h3 className="text-lg font-extrabold text-slate-900">
+                <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
                   {qrisRenderData.merchantName}
                 </h3>
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   {qrisRenderData.label}
                 </p>
               </div>
@@ -855,7 +855,7 @@ export function ManualOrderPos({
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setShowQrisModal(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                 aria-label="Tutup Popup QRIS"
               >
                 <X className="h-4 w-4" />
@@ -863,11 +863,11 @@ export function ManualOrderPos({
             </div>
 
             <div className="my-4 space-y-3 text-center">
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 py-2.5 px-4">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 py-2.5 px-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                   Nominal Tagihan QRIS
                 </p>
-                <p className="text-2xl font-black text-emerald-950">
+                <p className="text-2xl font-black text-emerald-950 dark:text-emerald-200">
                   {formatRupiah(totalsPreview.total)}
                 </p>
               </div>
@@ -891,18 +891,18 @@ export function ManualOrderPos({
                 )}
               </div>
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-center text-xs text-emerald-950">
-                <p className="font-bold text-emerald-800">
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 p-3 text-center text-xs text-emerald-950 dark:text-emerald-200">
+                <p className="font-bold text-emerald-800 dark:text-emerald-300">
                   Ketik / Pastikan Nominal Tagihan: {formatRupiah(totalsPreview.total)}
                 </p>
-                <p className="mt-0.5 text-[11px] text-emerald-700">
+                <p className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-400">
                   Arahkan pelanggan scan QRIS di atas dengan m-Banking / e-Wallet (BCA, Mandiri, BRI, BNI, GoPay, OVO, ShopeePay, Dana, dll) dan ketik nominal tagihan di atas.
                 </p>
               </div>
             </div>
 
             {errorMsg && (
-              <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-900">
+              <div className="mb-3 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-3 py-2 text-xs font-medium text-red-900 dark:text-red-200">
                 {errorMsg}
               </div>
             )}

@@ -35,12 +35,12 @@ export default async function CetakQrMejaPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 print:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 print:hidden">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
             Cetak Standee QR Meja — {outlet.name} ({activeTables.length} Meja)
           </h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Gunakan tombol <strong>Cetak / Simpan PDF</strong> di kanan untuk
             mencetak stiker atau akrilik QR meja resmi berlogo <strong>1621 Group</strong>.
           </p>

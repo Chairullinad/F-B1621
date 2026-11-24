@@ -4,17 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-sky-400 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-zinc-900 text-zinc-50 shadow-sm hover:bg-zinc-800",
+        default:
+          "bg-zinc-900 text-zinc-50 shadow-sm hover:bg-zinc-800 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500",
         destructive: "bg-red-600 text-white shadow-sm hover:bg-red-700",
         outline:
-          "border border-zinc-300 bg-white text-zinc-900 shadow-xs hover:bg-zinc-100",
-        secondary: "bg-zinc-100 text-zinc-900 hover:bg-zinc-200",
-        ghost: "hover:bg-zinc-100 text-zinc-900",
-        link: "text-zinc-900 underline-offset-4 hover:underline",
+          "border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-zinc-900 dark:text-slate-100 shadow-xs hover:bg-zinc-100 dark:hover:bg-slate-800",
+        secondary:
+          "bg-zinc-100 dark:bg-slate-800 text-zinc-900 dark:text-slate-100 hover:bg-zinc-200 dark:hover:bg-slate-700",
+        ghost:
+          "hover:bg-zinc-100 dark:hover:bg-slate-800 text-zinc-900 dark:text-slate-100",
+        link: "text-zinc-900 dark:text-sky-400 underline-offset-4 hover:underline",
       },
       size: {
         default: "min-h-11 px-4 py-2.5",

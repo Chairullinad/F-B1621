@@ -12,7 +12,7 @@ export default async function SupplierPage() {
         <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
           Supplier &amp; Purchase Order (PO)
         </h1>
-        <p className="text-[13px] text-slate-500">
+        <p className="text-[13px] text-slate-500 dark:text-slate-400">
           Kelola mitra supplier, termin pembayaran, saldo Hutang Usaha, dan penerimaan PO bahan baku.
         </p>
       </div>

@@ -53,36 +53,36 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
     <div className="space-y-6">
       {/* 3 KPI Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Total Kerugian Waste
           </div>
-          <div className="mt-1 text-2xl font-extrabold text-red-600">
+          <div className="mt-1 text-2xl font-extrabold text-red-600 dark:text-red-400">
             {formatRupiah(totalWaste)}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Otomatis mengurangi laba di Laba Rugi
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             % dari Penjualan
           </div>
-          <div className="mt-1 text-2xl font-extrabold text-slate-900">
+          <div className="mt-1 text-2xl font-extrabold text-slate-900 dark:text-slate-100">
             {wastePercent}%
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Target efisiensi waste &lt; 2.0%
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Kategori Paling Sering
           </div>
-          <div className="mt-1 text-lg font-extrabold text-slate-900">
+          <div className="mt-1 text-lg font-extrabold text-slate-900 dark:text-slate-100">
             Sayur, Bumbu &amp; Protein
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Berdasarkan {initialData.wasteLogs.length} catatan waste
           </div>
         </div>
@@ -91,20 +91,20 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
       {/* Form Catat Waste Baru */}
       <form
         onSubmit={handleRecordWaste}
-        className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
+        className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs"
       >
-        <h3 className="mb-3 text-base font-bold text-slate-900">
+        <h3 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">
           Catat Waste &amp; Spoilage Baru
         </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Bahan Baku
             </label>
             <select
               value={ingredientId}
               onChange={(e) => setIngredientId(e.target.value)}
-              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+              className="h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
             >
               {initialData.ingredients.map((i) => (
                 <option key={i.id} value={i.id}>
@@ -114,7 +114,7 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Kuantitas Terbuang
             </label>
             <Input
@@ -127,7 +127,7 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Alasan Waste
             </label>
             <select
@@ -142,7 +142,7 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
                     | "Lainnya"
                 )
               }
-              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+              className="h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
             >
               <option value="Busuk">Busuk</option>
               <option value="Expired">Expired</option>
@@ -152,7 +152,7 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Catatan Tambahan
             </label>
             <Input
@@ -174,14 +174,14 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
       </form>
 
       {/* Tabel Riwayat Waste */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <h3 className="mb-3 text-base font-bold text-slate-900">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+        <h3 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">
           Riwayat Waste &amp; Spoilage
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-500 dark:text-slate-400">
                 <th className="px-3 py-2.5">Tanggal</th>
                 <th className="px-3 py-2.5">Bahan</th>
                 <th className="px-3 py-2.5">Qty</th>
@@ -191,28 +191,28 @@ export function WasteManager({ initialData }: { initialData: WastePageData }) {
                 <th className="px-3 py-2.5">Catatan</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {initialData.wasteLogs.map((w) => (
-                <tr key={w.id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2.5 text-slate-600">{w.waste_date}</td>
-                  <td className="px-3 py-2.5 font-bold text-slate-900">
+                <tr key={w.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                  <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">{w.waste_date}</td>
+                  <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-slate-100">
                     {w.ingredient_name_snapshot}
                   </td>
                   <td className="px-3 py-2.5 font-mono">
                     {w.qty} {w.unit}
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-800">
+                    <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-800 dark:bg-red-950/60 dark:text-red-300">
                       {w.reason}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-bold text-red-600">
+                  <td className="px-3 py-2.5 text-right font-bold text-red-600 dark:text-red-400">
                     {formatRupiah(w.cost_amount)}
                   </td>
-                  <td className="px-3 py-2.5 text-slate-700">
+                  <td className="px-3 py-2.5 text-slate-700 dark:text-slate-300">
                     {w.recorded_by_name}
                   </td>
-                  <td className="px-3 py-2.5 text-xs text-slate-500">
+                  <td className="px-3 py-2.5 text-xs text-slate-500 dark:text-slate-400">
                     {w.notes ?? "—"}
                   </td>
                 </tr>
