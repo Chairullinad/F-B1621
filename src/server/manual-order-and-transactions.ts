@@ -93,6 +93,8 @@ export interface ManualOrderWorkspaceData {
 
 export interface TransactionRowView {
   id: string;
+  outletId: string;
+  outletName: string;
   orderNo: string;
   source: OrderSource;
   orderType: OrderType;
@@ -148,6 +150,10 @@ export interface TransactionsDashboardData {
     role: UserRole;
     outletId: string;
   };
+  scopeLabel: string;
+  selectedOutletId: string;
+  isHoldingMode: boolean;
+  outlets: Array<{ id: string; name: string }>;
   cashiers: Array<{ id: string; fullName: string; role: UserRole }>;
   summary: FinancialSummaryMetrics;
   transactions: TransactionRowView[];
@@ -687,9 +693,46 @@ export async function getTransactionsDashboardData(rawFilters?: {
   period?: "today" | "7d" | "30d" | "all";
   status?: string;
   cashierId?: string;
+  outletId?: string;
 }): Promise<TransactionsDashboardData> {
   const staff = await requireStaffRole(["owner", "cashier"]);
   const admin = createSupabaseAdminClient();
+
+  let outlets: Array<{ id: string; name: string }> = [];
+  if (staff.role === "owner") {
+    const outletsRes = await admin
+      .from("outlets")
+      .select("id, name")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+    outlets = (outletsRes.data ?? []).map((o) => ({
+      id: String(o.id),
+      name: String(o.name),
+    }));
+  }
+
+  const isHoldingMode = staff.role === "owner" && !staff.selectedOutletId;
+  const requestedOutlet = rawFilters?.outletId?.trim();
+  const isValidOutletParam = Boolean(
+    staff.role === "owner" &&
+      requestedOutlet &&
+      outlets.some((o) => o.id === requestedOutlet)
+  );
+
+  const selectedOutletId =
+    staff.role === "owner"
+      ? requestedOutlet === "ALL"
+        ? "ALL"
+        : isValidOutletParam
+          ? (requestedOutlet as string)
+          : (staff.selectedOutletId ?? "ALL")
+      : staff.outletId;
+
+  const outletNameMap = new Map(outlets.map((o) => [o.id, o.name]));
+  const scopeLabel =
+    selectedOutletId === "ALL"
+      ? "Semua Usaha / Kios (Konsolidasi)"
+      : outletNameMap.get(selectedOutletId) ?? "Kios Aktif";
 
   const period = rawFilters?.period ?? "today";
   const bounds =
@@ -704,10 +747,13 @@ export async function getTransactionsDashboardData(rawFilters?: {
   let ordersQuery = admin
     .from("orders")
     .select("*")
-    .eq("outlet_id", staff.outletId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(200);
+
+  if (selectedOutletId !== "ALL") {
+    ordersQuery = ordersQuery.eq("outlet_id", selectedOutletId);
+  }
 
   if (bounds) {
     ordersQuery = ordersQuery
@@ -715,17 +761,23 @@ export async function getTransactionsDashboardData(rawFilters?: {
       .lte("created_at", bounds.endIso);
   }
 
+  let profilesQuery = admin
+    .from("profiles")
+    .select("id, full_name, role")
+    .is("deleted_at", null);
+  if (selectedOutletId !== "ALL") {
+    profilesQuery = profilesQuery.eq("outlet_id", selectedOutletId);
+  }
+
+  let tablesQuery = admin.from("tables").select("id, name");
+  if (selectedOutletId !== "ALL") {
+    tablesQuery = tablesQuery.eq("outlet_id", selectedOutletId);
+  }
+
   const [ordersRes, profilesRes, tablesRes] = await Promise.all([
     ordersQuery,
-    admin
-      .from("profiles")
-      .select("id, full_name, role")
-      .eq("outlet_id", staff.outletId)
-      .is("deleted_at", null),
-    admin
-      .from("tables")
-      .select("id, name")
-      .eq("outlet_id", staff.outletId),
+    profilesQuery,
+    tablesQuery,
   ]);
 
   const profileMap = new Map<string, { fullName: string; role: UserRole }>();
@@ -836,8 +888,11 @@ export async function getTransactionsDashboardData(rawFilters?: {
     const pay = paymentByOrder.get(id) ?? null;
     const ref = refundByOrder.get(id) ?? null;
 
+    const rowOutletId = String(raw.outlet_id ?? "");
     return {
       id,
+      outletId: rowOutletId,
+      outletName: outletNameMap.get(rowOutletId) ?? "Kios",
       orderNo: String(raw.order_no),
       source: (raw.source as OrderSource) ?? "customer_qr",
       orderType: (raw.order_type as OrderType) ?? "dine_in",
@@ -935,6 +990,10 @@ export async function getTransactionsDashboardData(rawFilters?: {
       role: staff.role,
       outletId: staff.outletId,
     },
+    scopeLabel,
+    selectedOutletId,
+    isHoldingMode,
+    outlets,
     cashiers,
     summary: {
       periodLabel: bounds?.label ?? "Semua Periode",

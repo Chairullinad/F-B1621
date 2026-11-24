@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardAuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{ period?: string; outletId?: string }>;
 }) {
   const sp = await searchParams;
   const period =
@@ -17,7 +17,10 @@ export default async function DashboardAuditPage({
       ? sp.period
       : "7d";
 
-  const data = await getAuditTrailDashboardData({ period });
+  const data = await getAuditTrailDashboardData({
+    period,
+    outletId: sp.outletId,
+  });
 
   return <AuditTrailExplorer initialData={data} activePeriod={period} />;
 }

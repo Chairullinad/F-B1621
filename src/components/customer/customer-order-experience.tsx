@@ -1,8 +1,18 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
-import { CheckCircle2, UtensilsCrossed } from "lucide-react";
+import {
+  ArrowLeft,
+  Banknote,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Search,
+  ShoppingBag,
+  Utensils,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +23,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { formatDateTimeWIB } from "@/lib/datetime";
 import { calculateOrderTotals, formatRupiah } from "@/lib/money";
 import type { PaymentMethod, ProductRow } from "@/lib/types/database";
@@ -24,12 +33,12 @@ import {
   type CustomerOrderTrackingView,
   type CustomerTablePublicData,
 } from "@/server/customer-order";
-
-interface CartItem {
-  product: ProductRow;
-  qty: number;
-  note: string;
-}
+import {
+  CustomerCheckoutDetail,
+  type CustomerCartItem,
+} from "./customer-checkout-detail";
+import { CustomerLandingPage } from "./customer-landing-page";
+import { CustomerMenuItemCard } from "./customer-menu-item-card";
 
 function generateClientIdempotencyKey(tableNo: number): string {
   const rand = Math.random().toString(36).slice(2, 10);
@@ -92,12 +101,17 @@ export function CustomerOrderExperience({
 }) {
   const storageKey = `pos1621_active_order_${data.table.qrToken}`;
 
+  const [viewStep, setViewStep] = React.useState<"landing" | "menu" | "detail">(
+    "landing"
+  );
+  const [menuSheetOpen, setMenuSheetOpen] = React.useState(false);
   const [selectedCategoryId, setSelectedCategoryId] =
     React.useState<string>("ALL");
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [cart, setCart] = React.useState<CartItem[]>([]);
-  const [paymentChoice, setPaymentChoice] =
-    React.useState<PaymentMethod>("qris");
+  const [cart, setCart] = React.useState<CustomerCartItem[]>([]);
+  const [paymentChoice, setPaymentChoice] = React.useState<PaymentMethod>(() =>
+    data.outlet.isQrisUnderMaintenance ? "cash" : "qris"
+  );
   const [idempotencyKey, setIdempotencyKey] = React.useState<string>(() =>
     generateClientIdempotencyKey(data.table.tableNo)
   );
@@ -130,6 +144,13 @@ export function CustomerOrderExperience({
     })();
   }, [data.table.qrToken, storageKey]);
 
+  // Kembalikan ke menu jika keranjang dikosongkan dari halaman Detail Pesanan
+  React.useEffect(() => {
+    if (viewStep === "detail" && cart.length === 0) {
+      setViewStep("menu");
+    }
+  }, [cart.length, viewStep]);
+
   // Timer 1 detik untuk hitung mundur 15 menit
   React.useEffect(() => {
     if (!activeOrder || activeOrder.status !== "pending") return;
@@ -139,7 +160,7 @@ export function CustomerOrderExperience({
     return () => window.clearInterval(interval);
   }, [activeOrder]);
 
-  // Deteksi perubahan status pesanan di layar pelanggan untuk membunyikan nada notifikasi & getar HP
+  // Deteksi perubahan status pesanan di layar pelanggan untuk notifikasi audio & getar
   React.useEffect(() => {
     if (!activeOrder) {
       prevStatusRef.current = null;
@@ -196,7 +217,7 @@ export function CustomerOrderExperience({
     return () => window.clearInterval(pollInterval);
   }, [activeOrder, data.table.qrToken]);
 
-  // Begitu status mencapai SERVED, hitung mundur 8 detik lalu kunci/akhiri sesi halaman order otomatis
+  // Begitu status mencapai SERVED, hitung mundur 8 detik lalu kunci sesi otomatis
   React.useEffect(() => {
     if (!activeOrder) return;
     if (activeOrder.status === "served" && !activeOrder.sessionExpired) {
@@ -233,20 +254,83 @@ export function CustomerOrderExperience({
     }
   }, [activeOrder, data.table.qrToken, storageKey]);
 
+  const categoryNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of data.categories) {
+      map.set(c.id, c.name);
+    }
+    return map;
+  }, [data.categories]);
+
   const filteredProducts = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return data.products.filter((p) => {
       if (selectedCategoryId !== "ALL" && p.category_id !== selectedCategoryId) {
         return false;
       }
-      if (
-        searchQuery.trim().length > 0 &&
-        !p.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
-      ) {
+      if (q.length > 0 && !p.name.toLowerCase().includes(q)) {
         return false;
       }
       return true;
     });
   }, [data.products, selectedCategoryId, searchQuery]);
+
+  // Pengelompokan produk per kategori untuk tampilan katalog ala e-menu modern
+  const groupedSections = React.useMemo(() => {
+    const sections: Array<{
+      id: string;
+      title: string;
+      items: ProductRow[];
+    }> = [];
+
+    if (selectedCategoryId !== "ALL" || searchQuery.trim().length > 0) {
+      if (filteredProducts.length > 0) {
+        const title =
+          selectedCategoryId !== "ALL"
+            ? categoryNameMap.get(selectedCategoryId) ?? "Daftar Menu"
+            : `Hasil Pencarian "${searchQuery.trim()}"`;
+        sections.push({
+          id: "filtered",
+          title,
+          items: filteredProducts,
+        });
+      }
+      return sections;
+    }
+
+    const usedIds = new Set<string>();
+    for (const cat of data.categories) {
+      const catItems = data.products.filter((p) => p.category_id === cat.id);
+      if (catItems.length > 0) {
+        sections.push({
+          id: cat.id,
+          title: cat.name,
+          items: catItems,
+        });
+        for (const it of catItems) {
+          usedIds.add(it.id);
+        }
+      }
+    }
+
+    const remaining = data.products.filter((p) => !usedIds.has(p.id));
+    if (remaining.length > 0) {
+      sections.push({
+        id: "others",
+        title: "Menu Lainnya",
+        items: remaining,
+      });
+    }
+
+    return sections;
+  }, [
+    data.categories,
+    data.products,
+    filteredProducts,
+    selectedCategoryId,
+    searchQuery,
+    categoryNameMap,
+  ]);
 
   const cartTotals = React.useMemo(() => {
     if (cart.length === 0) {
@@ -274,9 +358,7 @@ export function CustomerOrderExperience({
         return [...prev, { product, qty: 1, note: "" }];
       }
       return prev.map((item, i) =>
-        i === idx
-          ? { ...item, qty: Math.min(50, item.qty + 1) }
-          : item
+        i === idx ? { ...item, qty: Math.min(50, item.qty + 1) } : item
       );
     });
   }
@@ -293,6 +375,10 @@ export function CustomerOrderExperience({
     );
   }
 
+  function removeFromCart(productId: string) {
+    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+  }
+
   function updateCartNote(productId: string, note: string) {
     setCart((prev) =>
       prev.map((item) =>
@@ -301,16 +387,40 @@ export function CustomerOrderExperience({
     );
   }
 
+  function handleJumpToCategory(categoryId: string) {
+    setMenuSheetOpen(false);
+    if (categoryId === "ALL") {
+      setSelectedCategoryId("ALL");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (selectedCategoryId === "ALL" && searchQuery.trim().length === 0) {
+      const el = document.getElementById(`menu-section-${categoryId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+
+    setSelectedCategoryId(categoryId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function handleSubmitOrder() {
     if (cart.length === 0) {
       toast.error("Pilih minimal 1 menu terlebih dahulu.");
+      setViewStep("menu");
       return;
     }
+
+    const effectivePaymentChoice: PaymentMethod =
+      data.outlet.isQrisUnderMaintenance ? "cash" : paymentChoice;
 
     startTransition(async () => {
       const res = await createCustomerOrderAction({
         qrToken: data.table.qrToken,
-        paymentChoice,
+        paymentChoice: effectivePaymentChoice,
         idempotencyKey,
         items: cart.map((c) => ({
           productId: c.product.id,
@@ -326,6 +436,7 @@ export function CustomerOrderExperience({
 
       toast.success(res.message);
       setCart([]);
+      setViewStep("menu");
       setIdempotencyKey(generateClientIdempotencyKey(data.table.tableNo));
       setActiveOrder(res.order);
       setNowMs(Date.now());
@@ -356,6 +467,7 @@ export function CustomerOrderExperience({
       window.sessionStorage.removeItem(storageKey);
     }
     setActiveOrder(null);
+    setViewStep("landing");
     setServedExpireCountdown(null);
     setIdempotencyKey(generateClientIdempotencyKey(data.table.tableNo));
   }
@@ -365,16 +477,16 @@ export function CustomerOrderExperience({
   // ==========================================================================
   if (activeOrder && activeOrder.sessionExpired) {
     return (
-      <main className="mx-auto max-w-md px-4 py-8">
-        <Card className="border-2 border-zinc-900">
+      <main className="min-h-screen bg-[#F6F8FB] flex items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-md rounded-2xl border-2 border-[#00884A] bg-white shadow-sm">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-lg font-bold text-white">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#00884A] text-lg font-bold text-white">
               ✓
             </div>
-            <CardTitle className="text-xl">
+            <CardTitle className="text-xl text-slate-900">
               Sesi Pesanan #{activeOrder.orderNo} Telah Selesai
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-slate-600">
               Pesanan Anda di <strong>{activeOrder.tableName}</strong> sudah
               selesai disajikan dan halaman pemantauan pesanan ini telah
               berakhir (<em>expired</em>).
@@ -383,8 +495,7 @@ export function CustomerOrderExperience({
           <CardContent className="space-y-3">
             <Button
               type="button"
-              className="w-full"
-              size="lg"
+              className="h-12 w-full rounded-xl bg-[#00884A] hover:bg-[#00733E] text-white font-bold"
               onClick={handleStartNewOrder}
             >
               Pesan Menu Tambahan di {data.table.name}
@@ -396,7 +507,7 @@ export function CustomerOrderExperience({
   }
 
   // ==========================================================================
-  // TAMPILAN 2: LAYAR PEMBAYARAN QRIS / TUNAI & TRACKING STATUS REAL-TIME
+  // TAMPILAN 2: LAYAR STATUS & INSTRUKSI PEMBAYARAN REAL-TIME
   // ==========================================================================
   if (activeOrder) {
     const countdown = formatRemainingCountdown(activeOrder.expiresAt, nowMs);
@@ -407,7 +518,7 @@ export function CustomerOrderExperience({
     }> = [
       {
         key: "pending",
-        label: "1. Menunggu Pembayaran / Verifikasi Kasir",
+        label: "1. Menunggu Pembayaran di Kasir",
         desc:
           activeOrder.paymentChoice === "qris"
             ? activeOrder.customerClaimedPaidAt
@@ -417,8 +528,8 @@ export function CustomerOrderExperience({
       },
       {
         key: "paid",
-        label: "2. Pembayaran Sesuai — Sedang Disiapkan Kitchen",
-        desc: "Pembayaran Anda telah diverifikasi Kasir dan pesanan sedang dimasak di Kitchen.",
+        label: "2. Pembayaran Sesuai — Sedang Dimasak",
+        desc: "Pembayaran Anda telah diverifikasi Kasir dan pesanan sedang disiapkan Kitchen.",
       },
       {
         key: "ready",
@@ -441,665 +552,655 @@ export function CustomerOrderExperience({
     const currentStepIdx = statusOrderIndex[activeOrder.status] ?? -1;
 
     return (
-      <main className="mx-auto max-w-md space-y-4 px-4 py-6">
-        {/* Header Identitas Meja & Order */}
-        <Card className="border-zinc-900">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-2">
-              <Badge variant="default" className="text-sm px-3 py-1">
-                {activeOrder.tableName}
-              </Badge>
-              <Badge
-                variant={
-                  activeOrder.status === "paid" ||
-                  activeOrder.status === "ready" ||
-                  activeOrder.status === "served"
-                    ? "success"
-                    : activeOrder.status === "pending"
-                      ? "warning"
-                      : "destructive"
-                }
-              >
-                {activeOrder.status.toUpperCase()}
-              </Badge>
-            </div>
-            <CardTitle className="pt-2 text-lg">
-              Nomor Order: #{activeOrder.orderNo}
-            </CardTitle>
-            <CardDescription>
-              {activeOrder.outletName} &bull;{" "}
-              {formatDateTimeWIB(activeOrder.createdAt)}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        {/* Pengumuman Jika Order EXPIRED atau CANCELLED */}
-        {activeOrder.status === "expired" ? (
-          <Card className="border-red-300 bg-red-50">
-            <CardHeader>
-              <CardTitle className="text-base text-red-900">
-                Waktu Pembayaran Habis (Kedaluwarsa 15 Menit)
-              </CardTitle>
-              <CardDescription className="text-red-800">
-                Pesanan #{activeOrder.orderNo} otomatis dibatalkan karena
-                melewati batas waktu pembayaran 15 menit.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                className="w-full"
-                size="lg"
-                onClick={handleStartNewOrder}
-              >
-                Pesan Ulang Sekarang
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {activeOrder.status === "cancelled" ? (
-          <Card className="border-red-300 bg-red-50">
-            <CardHeader>
-              <CardTitle className="text-base text-red-900">
-                {(activeOrder.cancelReason ?? "").toLowerCase().includes("habis")
-                  ? "Mohon Maaf, Menu yang Dipesan Baru Saja Habis"
-                  : "Pesanan Dibatalkan"}
-              </CardTitle>
-              <CardDescription className="text-red-800 space-y-1">
-                <span className="block">
-                  Informasi Kasir:{" "}
-                  <strong>
-                    {activeOrder.cancelReason ?? "Dibatalkan oleh Kasir"}
-                  </strong>
-                </span>
-                <span className="block text-xs">
-                  Jika Anda sudah melakukan pembayaran QRIS, silakan hubungi
-                  Kasir untuk pengembalian uang tunai atau tukar pesanan
-                  (Rebilling). Anda juga dapat langsung memesan menu lain di
-                  bawah ini.
-                </span>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                className="w-full"
-                size="lg"
-                onClick={handleStartNewOrder}
-              >
-                Pilih Menu Lain / Pesan Ulang Sekarang
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {/* Kotak Pembayaran saat Status masih PENDING */}
-        {activeOrder.status === "pending" ? (
-          <Card className="border-2 border-zinc-900">
-            <CardHeader className="text-center pb-3">
-              <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-amber-100 px-3.5 py-1 text-xs font-bold text-amber-900">
-                <span>Batas Waktu Pembayaran:</span>
-                <span className="font-mono text-sm">{countdown.formatted}</span>
+      <div className="min-h-screen bg-[#F6F8FB] px-4 py-6 text-slate-900">
+        <main className="mx-auto max-w-md space-y-4">
+          {/* Header Identitas Meja & Order */}
+          <Card className="rounded-2xl border border-slate-200 bg-white shadow-2xs">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2">
+                <Badge className="rounded-full bg-[#00884A] text-white px-3.5 py-1 text-xs font-bold">
+                  {activeOrder.tableName}
+                </Badge>
+                <Badge
+                  variant={
+                    activeOrder.status === "paid" ||
+                    activeOrder.status === "ready" ||
+                    activeOrder.status === "served"
+                      ? "success"
+                      : activeOrder.status === "pending"
+                        ? "warning"
+                        : "destructive"
+                  }
+                >
+                  {activeOrder.status.toUpperCase()}
+                </Badge>
               </div>
-
-              <CardTitle className="pt-2 text-xl">
-                Total Tagihan: {formatRupiah(activeOrder.total)}
+              <CardTitle className="pt-2 text-lg font-extrabold text-slate-900">
+                Nomor Order: #{activeOrder.orderNo}
               </CardTitle>
-              <CardDescription>
-                Penanda Kasir:{" "}
-                <strong className="text-zinc-900">
-                  {activeOrder.tableName} &bull;{" "}
-                  {formatRupiah(activeOrder.total)}
-                </strong>
+              <CardDescription className="text-slate-500">
+                {activeOrder.outletName} &bull;{" "}
+                {formatDateTimeWIB(activeOrder.createdAt)}
               </CardDescription>
             </CardHeader>
+          </Card>
 
-            <CardContent className="space-y-4">
-              {activeOrder.paymentChoice === "qris" ? (
-                <div className="space-y-4 text-center">
-                  {activeOrder.qrisSvg ? (
-                    <div className="mx-auto flex flex-col items-center rounded-2xl border-2 border-slate-900 bg-white p-4 shadow-sm">
-                      <div className="mb-2 text-center">
+          {/* Pengumuman Jika Order EXPIRED atau CANCELLED */}
+          {activeOrder.status === "expired" ? (
+            <Card className="rounded-2xl border-rose-300 bg-rose-50">
+              <CardHeader>
+                <CardTitle className="text-base text-rose-900">
+                  Waktu Pembayaran Habis (Kedaluwarsa 15 Menit)
+                </CardTitle>
+                <CardDescription className="text-rose-800">
+                  Pesanan #{activeOrder.orderNo} otomatis dibatalkan karena
+                  melewati batas waktu pembayaran 15 menit.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  type="button"
+                  className="h-11 w-full rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                  onClick={handleStartNewOrder}
+                >
+                  Pesan Ulang Sekarang
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {activeOrder.status === "cancelled" ? (
+            <Card className="rounded-2xl border-rose-300 bg-rose-50">
+              <CardHeader>
+                <CardTitle className="text-base text-rose-900">
+                  {(activeOrder.cancelReason ?? "")
+                    .toLowerCase()
+                    .includes("habis")
+                    ? "Mohon Maaf, Menu yang Dipesan Baru Saja Habis"
+                    : "Pesanan Dibatalkan"}
+                </CardTitle>
+                <CardDescription className="text-rose-800 space-y-1">
+                  <span className="block">
+                    Informasi Kasir:{" "}
+                    <strong>
+                      {activeOrder.cancelReason ?? "Dibatalkan oleh Kasir"}
+                    </strong>
+                  </span>
+                  <span className="block text-xs">
+                    Silakan hubungi Kasir bila perlu bantuan lebih lanjut, atau
+                    langsung buat pesanan baru di bawah ini.
+                  </span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  type="button"
+                  className="h-11 w-full rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                  onClick={handleStartNewOrder}
+                >
+                  Pilih Menu Lain / Pesan Ulang Sekarang
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {/* Kotak Pembayaran saat Status masih PENDING */}
+          {activeOrder.status === "pending" ? (
+            <Card className="rounded-2xl border-2 border-[#00884A] bg-white shadow-sm">
+              <CardHeader className="text-center pb-3">
+                <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-amber-100 px-3.5 py-1 text-xs font-bold text-amber-900">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Batas Waktu Bayar:</span>
+                  <span className="font-mono text-sm">
+                    {countdown.formatted}
+                  </span>
+                </div>
+
+                <CardTitle className="pt-2 text-2xl font-extrabold text-slate-900">
+                  {formatRupiah(activeOrder.total)}
+                </CardTitle>
+                <CardDescription className="text-slate-600">
+                  Sebutkan di Kasir:{" "}
+                  <strong className="text-slate-900">
+                    {activeOrder.tableName} &bull; Order #{activeOrder.orderNo}
+                  </strong>
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {activeOrder.paymentChoice === "qris" ? (
+                  <div className="space-y-4 text-center">
+                    {activeOrder.qrisSvg ? (
+                      <div className="mx-auto flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
                         <Badge variant="outline" className="mb-1 text-[11px] font-bold">
                           QRIS PEMBAYARAN TOKO
                         </Badge>
                         <p className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
                           {activeOrder.qrisMerchantName}
                         </p>
-                        <p className="text-xs font-semibold text-slate-600">
-                          Label: MEJA-{String(activeOrder.tableNo).padStart(2, "0")} &bull; Order #{activeOrder.orderNo}
-                        </p>
+                        <div className="my-3 flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          {activeOrder.qrisSvg.startsWith("data:image/") ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={activeOrder.qrisSvg}
+                              alt="QRIS Toko"
+                              className="h-56 w-56 object-contain"
+                            />
+                          ) : (
+                            <div
+                              className="h-56 w-56"
+                              dangerouslySetInnerHTML={{
+                                __html: activeOrder.qrisSvg,
+                              }}
+                            />
+                          )}
+                        </div>
                       </div>
+                    ) : null}
 
-                      <div className="relative my-2 flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3 shadow-inner">
-                        {activeOrder.qrisSvg.startsWith("data:image/") ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={activeOrder.qrisSvg}
-                            alt="QRIS Toko Utuh"
-                            className="h-64 w-64 max-w-full rounded-lg object-contain"
-                          />
-                        ) : (
-                          <div
-                            className="h-64 w-64 max-w-full"
-                            dangerouslySetInnerHTML={{
-                              __html: activeOrder.qrisSvg,
-                            }}
-                          />
-                        )}
-                      </div>
-
-                      {/* Kotak Instruksi Nominal Jelas & Tebal */}
-                      <div className="w-full rounded-xl border-2 border-emerald-500 bg-emerald-50/80 p-3 text-center text-emerald-950">
-                        <p className="text-xs font-medium text-emerald-800">
-                          Ketik / Pastikan Nominal Tagihan:
-                        </p>
-                        <p className="text-2xl font-black text-emerald-900">
-                          {formatRupiah(activeOrder.total)}
-                        </p>
-                        <p className="mt-1 text-[11px] text-emerald-700">
-                          Scan QRIS di atas dengan m-Banking / e-Wallet (BCA, Mandiri, GoPay, OVO, ShopeePay, dll). Jika nominal belum terisi otomatis, silakan ketik nominal di atas.
+                    {activeOrder.customerClaimedPaidAt ? (
+                      <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-left text-sm text-emerald-950">
+                        <p className="flex items-center gap-1.5 font-bold">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                          Konfirmasi Pembayaran Terkirim ke Kasir
                         </p>
                       </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="h-12 w-full rounded-xl bg-[#00884A] hover:bg-[#00733E] text-white font-bold"
+                        disabled={isPending}
+                        onClick={handleConfirmQrisPaid}
+                      >
+                        {isPending
+                          ? "Mengirim Konfirmasi..."
+                          : "Saya Sudah Bayar QRIS"}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-950 space-y-2">
+                    <div className="flex items-center gap-2 font-extrabold text-amber-900">
+                      <Banknote className="h-4 w-4 shrink-0" />
+                      <span>Instruksi Pembayaran di Kasir</span>
                     </div>
-                  ) : null}
+                    <p className="text-xs leading-relaxed text-amber-900">
+                      Silakan menuju ke meja Kasir dalam waktu{" "}
+                      <strong>{countdown.formatted}</strong> dan tunjukkan nomor
+                      pesanan <strong>#{activeOrder.orderNo}</strong> untuk{" "}
+                      <strong>{activeOrder.tableName}</strong> dengan total{" "}
+                      <strong>{formatRupiah(activeOrder.total)}</strong>.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
 
-                  {activeOrder.customerClaimedPaidAt ? (
-                    <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-left text-sm text-emerald-950">
-                      <p className="flex items-center gap-1.5 font-bold">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-                        Konfirmasi Pembayaran Terkirim ke Kasir
-                      </p>
-                      <p className="mt-1 text-xs text-emerald-800">
-                        Notifikasi{" "}
-                        <strong>
-                          {activeOrder.tableName} —{" "}
-                          {formatRupiah(activeOrder.total)}
-                        </strong>{" "}
-                        sudah tampil di Layar Kasir. Begitu Kasir menekan{" "}
-                        <em>Pembayaran Sesuai</em>, halaman ini otomatis berubah
-                        dan pesanan masuk ke Dapur.
-                      </p>
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="lg"
-                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
-                      disabled={isPending}
-                      onClick={handleConfirmQrisPaid}
+          {/* Pengumuman Saat Sudah SERVED */}
+          {activeOrder.status === "served" ? (
+            <Card className="rounded-2xl border-2 border-[#00884A] bg-emerald-50">
+              <CardHeader>
+                <CardTitle className="text-base text-emerald-950">
+                  Pesanan Sudah Disajikan di {activeOrder.tableName}!
+                </CardTitle>
+                <CardDescription className="text-emerald-900">
+                  Selamat menikmati hidangan Anda. Halaman pemantauan pesanan
+                  ini otomatis selesai dalam{" "}
+                  <strong>{servedExpireCountdown ?? 5} detik</strong>.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : null}
+
+          {/* Tahapan Progres Pesanan Real-time */}
+          {activeOrder.status !== "expired" &&
+          activeOrder.status !== "cancelled" ? (
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-2xs">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-extrabold text-slate-900">
+                  Status Perjalanan Pesanan Anda
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Halaman ini memperbarui status secara otomatis setiap beberapa
+                  detik.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                {steps.map((step, idx) => {
+                  const isDone = idx < currentStepIdx;
+                  const isCurrent = idx === currentStepIdx;
+
+                  return (
+                    <div
+                      key={step.key}
+                      className={`rounded-xl border p-3.5 transition-colors ${
+                        isCurrent
+                          ? "border-[#00884A] bg-[#00884A] text-white"
+                          : isDone
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                            : "border-slate-200 bg-slate-50 text-slate-400"
+                      }`}
                     >
-                      {isPending
-                        ? "Mengirim Konfirmasi ke Kasir..."
-                        : "Saya Sudah Bayar QRIS"}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-                  <p className="font-bold">Instruksi Bayar Tunai di Kasir:</p>
-                  <p className="mt-1">
-                    Silakan menuju ke Kasir dalam waktu{" "}
-                    <strong>{countdown.formatted}</strong> dan sebutkan{" "}
-                    <strong>{activeOrder.tableName}</strong> (Order #
-                    {activeOrder.orderNo}) dengan total{" "}
-                    <strong>{formatRupiah(activeOrder.total)}</strong>.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ) : null}
+                      <p className="text-sm font-bold">{step.label}</p>
+                      <p
+                        className={`mt-0.5 text-xs ${
+                          isCurrent
+                            ? "text-emerald-50"
+                            : isDone
+                              ? "text-emerald-800"
+                              : "text-slate-400"
+                        }`}
+                      >
+                        {step.desc}
+                      </p>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          ) : null}
 
-        {/* Pengumuman Saat Sudah SERVED */}
-        {activeOrder.status === "served" ? (
-          <Card className="border-2 border-emerald-600 bg-emerald-50">
-            <CardHeader>
-              <CardTitle className="text-base text-emerald-950">
-                Pesanan Sudah Disajikan di {activeOrder.tableName}!
-              </CardTitle>
-              <CardDescription className="text-emerald-900">
-                Selamat menikmati hidangan Anda. Halaman pemantauan pesanan ini
-                akan otomatis ditutup dalam{" "}
-                <strong>{servedExpireCountdown ?? 5} detik</strong>.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ) : null}
-
-        {/* Tahapan Progres Pesanan Real-time */}
-        {activeOrder.status !== "expired" &&
-        activeOrder.status !== "cancelled" ? (
-          <Card>
+          {/* Ringkasan Item yang Dipesan (Snapshot) */}
+          <Card className="rounded-2xl border border-slate-200 bg-white shadow-2xs">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                Status Perjalanan Pesanan Anda
+              <CardTitle className="text-base font-extrabold text-slate-900">
+                Rincian Pesanan
               </CardTitle>
-              <CardDescription>
-                Halaman ini memperbarui status secara otomatis setiap beberapa
-                detik.
+              <CardDescription className="text-xs text-slate-500">
+                Pesanan yang sudah terkirim dikunci; jika ada revisi sebelum
+                bayar, silakan hubungi Kasir.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {steps.map((step, idx) => {
-                const isDone = idx < currentStepIdx;
-                const isCurrent = idx === currentStepIdx;
-
-                return (
+              <div className="divide-y divide-slate-100">
+                {activeOrder.items.map((item) => (
                   <div
-                    key={step.key}
-                    className={`rounded-xl border p-3.5 transition-colors ${
-                      isCurrent
-                        ? "border-zinc-900 bg-zinc-900 text-white"
-                        : isDone
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-950"
-                          : "border-zinc-200 bg-zinc-50 text-zinc-400"
-                    }`}
+                    key={item.id}
+                    className="flex items-start justify-between gap-2 py-2.5 text-sm"
                   >
-                    <p className="text-sm font-bold">{step.label}</p>
-                    <p
-                      className={`mt-0.5 text-xs ${
-                        isCurrent
-                          ? "text-zinc-200"
-                          : isDone
-                            ? "text-emerald-800"
-                            : "text-zinc-400"
-                      }`}
-                    >
-                      {step.desc}
-                    </p>
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {item.qty}x {item.product_name}
+                      </p>
+                      {item.note ? (
+                        <p className="text-xs text-slate-500">
+                          Catatan: {item.note}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="font-bold text-slate-900 tabular-nums">
+                      {formatRupiah(item.line_total)}
+                    </span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              <div className="border-t border-slate-200 pt-3 space-y-1 text-sm">
+                <div className="flex justify-between text-slate-600">
+                  <span>Subtotal</span>
+                  <span>{formatRupiah(activeOrder.subtotal)}</span>
+                </div>
+                {activeOrder.discount > 0 ? (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Diskon</span>
+                    <span>-{formatRupiah(activeOrder.discount)}</span>
+                  </div>
+                ) : null}
+                {activeOrder.serviceAmount > 0 ? (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Service ({activeOrder.serviceRate}%)</span>
+                    <span>{formatRupiah(activeOrder.serviceAmount)}</span>
+                  </div>
+                ) : null}
+                {activeOrder.taxAmount > 0 ? (
+                  <div className="flex justify-between text-slate-600">
+                    <span>
+                      Pajak ({activeOrder.taxRate}%
+                      {activeOrder.priceIncludesTax ? " termasuk" : ""})
+                    </span>
+                    <span>{formatRupiah(activeOrder.taxAmount)}</span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between pt-1.5 text-base font-extrabold text-slate-900">
+                  <span>Total</span>
+                  <span>{formatRupiah(activeOrder.total)}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        ) : null}
-
-        {/* Ringkasan Item yang Dipesan (Snapshot) */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Rincian Pesanan</CardTitle>
-            <CardDescription>
-              Pesanan yang sudah terkirim tidak dapat diedit dari HP; jika ada
-              perubahan sebelum bayar, silakan minta bantuan Kasir.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="divide-y divide-zinc-200">
-              {activeOrder.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-start justify-between gap-2 py-2.5 text-sm"
-                >
-                  <div>
-                    <p className="font-medium">
-                      {item.qty}x {item.product_name}
-                    </p>
-                    {item.note ? (
-                      <p className="text-xs text-zinc-500">
-                        Catatan: {item.note}
-                      </p>
-                    ) : null}
-                  </div>
-                  <span className="font-semibold">
-                    {formatRupiah(item.line_total)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-zinc-200 pt-3 space-y-1 text-sm">
-              <div className="flex justify-between text-zinc-600">
-                <span>Subtotal</span>
-                <span>{formatRupiah(activeOrder.subtotal)}</span>
-              </div>
-              {activeOrder.discount > 0 ? (
-                <div className="flex justify-between text-emerald-700">
-                  <span>Diskon</span>
-                  <span>-{formatRupiah(activeOrder.discount)}</span>
-                </div>
-              ) : null}
-              {activeOrder.serviceAmount > 0 ? (
-                <div className="flex justify-between text-zinc-600">
-                  <span>Service ({activeOrder.serviceRate}%)</span>
-                  <span>{formatRupiah(activeOrder.serviceAmount)}</span>
-                </div>
-              ) : null}
-              {activeOrder.taxAmount > 0 ? (
-                <div className="flex justify-between text-zinc-600">
-                  <span>
-                    Pajak ({activeOrder.taxRate}%
-                    {activeOrder.priceIncludesTax ? " termasuk" : ""})
-                  </span>
-                  <span>{formatRupiah(activeOrder.taxAmount)}</span>
-                </div>
-              ) : null}
-              <div className="flex justify-between pt-1 text-base font-bold text-zinc-950">
-                <span>Total</span>
-                <span>{formatRupiah(activeOrder.total)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
+        </main>
+      </div>
     );
   }
 
   // ==========================================================================
-  // TAMPILAN 3: PEMILIHAN MENU & KERANJANG BELANJA PELANGGAN
+  // TAMPILAN 3A-0: LANDING PAGE SEBELUM PILIH MENU
+  // ==========================================================================
+  if (viewStep === "landing") {
+    return (
+      <CustomerLandingPage
+        data={data}
+        onEnterMenu={() => setViewStep("menu")}
+      />
+    );
+  }
+
+  // ==========================================================================
+  // TAMPILAN 3B: HALAMAN DETAIL PESANAN & PILIHAN PEMBAYARAN
+  // ==========================================================================
+  if (viewStep === "detail" && cart.length > 0 && cartTotals) {
+    return (
+      <CustomerCheckoutDetail
+        outletName={data.outlet.name}
+        tableName={data.table.name}
+        cart={cart}
+        totals={cartTotals}
+        paymentChoice={paymentChoice}
+        isQrisUnderMaintenance={data.outlet.isQrisUnderMaintenance}
+        isPending={isPending}
+        onBackToMenu={() => setViewStep("menu")}
+        onChangeQty={updateCartQty}
+        onRemoveItem={removeFromCart}
+        onChangeNote={updateCartNote}
+        onSelectPayment={setPaymentChoice}
+        onSubmitOrder={handleSubmitOrder}
+      />
+    );
+  }
+
+  // ==========================================================================
+  // TAMPILAN 3A: JELAJAH MENU & MASUKKAN KE KERANJANG (ALA GAMBAR 2)
   // ==========================================================================
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6 pb-24">
-      {/* Header Outlet & Nomor Meja Tetap */}
-      <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
-            <Image
-              src="/logo-1621.png"
-              alt="Logo f&b1621"
-              width={48}
-              height={48}
-              className="h-full w-full object-contain"
-            />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-base font-extrabold tracking-tight text-slate-900 truncate">
-              {data.outlet.name}
-            </h1>
-            <p className="text-xs text-slate-500 truncate">
-              1621F&amp;B &bull; QRIS Meja / Tunai di Kasir
-            </p>
-          </div>
-        </div>
-        <Badge className="bg-[#3B7097] text-white px-3.5 py-1.5 text-sm font-bold shadow-xs shrink-0">
-          {data.table.name}
-        </Badge>
-      </div>
+    <div className="min-h-screen bg-[#F6F8FB] pb-40 text-slate-900">
+      {/* Sticky Header Outlet, Pencarian & Kategori */}
+      <header className="sticky top-0 z-20 border-b border-slate-200/75 bg-white/95 backdrop-blur-md shadow-[0_2px_12px_rgba(15,23,42,0.03)]">
+        <div className="mx-auto max-w-2xl px-4 pt-3.5 pb-3 space-y-3">
+          {/* Identitas Usaha & Nomor Meja */}
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                onClick={() => setViewStep("landing")}
+                aria-label="Kembali ke halaman sambutan"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50 text-slate-700 hover:bg-slate-100 active:scale-95 transition cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-1 shadow-2xs">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={data.outlet.logoUrl}
+                  alt={data.outlet.name}
+                  className="h-full w-full object-contain"
+                />
+              </div>
 
-      {/* Pencarian & Tab Kategori */}
-      <div className="mb-5 space-y-3">
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Cari makanan atau minuman..."
-        />
+              <div className="min-w-0">
+                <h1 className="text-base font-extrabold tracking-tight text-slate-900 truncate">
+                  {data.outlet.name}
+                </h1>
+                <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                  {data.outlet.address ? (
+                    <>
+                      <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                      <span className="truncate">{data.outlet.address}</span>
+                    </>
+                  ) : (
+                    <span>
+                      {data.outlet.description || "Pesan langsung dari meja"}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <Button
-            type="button"
-            variant={selectedCategoryId === "ALL" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategoryId("ALL")}
-          >
-            Semua Menu
-          </Button>
-          {data.categories.map((cat) => (
-            <Button
-              key={cat.id}
-              type="button"
-              variant={selectedCategoryId === cat.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategoryId(cat.id)}
+            <span
+              className="inline-flex h-9 items-center rounded-full px-3.5 text-xs font-extrabold text-white shadow-xs shrink-0"
+              style={{ backgroundColor: data.outlet.themeColor || "#00884A" }}
             >
-              {cat.name}
-            </Button>
-          ))}
-        </div>
-      </div>
+              {data.table.name}
+            </span>
+          </div>
 
-      {/* Daftar Produk */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {filteredProducts.map((product) => {
-          const inCart = cart.find((c) => c.product.id === product.id);
-          const isOut = !product.is_available;
+          {/* Search Menu Bersih */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari makanan atau minuman favorit..."
+              className="h-11 w-full rounded-full border border-slate-200/80 bg-slate-100/85 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#00884A] focus:bg-white focus:outline-none transition"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Hapus pencarian"
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
-          return (
-            <Card
-              key={product.id}
-              className={`flex flex-col justify-between overflow-hidden rounded-2xl border transition-all ${
-                isOut
-                  ? "border-zinc-200 bg-zinc-100 opacity-60"
-                  : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+          {/* Tab Kategori Tanpa Scrollbar Kasar */}
+          <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              type="button"
+              onClick={() => setSelectedCategoryId("ALL")}
+              className={`inline-flex h-10 shrink-0 items-center rounded-full px-4 text-xs font-bold transition cursor-pointer ${
+                selectedCategoryId === "ALL"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <div className="flex items-center gap-3 p-3.5 pb-0">
-                {product.image_url ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="h-14 w-14 shrink-0 rounded-xl border border-slate-200 bg-white object-cover shadow-2xs"
-                  />
-                ) : (
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 shadow-2xs">
-                    <UtensilsCrossed className="h-5 w-5" />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-1.5">
-                    <CardTitle className="text-sm font-bold leading-tight text-slate-900">
-                      {product.name}
-                    </CardTitle>
-                    {isOut ? (
-                      <Badge variant="destructive" className="shrink-0 text-2xs">
-                        Habis
-                      </Badge>
-                    ) : inCart ? (
-                      <Badge variant="success" className="shrink-0 text-2xs">
-                        {inCart.qty}x
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="pt-1 text-sm font-bold text-blue-600">
-                    {formatRupiah(product.price)}
-                  </p>
-                </div>
-              </div>
+              Semua Menu
+            </button>
+            {data.categories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategoryId(cat.id)}
+                className={`inline-flex h-10 shrink-0 items-center rounded-full px-4 text-xs font-bold transition cursor-pointer ${
+                  selectedCategoryId === cat.id
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
 
-              <CardContent className="p-3.5 pt-3">
-                {isOut ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="w-full"
-                    disabled
-                  >
-                    Stok Habis
-                  </Button>
-                ) : inCart ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      aria-label={`Kurangi ${product.name}`}
-                      onClick={() => updateCartQty(product.id, -1)}
-                    >
-                      -
-                    </Button>
-                    <span className="text-base font-bold">{inCart.qty}</span>
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="icon"
-                      aria-label={`Tambah ${product.name}`}
-                      onClick={() => updateCartQty(product.id, 1)}
-                    >
-                      +
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => addToCart(product)}
-                  >
-                    + Tambah ke Pesanan
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Keranjang & Pilihan Metode Pembayaran */}
-      {cart.length > 0 && cartTotals ? (
-        <Card className="mt-6 border-2 border-zinc-900">
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Keranjang Pesanan — {data.table.name} ({totalItemsInCart} Item)
-            </CardTitle>
-            <CardDescription>
-              Periksa kembali menu dan catatan Anda sebelum mengirim pesanan.
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            <div className="divide-y divide-zinc-200">
-              {cart.map((item) => (
-                <div key={item.product.id} className="space-y-2 py-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">{item.product.name}</p>
-                      <p className="text-xs text-zinc-600">
-                        {formatRupiah(item.product.price)} x {item.qty} ={" "}
-                        <strong>
-                          {formatRupiah(item.product.price * item.qty)}
-                        </strong>
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => updateCartQty(item.product.id, -1)}
-                      >
-                        -
-                      </Button>
-                      <span className="w-6 text-center font-bold">
-                        {item.qty}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => updateCartQty(item.product.id, 1)}
-                      >
-                        +
-                      </Button>
-                    </div>
-                  </div>
-
-                  <Input
-                    value={item.note}
-                    onChange={(e) =>
-                      updateCartNote(item.product.id, e.target.value)
-                    }
-                    placeholder="Catatan untuk dapur (opsional, misal: tidak pedas)..."
-                    className="text-sm"
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Pilihan Metode Pembayaran */}
-            <div className="space-y-2 pt-2">
-              <p className="text-sm font-semibold">Pilih Metode Pembayaran:</p>
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentChoice("qris")}
-                  className={`flex min-h-12 flex-col items-start rounded-xl border p-3.5 text-left transition-colors ${
-                    paymentChoice === "qris"
-                      ? "border-2 border-zinc-900 bg-zinc-900 text-white"
-                      : "border-zinc-300 bg-white text-zinc-900"
-                  }`}
-                >
-                  <span className="text-sm font-bold">
-                    QRIS di Meja (Utama)
-                  </span>
-                  <span
-                    className={`text-xs ${
-                      paymentChoice === "qris"
-                        ? "text-zinc-200"
-                        : "text-zinc-500"
-                    }`}
-                  >
-                    QRIS langsung tampil, bayar dari meja Anda
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentChoice("cash")}
-                  className={`flex min-h-12 flex-col items-start rounded-xl border p-3.5 text-left transition-colors ${
-                    paymentChoice === "cash"
-                      ? "border-2 border-zinc-900 bg-zinc-900 text-white"
-                      : "border-zinc-300 bg-white text-zinc-900"
-                  }`}
-                >
-                  <span className="text-sm font-bold">
-                    Bayar Tunai di Kasir
-                  </span>
-                  <span
-                    className={`text-xs ${
-                      paymentChoice === "cash"
-                        ? "text-zinc-200"
-                        : "text-zinc-500"
-                    }`}
-                  >
-                    Bayar uang tunai di meja Kasir dalam 15 menit
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Ringkasan Harga */}
-            <div className="rounded-xl bg-zinc-50 p-4 space-y-1.5 text-sm">
-              <div className="flex justify-between text-zinc-600">
-                <span>Subtotal</span>
-                <span>{formatRupiah(cartTotals.subtotal)}</span>
-              </div>
-              {cartTotals.serviceAmount > 0 ? (
-                <div className="flex justify-between text-zinc-600">
-                  <span>Service Charge ({cartTotals.serviceRate}%)</span>
-                  <span>{formatRupiah(cartTotals.serviceAmount)}</span>
-                </div>
-              ) : null}
-              {cartTotals.taxAmount > 0 ? (
-                <div className="flex justify-between text-zinc-600">
-                  <span>
-                    Pajak ({cartTotals.taxRate}%
-                    {cartTotals.priceIncludesTax ? " termasuk" : ""})
-                  </span>
-                  <span>{formatRupiah(cartTotals.taxAmount)}</span>
-                </div>
-              ) : null}
-              <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-bold text-zinc-950">
-                <span>Total Bayar</span>
-                <span>{formatRupiah(cartTotals.total)}</span>
-              </div>
-            </div>
-
+      {/* Daftar Menu Dikelompokkan Per Kategori */}
+      <main className="mx-auto max-w-2xl px-4 pt-4 space-y-6">
+        {groupedSections.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+            <p className="text-sm font-bold text-slate-700">
+              Menu tidak ditemukan
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Coba kata kunci lain atau tampilkan semua kategori menu.
+            </p>
             <Button
               type="button"
-              size="lg"
-              className="w-full font-bold"
-              disabled={isPending}
-              onClick={handleSubmitOrder}
+              variant="outline"
+              size="sm"
+              className="mt-4 h-10 rounded-full"
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedCategoryId("ALL");
+              }}
             >
-              {isPending
-                ? "Mengirim Pesanan..."
-                : `Kirim Pesanan (${formatRupiah(cartTotals.total)})`}
+              Tampilkan Semua Menu
             </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-    </main>
+          </div>
+        ) : (
+          groupedSections.map((section) => (
+            <section
+              key={section.id}
+              id={`menu-section-${section.id}`}
+              className="scroll-mt-48 space-y-3"
+            >
+              <div className="flex items-center justify-between px-0.5">
+                <h2 className="text-sm font-black uppercase tracking-wide text-slate-900">
+                  {section.title}
+                </h2>
+                <span className="text-xs font-semibold text-slate-400">
+                  {section.items.length} menu
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {section.items.map((product) => {
+                  const inCart = cart.find((c) => c.product.id === product.id);
+                  return (
+                    <CustomerMenuItemCard
+                      key={product.id}
+                      product={product}
+                      categoryName={
+                        categoryNameMap.get(product.category_id) ?? ""
+                      }
+                      qtyInCart={inCart?.qty ?? 0}
+                      noteInCart={inCart?.note ?? ""}
+                      onAdd={addToCart}
+                      onChangeQty={updateCartQty}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          ))
+        )}
+      </main>
+
+      {/* Drawer Daftar Kategori Cepat saat Tombol Melayang "Menu" Diklik */}
+      {menuSheetOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[1px]"
+            onClick={() => setMenuSheetOpen(false)}
+          />
+          <div className="fixed inset-x-0 bottom-24 z-50 mx-auto max-w-sm px-4 animate-in fade-in slide-in-from-bottom-3 duration-150">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+                <span className="text-sm font-extrabold text-slate-900">
+                  Pilih Kategori Menu
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setMenuSheetOpen(false)}
+                  aria-label="Tutup daftar kategori"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                <button
+                  type="button"
+                  onClick={() => handleJumpToCategory("ALL")}
+                  className={`flex w-full items-center justify-between px-5 py-3.5 text-left text-sm font-bold transition cursor-pointer ${
+                    selectedCategoryId === "ALL"
+                      ? "bg-emerald-50/70 text-[#00884A]"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>Semua Menu</span>
+                  <span className="text-xs text-slate-400">
+                    {data.products.length}
+                  </span>
+                </button>
+                {data.categories.map((cat) => {
+                  const count = data.products.filter(
+                    (p) => p.category_id === cat.id
+                  ).length;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => handleJumpToCategory(cat.id)}
+                      className={`flex w-full items-center justify-between px-5 py-3.5 text-left text-sm font-semibold transition cursor-pointer ${
+                        selectedCategoryId === cat.id
+                          ? "bg-emerald-50/70 text-[#00884A] font-bold"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>{cat.name}</span>
+                      <span className="text-xs text-slate-400">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Floating Bottom Action Stack: Tombol "Menu" + Bar Keranjang Melayang ala Gambar 2 */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30">
+        <div className="mx-auto flex max-w-2xl flex-col items-center gap-2.5 px-4 pb-4">
+          {/* Tombol Pill "Menu" di Tengah Atas Bar Keranjang */}
+          {data.categories.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setMenuSheetOpen((prev) => !prev)}
+              className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-[#D92D4E] hover:bg-[#BE1E3D] px-4 text-xs font-extrabold text-white shadow-[0_6px_18px_rgba(217,45,78,0.35)] active:scale-95 transition cursor-pointer"
+            >
+              <Utensils className="h-3.5 w-3.5" />
+              <span>Menu</span>
+            </button>
+          )}
+
+          {/* Floating Cart Bar (Muncul Saat Ada Item di Keranjang) */}
+          {cart.length > 0 && cartTotals ? (
+            <div className="pointer-events-auto flex w-full items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setViewStep("detail")}
+                className="flex min-h-14 flex-1 items-center justify-between gap-3 rounded-full bg-[#00884A] hover:bg-[#00733E] px-5 py-2.5 text-left text-white shadow-[0_10px_28px_rgba(0,136,74,0.38)] active:scale-[0.99] transition cursor-pointer"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-extrabold leading-tight flex items-center gap-1.5">
+                    <span>{totalItemsInCart} item</span>
+                    <span className="text-xs font-medium text-emerald-100">
+                      &bull; Lihat Detail
+                    </span>
+                  </div>
+                  <div className="mt-0.5 truncate text-[11px] font-medium text-emerald-100/95">
+                    {data.outlet.name} &bull; {data.table.name}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-base font-black tracking-tight tabular-nums">
+                    {formatRupiah(cartTotals.total)}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-emerald-100" />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewStep("detail")}
+                aria-label={`Buka keranjang (${totalItemsInCart} item)`}
+                className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-[#00884A]/15 bg-white text-[#00884A] shadow-[0_8px_22px_rgba(15,23,42,0.12)] hover:bg-emerald-50 active:scale-95 transition cursor-pointer"
+              >
+                <ShoppingBag className="h-6 w-6" />
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#D92D4E] px-1 text-[10px] font-extrabold text-white shadow">
+                  {totalItemsInCart}
+                </span>
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }

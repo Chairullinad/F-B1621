@@ -126,36 +126,77 @@ export function TransactionsHistoryView({
   return (
     <div className="space-y-4">
       {/* Pilihan Periode Waktu */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
         <div>
-          <h1 className="text-lg font-extrabold text-zinc-900">
-            Riwayat Transaksi &amp; Ringkasan Penjualan ({summary.periodLabel})
-          </h1>
-          <p className="text-xs text-zinc-600">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg font-extrabold text-zinc-900 dark:text-slate-100">
+              Riwayat Transaksi &amp; Ringkasan Penjualan ({summary.periodLabel})
+            </h1>
+            <span className="inline-flex items-center rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2.5 py-0.5 text-[11px] font-semibold text-[#1E88E5] dark:text-sky-300">
+              {initialData.scopeLabel}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-600 dark:text-slate-400 mt-0.5">
             Rekapitulasi penjualan kotor, diskon, refund, dan penjualan bersih
             serta daftar transaksi lengkap.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {(
-            [
-              { key: "today", label: "Hari Ini (WIB)" },
-              { key: "7d", label: "7 Hari Terakhir" },
-              { key: "30d", label: "30 Hari Terakhir" },
-              { key: "all", label: "Semua Periode" },
-            ] as const
-          ).map((p) => (
-            <Link key={p.key} href={`/dashboard/transaksi?period=${p.key}`}>
-              <Button
-                type="button"
-                size="sm"
-                variant={activePeriod === p.key ? "default" : "outline"}
-              >
-                {p.label}
-              </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {initialData.isHoldingMode && (
+            <Link
+              href="/dashboard"
+              className="inline-flex h-11 items-center rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-zinc-700 dark:text-slate-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
+            >
+              &larr; Dashboard Owner
             </Link>
-          ))}
+          )}
+          {initialData.staff.role === "owner" && initialData.outlets.length > 0 && (
+            <select
+              aria-label="Filter Kios Transaksi"
+              value={initialData.selectedOutletId}
+              onChange={(e) =>
+                router.push(
+                  `/dashboard/transaksi?period=${activePeriod}&outletId=${encodeURIComponent(e.target.value)}`
+                )
+              }
+              className="h-11 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-zinc-800 dark:text-slate-100"
+            >
+              <option value="ALL">Semua Usaha / Kios (Konsolidasi)</option>
+              {initialData.outlets.map((o) => (
+                <option key={o.id} value={o.id}>
+                  Kios: {o.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                { key: "today", label: "Hari Ini (WIB)" },
+                { key: "7d", label: "7 Hari Terakhir" },
+                { key: "30d", label: "30 Hari Terakhir" },
+                { key: "all", label: "Semua Periode" },
+              ] as const
+            ).map((p) => (
+              <Link
+                key={p.key}
+                href={`/dashboard/transaksi?period=${p.key}${
+                  initialData.staff.role === "owner"
+                    ? `&outletId=${encodeURIComponent(initialData.selectedOutletId)}`
+                    : ""
+                }`}
+              >
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={activePeriod === p.key ? "default" : "outline"}
+                >
+                  {p.label}
+                </Button>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -164,11 +205,11 @@ export function TransactionsHistoryView({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Penjualan Kotor (Gross Sales)</CardDescription>
-            <CardTitle className="text-2xl font-extrabold text-zinc-900">
+            <CardTitle className="text-2xl font-extrabold text-zinc-900 dark:text-slate-100">
               {formatRupiah(summary.grossSales)}
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-xs text-zinc-500">
+          <CardContent className="text-xs text-zinc-500 dark:text-slate-400">
             {summary.paidOrdersCount} transaksi dibayar (Tunai:{" "}
             {formatRupiah(summary.cashGrossSales)} • QRIS:{" "}
             {formatRupiah(summary.qrisGrossSales)})
@@ -178,11 +219,11 @@ export function TransactionsHistoryView({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Diskon Diberikan</CardDescription>
-            <CardTitle className="text-2xl font-extrabold text-amber-700">
+            <CardTitle className="text-2xl font-extrabold text-amber-700 dark:text-amber-400">
               {formatRupiah(summary.totalDiscount)}
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-xs text-zinc-500">
+          <CardContent className="text-xs text-zinc-500 dark:text-slate-400">
             Potongan harga yang sudah disetujui pada order lunas
           </CardContent>
         </Card>
@@ -190,25 +231,25 @@ export function TransactionsHistoryView({
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Refund (Pembatalan)</CardDescription>
-            <CardTitle className="text-2xl font-extrabold text-red-600">
+            <CardTitle className="text-2xl font-extrabold text-red-600 dark:text-red-400">
               - {formatRupiah(summary.totalRefund)}
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-xs text-zinc-500">
+          <CardContent className="text-xs text-zinc-500 dark:text-slate-400">
             {summary.cancelledOrdersCount} order dibatalkan pada periode ini
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-emerald-600 bg-emerald-50/40">
+        <Card className="border-2 border-emerald-600 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/30">
           <CardHeader className="pb-2">
-            <CardDescription className="font-semibold text-emerald-900">
+            <CardDescription className="font-semibold text-emerald-900 dark:text-emerald-300">
               Penjualan Bersih (Net Sales)
             </CardDescription>
-            <CardTitle className="text-2xl font-extrabold text-emerald-800">
+            <CardTitle className="text-2xl font-extrabold text-emerald-800 dark:text-emerald-300">
               {formatRupiah(summary.netSales)}
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-xs font-medium text-emerald-900">
+          <CardContent className="text-xs font-medium text-emerald-900 dark:text-emerald-200">
             Penjualan Kotor dikurangi Total Refund
           </CardContent>
         </Card>
@@ -218,8 +259,8 @@ export function TransactionsHistoryView({
         <div
           className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium ${
             feedback.type === "success"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-              : "border-red-300 bg-red-50 text-red-950"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+              : "border-red-300 bg-red-50 text-red-950 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
           }`}
         >
           <span>{feedback.text}</span>
@@ -235,12 +276,12 @@ export function TransactionsHistoryView({
       )}
 
       {/* Baris Filter Status, Kasir, dan Pencarian */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3.5">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
         <select
           aria-label="Filter Status Order"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+          className="h-11 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-zinc-900 dark:text-slate-100"
         >
           <option value="all">Semua Status ({initialData.transactions.length})</option>
           <option value="paid">DIBAYAR (PAID)</option>
@@ -255,7 +296,7 @@ export function TransactionsHistoryView({
           aria-label="Filter Kasir"
           value={cashierFilter}
           onChange={(e) => setCashierFilter(e.target.value)}
-          className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+          className="h-11 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-zinc-900 dark:text-slate-100"
         >
           <option value="all">Semua Kasir / Staf</option>
           {initialData.cashiers.map((c) => (
@@ -280,13 +321,13 @@ export function TransactionsHistoryView({
           <Card>
             <CardContent className="p-0">
               {filteredList.length === 0 ? (
-                <div className="py-14 text-center text-sm text-zinc-500">
+                <div className="py-14 text-center text-sm text-zinc-500 dark:text-slate-400">
                   Tidak ada transaksi yang cocok dengan filter saat ini.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500">
+                    <thead className="border-b border-zinc-200 dark:border-slate-800 bg-zinc-50 dark:bg-slate-800/80 text-xs uppercase text-zinc-500 dark:text-slate-400">
                       <tr>
                         <th className="px-4 py-3">Order &amp; Waktu</th>
                         <th className="px-4 py-3">Meja / Kasir</th>
@@ -294,7 +335,7 @@ export function TransactionsHistoryView({
                         <th className="px-4 py-3 text-right">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-200">
+                    <tbody className="divide-y divide-zinc-200 dark:divide-slate-800">
                       {filteredList.map((tx) => {
                         const isSelected = selectedTx?.id === tx.id;
                         return (
@@ -303,23 +344,28 @@ export function TransactionsHistoryView({
                             onClick={() => setSelectedTxId(tx.id)}
                             className={`cursor-pointer transition-colors ${
                               isSelected
-                                ? "bg-zinc-100 font-medium"
-                                : "hover:bg-zinc-50"
+                                ? "bg-zinc-100 font-medium dark:bg-slate-800"
+                                : "hover:bg-zinc-50 dark:hover:bg-slate-800/50"
                             }`}
                           >
                             <td className="px-4 py-3">
-                              <div className="font-mono font-bold text-zinc-900">
+                              <div className="font-mono font-bold text-zinc-900 dark:text-slate-100">
                                 #{tx.orderNo}
                               </div>
-                              <div className="text-xs text-zinc-500">
+                              <div className="text-xs text-zinc-500 dark:text-slate-400">
                                 {formatDateTimeWIB(tx.createdAt)}
                               </div>
+                              {initialData.selectedOutletId === "ALL" && (
+                                <div className="mt-0.5 text-[11px] font-semibold text-[#1E88E5] dark:text-sky-400">
+                                  {tx.outletName}
+                                </div>
+                              )}
                             </td>
                             <td className="px-4 py-3">
-                              <div className="font-semibold text-zinc-900">
+                              <div className="font-semibold text-zinc-900 dark:text-slate-100">
                                 {tx.tableName}
                               </div>
-                              <div className="text-xs text-zinc-500">
+                              <div className="text-xs text-zinc-500 dark:text-slate-400">
                                 Kasir: {tx.cashierName}
                               </div>
                             </td>
@@ -334,11 +380,11 @@ export function TransactionsHistoryView({
                               )}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <div className="font-extrabold text-zinc-900">
+                              <div className="font-extrabold text-zinc-900 dark:text-slate-100">
                                 {formatRupiah(tx.total)}
                               </div>
                               {tx.paymentMethod && (
-                                <div className="text-xs uppercase text-zinc-500">
+                                <div className="text-xs uppercase text-zinc-500 dark:text-slate-400">
                                   {tx.paymentMethod === "qris"
                                     ? "QRIS"
                                     : "Tunai"}
@@ -360,13 +406,13 @@ export function TransactionsHistoryView({
         <div className="lg:col-span-5">
           {!selectedTx ? (
             <Card>
-              <CardContent className="py-14 text-center text-sm text-zinc-500">
+              <CardContent className="py-14 text-center text-sm text-zinc-500 dark:text-slate-400">
                 Pilih satu baris transaksi untuk melihat rincian lengkap.
               </CardContent>
             </Card>
           ) : (
             <Card>
-              <CardHeader className="border-b border-zinc-100 pb-3">
+              <CardHeader className="border-b border-zinc-100 dark:border-slate-800 pb-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <CardTitle className="text-lg">
@@ -389,7 +435,7 @@ export function TransactionsHistoryView({
               </CardHeader>
 
               <CardContent className="space-y-4 pt-4">
-                <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 text-sm">
+                <div className="divide-y divide-zinc-200 dark:divide-slate-800 rounded-xl border border-zinc-200 dark:border-slate-800 bg-zinc-50/60 dark:bg-slate-800/50 p-3 text-sm">
                   {selectedTx.items.map((item) => (
                     <div
                       key={item.id}
@@ -400,7 +446,7 @@ export function TransactionsHistoryView({
                           {item.qty}x {item.productName}
                         </span>
                         {item.note && (
-                          <p className="text-xs italic text-zinc-500">
+                          <p className="text-xs italic text-zinc-500 dark:text-slate-400">
                             Catatan: {item.note}
                           </p>
                         )}
@@ -413,12 +459,12 @@ export function TransactionsHistoryView({
                 </div>
 
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between text-zinc-600">
+                  <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                     <span>Subtotal</span>
                     <span>{formatRupiah(selectedTx.subtotal)}</span>
                   </div>
                   {selectedTx.discount > 0 && (
-                    <div className="flex justify-between text-emerald-700">
+                    <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                       <span>
                         Diskon{" "}
                         {selectedTx.discountReason
@@ -429,25 +475,25 @@ export function TransactionsHistoryView({
                     </div>
                   )}
                   {selectedTx.serviceAmount > 0 && (
-                    <div className="flex justify-between text-zinc-600">
+                    <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                       <span>Service ({selectedTx.serviceRate ?? 0}%)</span>
                       <span>{formatRupiah(selectedTx.serviceAmount)}</span>
                     </div>
                   )}
                   {selectedTx.taxAmount > 0 && (
-                    <div className="flex justify-between text-zinc-600">
+                    <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                       <span>Pajak ({selectedTx.taxRate ?? 0}%)</span>
                       <span>{formatRupiah(selectedTx.taxAmount)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-extrabold text-zinc-900">
+                  <div className="flex justify-between border-t border-zinc-200 dark:border-slate-800 pt-2 text-base font-extrabold text-zinc-900 dark:text-slate-100">
                     <span>Total</span>
                     <span>{formatRupiah(selectedTx.total)}</span>
                   </div>
                 </div>
 
                 {selectedTx.refund && (
-                  <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-950">
+                  <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-3 text-xs text-red-950 dark:text-red-200">
                     <p className="font-bold">
                       Refund Tunai Tercatat:{" "}
                       {formatRupiah(selectedTx.refund.amount)}
@@ -465,13 +511,13 @@ export function TransactionsHistoryView({
                 {/* Form Pembatalan / Refund dari Riwayat Transaksi */}
                 {selectedTx.status !== "cancelled" &&
                   selectedTx.status !== "expired" && (
-                    <div className="space-y-3 rounded-xl border border-red-200 bg-red-50/40 p-3.5">
-                      <p className="text-xs font-bold text-red-950">
+                    <div className="space-y-3 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/30 p-3.5">
+                      <p className="text-xs font-bold text-red-950 dark:text-red-200">
                         Batalkan Order &amp; Catat Refund
                       </p>
                       {selectedTx.status === "served" &&
                       initialData.staff.role !== "owner" ? (
-                        <p className="text-xs text-red-800">
+                        <p className="text-xs text-red-800 dark:text-red-300">
                           Order ini sudah berstatus <strong>SERVED</strong>.
                           Sesuai aturan bisnis, hanya <strong>Owner</strong>{" "}
                           yang dapat membatalkan order yang sudah disajikan
@@ -487,7 +533,7 @@ export function TransactionsHistoryView({
                                 e.target.value as RefundReasonCategory
                               )
                             }
-                            className="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-xs"
+                            className="h-11 w-full rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-slate-100"
                           >
                             <option value="outlet_fault">
                               Kesalahan Outlet (Salah menu / bahan bermasalah)

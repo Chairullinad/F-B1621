@@ -15,6 +15,7 @@ export interface AuditChainVerificationStatus {
 export interface AuditLogRowView {
   id: number;
   createdAt: string;
+  outletName: string | null;
   userId: string | null;
   actorName: string;
   role: string;
@@ -49,6 +50,10 @@ export interface AuditTrailDashboardData {
     role: UserRole;
     outletId: string;
   };
+  scopeLabel: string;
+  selectedOutletId: string;
+  isHoldingMode: boolean;
+  outlets: Array<{ id: string; name: string }>;
   chainVerification: AuditChainVerificationStatus;
   staffOptions: Array<{ id: string; fullName: string; role: UserRole }>;
   logs: AuditLogRowView[];
@@ -86,9 +91,40 @@ function getWibPeriodStartIso(period: "today" | "7d" | "30d" | "all"): string | 
  */
 export async function getAuditTrailDashboardData(rawFilters?: {
   period?: "today" | "7d" | "30d" | "all";
+  outletId?: string;
 }): Promise<AuditTrailDashboardData> {
   const staff = await requireStaffRole(["owner"]);
   const admin = createSupabaseAdminClient();
+
+  const outletsRes = await admin
+    .from("outlets")
+    .select("id, name")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
+
+  const outlets = (outletsRes.data ?? []).map((o) => ({
+    id: String(o.id),
+    name: String(o.name),
+  }));
+  const outletNameMap = new Map(outlets.map((o) => [o.id, o.name]));
+
+  const isHoldingMode = !staff.selectedOutletId;
+  const requestedOutlet = rawFilters?.outletId?.trim();
+  const isValidOutletParam = Boolean(
+    requestedOutlet && outlets.some((o) => o.id === requestedOutlet)
+  );
+
+  const selectedOutletId =
+    requestedOutlet === "ALL"
+      ? "ALL"
+      : isValidOutletParam
+        ? (requestedOutlet as string)
+        : (staff.selectedOutletId ?? "ALL");
+
+  const scopeLabel =
+    selectedOutletId === "ALL"
+      ? "Semua Usaha / Kios (Konsolidasi)"
+      : outletNameMap.get(selectedOutletId) ?? "Kios Aktif";
 
   const period = rawFilters?.period ?? "7d";
   const startIso = getWibPeriodStartIso(period);
@@ -96,32 +132,45 @@ export async function getAuditTrailDashboardData(rawFilters?: {
   let logsQuery = admin
     .from("audit_logs")
     .select("*")
-    .or(`outlet_id.eq.${staff.outletId},outlet_id.is.null`)
     .order("id", { ascending: false })
     .limit(400);
 
+  if (selectedOutletId !== "ALL") {
+    logsQuery = logsQuery.or(
+      `outlet_id.eq.${selectedOutletId},outlet_id.is.null`
+    );
+  }
+
   if (startIso) {
     logsQuery = logsQuery.gte("created_at", startIso);
+  }
+
+  let profilesQuery = admin.from("profiles").select("id, full_name, role");
+  if (selectedOutletId !== "ALL") {
+    profilesQuery = profilesQuery.eq("outlet_id", selectedOutletId);
+  }
+
+  let ordersQuery = admin
+    .from("orders")
+    .select("id, order_no, table_id, order_type, status, total, created_at")
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (selectedOutletId !== "ALL") {
+    ordersQuery = ordersQuery.eq("outlet_id", selectedOutletId);
+  }
+
+  let tablesQuery = admin.from("tables").select("id, name");
+  if (selectedOutletId !== "ALL") {
+    tablesQuery = tablesQuery.eq("outlet_id", selectedOutletId);
   }
 
   const [chainRes, logsRes, profilesRes, ordersRes, tablesRes] =
     await Promise.all([
       admin.rpc("verify_audit_chain"),
       logsQuery,
-      admin
-        .from("profiles")
-        .select("id, full_name, role")
-        .eq("outlet_id", staff.outletId),
-      admin
-        .from("orders")
-        .select("id, order_no, table_id, order_type, status, total, created_at")
-        .eq("outlet_id", staff.outletId)
-        .order("created_at", { ascending: false })
-        .limit(300),
-      admin
-        .from("tables")
-        .select("id, name")
-        .eq("outlet_id", staff.outletId),
+      profilesQuery,
+      ordersQuery,
+      tablesQuery,
     ]);
 
   const rawChain = Array.isArray(chainRes.data) ? chainRes.data[0] : null;
@@ -225,9 +274,11 @@ export async function getAuditTrailDashboardData(rawFilters?: {
       actorName = `Staf (${role.toUpperCase()})`;
     }
 
+    const rowOutletId = (row.outlet_id as string | null) ?? null;
     return {
       id: Number(row.id),
       createdAt: String(row.created_at),
+      outletName: rowOutletId ? outletNameMap.get(rowOutletId) ?? null : null,
       userId,
       actorName,
       role,
@@ -280,6 +331,10 @@ export async function getAuditTrailDashboardData(rawFilters?: {
       role: staff.role,
       outletId: staff.outletId,
     },
+    scopeLabel,
+    selectedOutletId,
+    isHoldingMode,
+    outlets,
     chainVerification,
     staffOptions,
     logs: mappedLogs,

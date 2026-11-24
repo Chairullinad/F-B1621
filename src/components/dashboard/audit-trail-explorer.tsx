@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function AuditTrailExplorer({
   initialData: AuditTrailDashboardData;
   activePeriod: "today" | "7d" | "30d" | "all";
 }) {
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<"logs" | "order_timeline">("logs");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [entityFilter, setEntityFilter] = useState<string>("all");
@@ -190,8 +192,8 @@ export function AuditTrailExplorer({
       <div
         className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 p-4 shadow-sm ${
           chainStatus.isValid
-            ? "border-emerald-500 bg-emerald-50/70 text-emerald-950"
-            : "border-red-600 bg-red-50 text-red-950"
+            ? "border-emerald-500 bg-emerald-50/70 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200"
+            : "border-red-600 bg-red-50 text-red-950 dark:border-red-700 dark:bg-red-950/40 dark:text-red-200"
         }`}
       >
         <div>
@@ -201,6 +203,9 @@ export function AuditTrailExplorer({
                 ? "RANTAI HASH SHA-256 UTUH & VALID"
                 : "PERINGATAN: RANTAI HASH RUSAK"}
             </Badge>
+            <span className="inline-flex items-center rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2.5 py-0.5 text-[11px] font-semibold text-[#1E88E5] dark:text-sky-300">
+              {initialData.scopeLabel}
+            </span>
             <span className="text-sm font-extrabold">
               {chainStatus.checkedRows} Baris Audit Diperiksa (Append-Only)
             </span>
@@ -216,6 +221,14 @@ export function AuditTrailExplorer({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {initialData.isHoldingMode && (
+            <Link
+              href="/dashboard"
+              className="inline-flex h-11 items-center rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-zinc-700 dark:text-slate-200 hover:bg-zinc-50 dark:hover:bg-slate-800"
+            >
+              &larr; Dashboard Owner
+            </Link>
+          )}
           <Button
             type="button"
             size="sm"
@@ -234,7 +247,7 @@ export function AuditTrailExplorer({
       </div>
 
       {/* Baris Mode Tampilan & Periode */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
@@ -252,7 +265,26 @@ export function AuditTrailExplorer({
           </Button>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          {initialData.outlets.length > 0 && (
+            <select
+              aria-label="Filter Kios Audit"
+              value={initialData.selectedOutletId}
+              onChange={(e) =>
+                router.push(
+                  `/dashboard/audit?period=${activePeriod}&outletId=${encodeURIComponent(e.target.value)}`
+                )
+              }
+              className="h-9 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 text-xs font-semibold text-zinc-800 dark:text-slate-100"
+            >
+              <option value="ALL">Semua Usaha / Kios (Konsolidasi)</option>
+              {initialData.outlets.map((o) => (
+                <option key={o.id} value={o.id}>
+                  Kios: {o.name}
+                </option>
+              ))}
+            </select>
+          )}
           {(
             [
               { key: "today", label: "Hari Ini" },
@@ -261,7 +293,10 @@ export function AuditTrailExplorer({
               { key: "all", label: "Semua" },
             ] as const
           ).map((p) => (
-            <Link key={p.key} href={`/dashboard/audit?period=${p.key}`}>
+            <Link
+              key={p.key}
+              href={`/dashboard/audit?period=${p.key}&outletId=${encodeURIComponent(initialData.selectedOutletId)}`}
+            >
               <Button
                 type="button"
                 size="sm"
@@ -275,12 +310,12 @@ export function AuditTrailExplorer({
       </div>
 
       {/* Baris Filter Pelaku, Entitas, & Pencarian */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3.5">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
         <select
           aria-label="Filter Role Pelaku"
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+          className="h-11 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-zinc-900 dark:text-slate-100"
         >
           <option value="all">Semua Pelaku / Role</option>
           <option value="owner">Owner</option>
@@ -295,7 +330,7 @@ export function AuditTrailExplorer({
           aria-label="Filter Objek / Entitas"
           value={entityFilter}
           onChange={(e) => setEntityFilter(e.target.value)}
-          className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+          className="h-11 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-zinc-900 dark:text-slate-100"
         >
           <option value="all">Semua Objek / Tabel</option>
           {entityOptions.map((ent) => (
@@ -321,13 +356,13 @@ export function AuditTrailExplorer({
             <Card>
               <CardContent className="p-0">
                 {filteredLogs.length === 0 ? (
-                  <div className="py-14 text-center text-sm text-zinc-500">
+                  <div className="py-14 text-center text-sm text-zinc-500 dark:text-slate-400">
                     Tidak ada catatan audit yang cocok dengan filter.
                   </div>
                 ) : (
                   <div className="max-h-[680px] overflow-y-auto">
                     <table className="w-full text-left text-xs">
-                      <thead className="sticky top-0 border-b border-zinc-200 bg-zinc-50 uppercase text-zinc-500">
+                      <thead className="sticky top-0 border-b border-zinc-200 dark:border-slate-800 bg-zinc-50 dark:bg-slate-800/90 uppercase text-zinc-500 dark:text-slate-400">
                         <tr>
                           <th className="px-3 py-2.5">ID &amp; Waktu</th>
                           <th className="px-3 py-2.5">Pelaku</th>
@@ -335,7 +370,7 @@ export function AuditTrailExplorer({
                           <th className="px-3 py-2.5">Order / Alasan</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-200">
+                      <tbody className="divide-y divide-zinc-200 dark:divide-slate-800">
                         {filteredLogs.map((log) => {
                           const isSelected = selectedLog?.id === log.id;
                           return (
@@ -344,20 +379,20 @@ export function AuditTrailExplorer({
                               onClick={() => setSelectedLogId(log.id)}
                               className={`cursor-pointer transition-colors ${
                                 isSelected
-                                  ? "bg-zinc-100 font-semibold"
-                                  : "hover:bg-zinc-50"
+                                  ? "bg-zinc-100 font-semibold dark:bg-slate-800"
+                                  : "hover:bg-zinc-50 dark:hover:bg-slate-800/50"
                               }`}
                             >
                               <td className="px-3 py-2.5 whitespace-nowrap">
-                                <div className="font-mono font-bold text-zinc-900">
+                                <div className="font-mono font-bold text-zinc-900 dark:text-slate-100">
                                   #{log.id}
                                 </div>
-                                <div className="text-[11px] text-zinc-500">
+                                <div className="text-[11px] text-zinc-500 dark:text-slate-400">
                                   {formatDateTimeWIB(log.createdAt)}
                                 </div>
                               </td>
                               <td className="px-3 py-2.5">
-                                <div className="font-semibold text-zinc-900">
+                                <div className="font-semibold text-zinc-900 dark:text-slate-100">
                                   {log.actorName}
                                 </div>
                                 <Badge variant="outline" className="mt-0.5">
@@ -365,10 +400,10 @@ export function AuditTrailExplorer({
                                 </Badge>
                               </td>
                               <td className="px-3 py-2.5">
-                                <div className="font-mono font-bold text-zinc-900">
+                                <div className="font-mono font-bold text-zinc-900 dark:text-slate-100">
                                   {log.action}
                                 </div>
-                                <div className="text-[11px] text-zinc-500">
+                                <div className="text-[11px] text-zinc-500 dark:text-slate-400">
                                   Tabel: {log.entity}
                                 </div>
                               </td>
@@ -383,13 +418,13 @@ export function AuditTrailExplorer({
                                         setViewMode("order_timeline");
                                       }
                                     }}
-                                    className="font-mono font-bold text-emerald-700 underline"
+                                    className="font-mono font-bold text-emerald-700 dark:text-emerald-400 underline"
                                   >
                                     Order #{log.orderNo}
                                   </button>
                                 )}
                                 {log.reason && (
-                                  <div className="line-clamp-2 text-[11px] text-zinc-600">
+                                  <div className="line-clamp-2 text-[11px] text-zinc-600 dark:text-slate-400">
                                     {log.reason}
                                   </div>
                                 )}
@@ -409,23 +444,24 @@ export function AuditTrailExplorer({
           <div className="lg:col-span-5">
             {!selectedLog ? (
               <Card>
-                <CardContent className="py-14 text-center text-sm text-zinc-500">
+                <CardContent className="py-14 text-center text-sm text-zinc-500 dark:text-slate-400">
                   Pilih satu baris audit di sebelah kiri untuk memeriksa nilai
                   sebelum &amp; sesudah perubahan.
                 </CardContent>
               </Card>
             ) : (
               <Card>
-                <CardHeader className="border-b border-zinc-100 pb-3">
+                <CardHeader className="border-b border-zinc-100 dark:border-slate-800 pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <CardTitle className="font-mono text-base">
                         Log #{selectedLog.id} — {selectedLog.action}
                       </CardTitle>
                       <CardDescription>
-                        {formatDateTimeWIB(selectedLog.createdAt)} • Pelaku:{" "}
+                        {formatDateTimeWIB(selectedLog.createdAt)} &bull; Pelaku:{" "}
                         <strong>{selectedLog.actorName}</strong> (
                         {selectedLog.role})
+                        {selectedLog.outletName ? ` \u2022 Kios: ${selectedLog.outletName}` : ""}
                       </CardDescription>
                     </div>
                     {selectedLog.orderId && (
@@ -445,33 +481,33 @@ export function AuditTrailExplorer({
                 </CardHeader>
 
                 <CardContent className="space-y-3 pt-4 text-xs">
-                  <div className="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5">
+                  <div className="grid grid-cols-2 gap-2 rounded-lg border border-zinc-200 dark:border-slate-800 bg-zinc-50 dark:bg-slate-800/60 p-2.5">
                     <div>
-                      <span className="text-zinc-500">Objek / Entitas:</span>
-                      <p className="font-mono font-bold text-zinc-900">
+                      <span className="text-zinc-500 dark:text-slate-400">Objek / Entitas:</span>
+                      <p className="font-mono font-bold text-zinc-900 dark:text-slate-100">
                         {selectedLog.entity} ({selectedLog.entityId ?? "-"})
                       </p>
                     </div>
                     <div>
-                      <span className="text-zinc-500">IP &amp; Perangkat:</span>
-                      <p className="truncate font-mono text-zinc-800">
+                      <span className="text-zinc-500 dark:text-slate-400">IP &amp; Perangkat:</span>
+                      <p className="truncate font-mono text-zinc-800 dark:text-slate-200">
                         {selectedLog.ip ?? "-"} • {selectedLog.device ?? "-"}
                       </p>
                     </div>
                   </div>
 
                   {selectedLog.reason && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-amber-950">
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-2.5 text-amber-950 dark:text-amber-200">
                       <span className="font-bold">Alasan Tercatat:</span>{" "}
                       {selectedLog.reason}
                     </div>
                   )}
 
                   <div>
-                    <p className="mb-1 font-bold text-zinc-700">
+                    <p className="mb-1 font-bold text-zinc-700 dark:text-slate-300">
                       Nilai Sebelum Perubahan (Before):
                     </p>
-                    <pre className="max-h-48 overflow-auto rounded-lg border border-zinc-200 bg-zinc-900 p-3 font-mono text-[11px] text-zinc-100">
+                    <pre className="max-h-48 overflow-auto rounded-lg border border-zinc-200 dark:border-slate-700 bg-zinc-900 p-3 font-mono text-[11px] text-zinc-100">
                       {selectedLog.before
                         ? JSON.stringify(selectedLog.before, null, 2)
                         : "null (Data baru / INSERT)"}
@@ -479,17 +515,17 @@ export function AuditTrailExplorer({
                   </div>
 
                   <div>
-                    <p className="mb-1 font-bold text-zinc-700">
+                    <p className="mb-1 font-bold text-zinc-700 dark:text-slate-300">
                       Nilai Sesudah Perubahan (After):
                     </p>
-                    <pre className="max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-zinc-900 p-3 font-mono text-[11px] text-emerald-300">
+                    <pre className="max-h-56 overflow-auto rounded-lg border border-zinc-200 dark:border-slate-700 bg-zinc-900 p-3 font-mono text-[11px] text-emerald-300">
                       {selectedLog.after
                         ? JSON.stringify(selectedLog.after, null, 2)
                         : "null"}
                     </pre>
                   </div>
 
-                  <div className="space-y-1 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5 font-mono text-[10px] text-zinc-600">
+                  <div className="space-y-1 rounded-lg border border-zinc-200 dark:border-slate-800 bg-zinc-50 dark:bg-slate-800/60 p-2.5 font-mono text-[10px] text-zinc-600 dark:text-slate-400">
                     <div className="truncate">
                       <strong>prev_hash:</strong> {selectedLog.prevHash}
                     </div>
@@ -508,7 +544,7 @@ export function AuditTrailExplorer({
           <div className="space-y-2 lg:col-span-4">
             {filteredTimelines.length === 0 ? (
               <Card>
-                <CardContent className="py-12 text-center text-sm text-zinc-500">
+                <CardContent className="py-12 text-center text-sm text-zinc-500 dark:text-slate-400">
                   Tidak ada riwayat order yang ditemukan.
                 </CardContent>
               </Card>
@@ -522,23 +558,23 @@ export function AuditTrailExplorer({
                     onClick={() => setSelectedTimelineOrderId(tl.orderId)}
                     className={`w-full rounded-xl border p-3.5 text-left transition-all ${
                       isSelected
-                        ? "border-2 border-zinc-900 bg-zinc-50 shadow-sm"
-                        : "border-zinc-200 bg-white hover:border-zinc-300"
+                        ? "border-2 border-zinc-900 bg-zinc-50 shadow-sm dark:border-sky-500 dark:bg-slate-800/80"
+                        : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-sm font-extrabold text-zinc-900">
+                      <span className="font-mono text-sm font-extrabold text-zinc-900 dark:text-slate-100">
                         #{tl.orderNo}
                       </span>
                       <Badge variant="outline">
                         {tl.events.length} Kejadian
                       </Badge>
                     </div>
-                    <p className="mt-1 text-xs font-semibold text-zinc-700">
+                    <p className="mt-1 text-xs font-semibold text-zinc-700 dark:text-slate-300">
                       {tl.tableName} • {formatRupiah(tl.total)} • Status:{" "}
                       {tl.status.toUpperCase()}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-zinc-500">
+                    <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-slate-400">
                       {formatDateTimeWIB(tl.createdAt)}
                     </p>
                   </button>
@@ -550,14 +586,14 @@ export function AuditTrailExplorer({
           <div className="lg:col-span-8">
             {!activeTimeline ? (
               <Card>
-                <CardContent className="py-14 text-center text-sm text-zinc-500">
+                <CardContent className="py-14 text-center text-sm text-zinc-500 dark:text-slate-400">
                   Pilih salah satu order di sebelah kiri untuk melihat riwayat
                   audit lengkapnya dari awal hingga akhir.
                 </CardContent>
               </Card>
             ) : (
               <Card>
-                <CardHeader className="border-b border-zinc-100 pb-3">
+                <CardHeader className="border-b border-zinc-100 dark:border-slate-800 pb-3">
                   <CardTitle>
                     Kronologi Lengkap Order #{activeTimeline.orderNo} (
                     {activeTimeline.tableName})
@@ -571,39 +607,39 @@ export function AuditTrailExplorer({
                 </CardHeader>
 
                 <CardContent className="space-y-4 pt-4">
-                  <ol className="relative border-l-2 border-zinc-300 ml-3 space-y-5">
+                  <ol className="relative border-l-2 border-zinc-300 dark:border-slate-700 ml-3 space-y-5">
                     {activeTimeline.events.map((ev, idx) => (
                       <li key={ev.id} className="ml-5">
-                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-bold text-white">
+                        <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 dark:bg-slate-700 text-[11px] font-bold text-white">
                           {idx + 1}
                         </span>
-                        <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 text-xs">
+                        <div className="rounded-xl border border-zinc-200 dark:border-slate-800 bg-zinc-50/70 dark:bg-slate-800/50 p-3.5 text-xs">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-sm font-extrabold text-zinc-900">
+                              <span className="font-mono text-sm font-extrabold text-zinc-900 dark:text-slate-100">
                                 {ev.action}
                               </span>
                               <Badge variant="outline">{ev.role}</Badge>
                             </div>
-                            <span className="font-mono text-[11px] text-zinc-500">
+                            <span className="font-mono text-[11px] text-zinc-500 dark:text-slate-400">
                               Log #{ev.id} • {formatDateTimeWIB(ev.createdAt)}
                             </span>
                           </div>
 
-                          <p className="mt-1 font-semibold text-zinc-800">
+                          <p className="mt-1 font-semibold text-zinc-800 dark:text-slate-200">
                             Pelaku: {ev.actorName}{" "}
                             {ev.ip ? `(IP: ${ev.ip})` : ""}
                           </p>
 
                           {ev.reason && (
-                            <p className="mt-1 rounded bg-amber-100/80 px-2 py-1 text-amber-950">
+                            <p className="mt-1 rounded bg-amber-100/80 dark:bg-amber-950/50 px-2 py-1 text-amber-950 dark:text-amber-200">
                               <strong>Alasan:</strong> {ev.reason}
                             </p>
                           )}
 
                           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                             <div>
-                              <span className="text-[11px] font-semibold text-zinc-500">
+                              <span className="text-[11px] font-semibold text-zinc-500 dark:text-slate-400">
                                 Sebelum (Before):
                               </span>
                               <pre className="mt-0.5 max-h-36 overflow-auto rounded bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200">
@@ -613,7 +649,7 @@ export function AuditTrailExplorer({
                               </pre>
                             </div>
                             <div>
-                              <span className="text-[11px] font-semibold text-zinc-500">
+                              <span className="text-[11px] font-semibold text-zinc-500 dark:text-slate-400">
                                 Sesudah (After):
                               </span>
                               <pre className="mt-0.5 max-h-36 overflow-auto rounded bg-zinc-900 p-2 font-mono text-[10px] text-emerald-300">

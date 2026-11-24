@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardTransaksiPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{ period?: string; outletId?: string }>;
 }) {
   const sp = await searchParams;
   const period =
@@ -14,7 +14,10 @@ export default async function DashboardTransaksiPage({
       ? sp.period
       : "today";
 
-  const data = await getTransactionsDashboardData({ period });
+  const data = await getTransactionsDashboardData({
+    period,
+    outletId: sp.outletId,
+  });
 
   return <TransactionsHistoryView initialData={data} activePeriod={period} />;
 }

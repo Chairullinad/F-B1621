@@ -4,14 +4,26 @@ import { listAllOutletsAction } from "@/server/outlets";
 
 export const dynamic = "force-dynamic";
 
-export default async function CabangPage() {
+interface CabangPageProps {
+  searchParams: Promise<{
+    edit?: string;
+    tambah?: string;
+  }>;
+}
+
+export default async function CabangPage({ searchParams }: CabangPageProps) {
   await requireStaffRole(["owner"]);
-  const { outlets, activeOutletId } = await listAllOutletsAction();
+  const [{ outlets, activeOutletId }, sp] = await Promise.all([
+    listAllOutletsAction(),
+    searchParams,
+  ]);
 
   return (
     <OutletManager
       initialOutlets={outlets}
       activeOutletId={activeOutletId}
+      initialEditOutletId={sp.edit}
+      initialOpenAdd={sp.tambah === "1"}
     />
   );
 }

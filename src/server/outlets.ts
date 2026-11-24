@@ -4,47 +4,140 @@ import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { z } from "zod";
+import {
+  isSafeActionLinkUrl,
+  mapOutletRowToView,
+  type LandingBannerItem,
+  type OutletView,
+} from "@/lib/outlets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 
-export interface OutletView {
-  id: string;
-  name: string;
-  address: string | null;
-  phone: string | null;
-  description: string | null;
-  logoUrl: string;
-  themeColor: string;
-  isActive: boolean;
-  orderExpiryMinutes: number;
-  taxEnabled: boolean;
-  taxPercent: number | null;
-  serviceEnabled: boolean;
-  servicePercent: number | null;
-  createdAt: string;
-}
+export type { LandingBannerItem, OutletView };
 
 const createOutletSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(2, "Nama cabang minimal 2 karakter.")
-    .max(100, "Nama cabang maksimal 100 karakter."),
+    .min(2, "Nama usaha/kios minimal 2 karakter.")
+    .max(100, "Nama usaha/kios maksimal 100 karakter."),
   address: z.string().trim().max(250).optional().default(""),
   phone: z.string().trim().max(30).optional().default(""),
   description: z.string().trim().max(250).optional().default("Kafe & Resto Modern"),
-  logoUrl: z.string().trim().default("/logo-1621.png"),
-  themeColor: z.string().trim().default("#3B7097"),
+  receiptFooter: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .default("Terima kasih atas kunjungan Anda!"),
+  logoUrl: z
+    .string()
+    .trim()
+    .max(450_000, "Ukuran gambar logo terlalu besar. Pilih gambar yang lebih kecil.")
+    .default("/logo-1621group-stacked.png"),
+  themeColor: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Format warna harus hex #RRGGBB.")
+    .default("#0284C7"),
 });
 
 const updateOutletSchema = z.object({
-  id: z.string().uuid("ID cabang tidak valid."),
-  name: z.string().trim().min(2, "Nama cabang minimal 2 karakter.").max(100),
+  id: z.string().uuid("ID kios tidak valid."),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Nama usaha/kios minimal 2 karakter.")
+    .max(100),
   address: z.string().trim().max(250).optional().default(""),
   phone: z.string().trim().max(30).optional().default(""),
   description: z.string().trim().max(250).optional().default(""),
-  logoUrl: z.string().trim().default("/logo-1621.png"),
-  themeColor: z.string().trim().default("#3B7097"),
+  receiptFooter: z.string().trim().max(300).optional().default(""),
+  logoUrl: z
+    .string()
+    .trim()
+    .max(450_000, "Ukuran gambar logo terlalu besar. Pilih gambar yang lebih kecil.")
+    .default("/logo-1621group-stacked.png"),
+  themeColor: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Format warna harus hex #RRGGBB.")
+    .default("#0284C7"),
+});
+
+const bannerImageUrlSchema = z
+  .string()
+  .trim()
+  .min(1, "Gambar banner tidak boleh kosong.")
+  .max(
+    700_000,
+    "Ukuran gambar banner terlalu besar. Silakan pilih gambar lain yang lebih kecil."
+  )
+  .refine(
+    (val) =>
+      val.startsWith("/") ||
+      val.startsWith("https://") ||
+      val.startsWith("http://") ||
+      val.startsWith("data:image/"),
+    "Format gambar banner tidak valid."
+  );
+
+const optionalActionUrlSchema = z
+  .string()
+  .trim()
+  .max(500, "Link maksimal 500 karakter.")
+  .refine(
+    (val) => val === "" || isSafeActionLinkUrl(val),
+    "Link tombol harus diawali https://, http://, mailto:, atau tel:."
+  )
+  .default("");
+
+const updateOutletLandingPageSchema = z.object({
+  outletId: z.string().uuid("ID kios tidak valid."),
+  operatingHours: z
+    .string()
+    .trim()
+    .min(2, "Jam operasional minimal 2 karakter.")
+    .max(80, "Jam operasional maksimal 80 karakter.")
+    .default("08.00 - 22.00 WIB"),
+  landingTagline: z
+    .string()
+    .trim()
+    .max(200, "Tagline maksimal 200 karakter.")
+    .default(""),
+  landingBanners: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(80),
+        imageUrl: bannerImageUrlSchema,
+        caption: z.string().trim().max(120).optional().default(""),
+      })
+    )
+    .max(5, "Maksimal 5 banner iklan.")
+    .default([]),
+  landingNewsTitle: z
+    .string()
+    .trim()
+    .min(2, "Judul bagian berita/promo minimal 2 karakter.")
+    .max(60, "Judul bagian berita/promo maksimal 60 karakter.")
+    .default("PROMO & BERITA"),
+  landingNewsBannerUrl: z
+    .string()
+    .trim()
+    .max(700_000, "Ukuran gambar banner berita terlalu besar.")
+    .refine(
+      (val) =>
+        val === "" ||
+        val.startsWith("/") ||
+        val.startsWith("https://") ||
+        val.startsWith("http://") ||
+        val.startsWith("data:image/"),
+      "Format gambar banner berita tidak valid."
+    )
+    .default(""),
+  partnershipUrl: optionalActionUrlSchema,
+  reservationUrl: optionalActionUrlSchema,
+  feedbackUrl: optionalActionUrlSchema,
 });
 
 async function getRequestMeta(): Promise<{ ip: string; device: string }> {
@@ -60,7 +153,7 @@ async function getRequestMeta(): Promise<{ ip: string; device: string }> {
 
 export async function listAllOutletsAction(): Promise<{
   outlets: OutletView[];
-  activeOutletId: string;
+  activeOutletId: string | null;
 }> {
   const staff = await requireStaffRole(["owner", "cashier", "warehouse", "kitchen", "waiter"]);
   const admin = createSupabaseAdminClient();
@@ -71,46 +164,24 @@ export async function listAllOutletsAction(): Promise<{
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
 
-  const outlets: OutletView[] = (rawOutlets ?? []).map((o) => {
-    let meta: { description?: string; themeColor?: string; logoUrl?: string; phone?: string } = {};
-    try {
-      if (typeof o.receipt_footer === "string" && o.receipt_footer.startsWith("{")) {
-        meta = JSON.parse(o.receipt_footer);
-      }
-    } catch {
-      // ignore
-    }
+  const outlets: OutletView[] = (rawOutlets ?? []).map((o) =>
+    mapOutletRowToView(o as Record<string, unknown>)
+  );
 
-    return {
-      id: String(o.id),
-      name: String(o.name),
-      address: (o.address as string | null) ?? null,
-      phone: (o.phone as string | null) || meta.phone || null,
-      description: (o.description as string | null) || meta.description || "1621 F&B Outlet",
-      logoUrl: (o.logo_url as string | null) || meta.logoUrl || "/logo-1621.png",
-      themeColor: (o.theme_color as string | null) || meta.themeColor || "#3B7097",
-      isActive: Boolean(o.deleted_at === null),
-      orderExpiryMinutes: Number(o.order_expiry_minutes ?? 15),
-      taxEnabled: Boolean(o.tax_enabled),
-      taxPercent: o.tax_percent !== null ? Number(o.tax_percent) : null,
-      serviceEnabled: Boolean(o.service_enabled),
-      servicePercent: o.service_percent !== null ? Number(o.service_percent) : null,
-      createdAt: String(o.created_at),
-    };
-  });
+  if (staff.role !== "owner") {
+    return { outlets, activeOutletId: staff.outletId };
+  }
 
-  const cookieStore = await cookies();
-  const cookieActiveId = cookieStore.get("fnb1621_active_outlet")?.value;
-  const activeOutletId =
-    cookieActiveId && outlets.some((o) => o.id === cookieActiveId)
-      ? cookieActiveId
-      : staff.outletId;
+  const validSelectedId =
+    staff.selectedOutletId && outlets.some((o) => o.id === staff.selectedOutletId)
+      ? staff.selectedOutletId
+      : null;
 
-  return { outlets, activeOutletId };
+  return { outlets, activeOutletId: validSelectedId };
 }
 
 export async function createOutletAction(
-  rawInput: z.infer<typeof createOutletSchema>
+  rawInput: z.input<typeof createOutletSchema>
 ): Promise<ActionResult & { outletId?: string; outlet?: OutletView }> {
   const staff = await requireStaffRole(["owner"]);
   const parsed = createOutletSchema.safeParse(rawInput);
@@ -121,19 +192,22 @@ export async function createOutletAction(
   const { ip, device } = await getRequestMeta();
   const admin = createSupabaseAdminClient();
 
-  const metaJson = JSON.stringify({
-    description: parsed.data.description,
-    themeColor: parsed.data.themeColor || "#3B7097",
-    logoUrl: parsed.data.logoUrl || "/logo-1621.png",
-    phone: parsed.data.phone || null,
-  });
+  const cleanLogoUrl = parsed.data.logoUrl || "/logo-1621group-stacked.png";
+  const cleanThemeColor = parsed.data.themeColor || "#0284C7";
+  const cleanDescription = parsed.data.description || "Kafe & Resto Modern";
+  const cleanFooter =
+    parsed.data.receiptFooter || `Terima kasih telah berkunjung ke ${parsed.data.name}!`;
 
   const { data: newOutlet, error: insErr } = await admin
     .from("outlets")
     .insert({
       name: parsed.data.name,
       address: parsed.data.address || null,
-      receipt_footer: metaJson,
+      phone: parsed.data.phone || null,
+      description: cleanDescription,
+      logo_url: cleanLogoUrl,
+      theme_color: cleanThemeColor,
+      receipt_footer: cleanFooter,
       order_expiry_minutes: 15,
       tax_enabled: false,
       tax_percent: null,
@@ -141,16 +215,16 @@ export async function createOutletAction(
       service_percent: null,
       price_includes_tax: false,
     })
-    .select("id, name, address, receipt_footer, order_expiry_minutes, tax_enabled, tax_percent, service_enabled, service_percent, created_at")
+    .select("*")
     .single();
 
   if (insErr || !newOutlet) {
-    return { ok: false, message: `Gagal membuat cabang baru: ${insErr?.message}` };
+    return { ok: false, message: `Gagal membuat kios baru: ${insErr?.message}` };
   }
 
   const newOutletId = String(newOutlet.id);
 
-  // Buat 10 Meja Awal Otomatis untuk Cabang Baru (aman dan tahan kegagalan)
+  // Buat 10 Meja Awal Otomatis untuk Kios Baru (aman dan tahan kegagalan)
   try {
     const defaultTables = Array.from({ length: 10 }, (_, i) => ({
       outlet_id: newOutletId,
@@ -161,7 +235,7 @@ export async function createOutletAction(
     }));
     await admin.from("tables").insert(defaultTables);
   } catch (tableErr) {
-    console.error("Gagal inisialisasi meja cabang baru:", tableErr);
+    console.error("Gagal inisialisasi meja kios baru:", tableErr);
   }
 
   // Catat ke Audit Log (aman)
@@ -180,48 +254,34 @@ export async function createOutletAction(
         name: parsed.data.name,
         address: parsed.data.address,
         phone: parsed.data.phone,
-        theme_color: parsed.data.themeColor,
-        logo_url: parsed.data.logoUrl,
+        description: cleanDescription,
+        theme_color: cleanThemeColor,
+        has_logo: Boolean(cleanLogoUrl),
       },
-      reason: `Owner menambahkan cabang baru '${parsed.data.name}'`,
+      reason: `Owner menambahkan kios/usaha baru '${parsed.data.name}'`,
       prev_hash: "",
       hash: "",
     });
   } catch (auditErr) {
-    console.error("Gagal mencatat audit log cabang baru:", auditErr);
+    console.error("Gagal mencatat audit log kios baru:", auditErr);
   }
 
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
 
-  const newOutletView: OutletView = {
-    id: newOutletId,
-    name: String(newOutlet.name),
-    address: (newOutlet.address as string | null) ?? null,
-    phone: parsed.data.phone || null,
-    description: parsed.data.description || "1621 F&B Outlet",
-    logoUrl: parsed.data.logoUrl || "/logo-1621.png",
-    themeColor: parsed.data.themeColor || "#3B7097",
-    isActive: true,
-    orderExpiryMinutes: 15,
-    taxEnabled: false,
-    taxPercent: null,
-    serviceEnabled: false,
-    servicePercent: null,
-    createdAt: String(newOutlet.created_at ?? new Date().toISOString()),
-  };
+  const newOutletView = mapOutletRowToView(newOutlet as Record<string, unknown>);
 
   return {
     ok: true,
-    message: `Cabang '${parsed.data.name}' berhasil dibuat dengan 10 meja siap pakai.`,
+    message: `Usaha '${parsed.data.name}' berhasil dibuat dengan 10 meja siap pakai.`,
     outletId: newOutletId,
     outlet: newOutletView,
   };
 }
 
 export async function updateOutletCustomizationAction(
-  rawInput: z.infer<typeof updateOutletSchema>
+  rawInput: z.input<typeof updateOutletSchema>
 ): Promise<ActionResult> {
   const staff = await requireStaffRole(["owner"]);
   const parsed = updateOutletSchema.safeParse(rawInput);
@@ -238,25 +298,30 @@ export async function updateOutletCustomizationAction(
     .eq("id", parsed.data.id)
     .maybeSingle();
 
-  const metaJson = JSON.stringify({
-    description: parsed.data.description,
-    themeColor: parsed.data.themeColor || "#3B7097",
-    logoUrl: parsed.data.logoUrl || "/logo-1621.png",
-    phone: parsed.data.phone || null,
-  });
+  const existingView = beforeData
+    ? mapOutletRowToView(beforeData as Record<string, unknown>)
+    : null;
+  const resolvedFooter =
+    parsed.data.receiptFooter.trim().length > 0
+      ? parsed.data.receiptFooter.trim()
+      : existingView?.receiptFooter ?? null;
 
   const { error: updErr } = await admin
     .from("outlets")
     .update({
       name: parsed.data.name,
       address: parsed.data.address || null,
-      receipt_footer: metaJson,
+      phone: parsed.data.phone || null,
+      description: parsed.data.description || null,
+      logo_url: parsed.data.logoUrl || "/logo-1621group-stacked.png",
+      theme_color: parsed.data.themeColor || "#0284C7",
+      receipt_footer: resolvedFooter,
       updated_at: new Date().toISOString(),
     })
     .eq("id", parsed.data.id);
 
   if (updErr) {
-    return { ok: false, message: `Gagal memperbarui cabang: ${updErr.message}` };
+    return { ok: false, message: `Gagal memperbarui profil kios: ${updErr.message}` };
   }
 
   await admin.from("audit_logs").insert({
@@ -269,8 +334,15 @@ export async function updateOutletCustomizationAction(
     entity: "outlets",
     entity_id: parsed.data.id,
     before: beforeData,
-    after: parsed.data,
-    reason: `Owner memperbarui kustomisasi tampilan & identitas cabang '${parsed.data.name}'`,
+    after: {
+      name: parsed.data.name,
+      address: parsed.data.address || null,
+      phone: parsed.data.phone || null,
+      description: parsed.data.description || null,
+      theme_color: parsed.data.themeColor,
+      receipt_footer: resolvedFooter,
+    },
+    reason: `Owner memperbarui profil & logo kios '${parsed.data.name}'`,
     prev_hash: "",
     hash: "",
   });
@@ -279,7 +351,102 @@ export async function updateOutletCustomizationAction(
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
 
-  return { ok: true, message: `Pengaturan cabang '${parsed.data.name}' berhasil disimpan.` };
+  return { ok: true, message: `Profil kios '${parsed.data.name}' berhasil disimpan.` };
+}
+
+export async function updateOutletLandingPageAction(
+  rawInput: z.input<typeof updateOutletLandingPageSchema>
+): Promise<ActionResult> {
+  const staff = await requireStaffRole(["owner"]);
+  const parsed = updateOutletLandingPageSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "Data landing page tidak valid.",
+    };
+  }
+
+  const { ip, device } = await getRequestMeta();
+  const admin = createSupabaseAdminClient();
+
+  const { data: beforeData } = await admin
+    .from("outlets")
+    .select(
+      "id, name, operating_hours, landing_tagline, landing_news_title, partnership_url, reservation_url, feedback_url"
+    )
+    .eq("id", parsed.data.outletId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!beforeData) {
+    return { ok: false, message: "Kios tidak ditemukan atau sudah dinonaktifkan." };
+  }
+
+  const cleanBanners = parsed.data.landingBanners.map((b) => ({
+    id: b.id,
+    imageUrl: b.imageUrl,
+    ...(b.caption ? { caption: b.caption } : {}),
+  }));
+
+  const firstBannerUrl = cleanBanners[0]?.imageUrl ?? null;
+
+  const { error: updErr } = await admin
+    .from("outlets")
+    .update({
+      landing_banners: cleanBanners,
+      cover_banner_url: firstBannerUrl,
+      landing_news_title: parsed.data.landingNewsTitle,
+      landing_news_banner_url: parsed.data.landingNewsBannerUrl || null,
+      operating_hours: parsed.data.operatingHours,
+      landing_tagline: parsed.data.landingTagline || null,
+      partnership_url: parsed.data.partnershipUrl || null,
+      reservation_url: parsed.data.reservationUrl || null,
+      feedback_url: parsed.data.feedbackUrl || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.outletId);
+
+  if (updErr) {
+    return {
+      ok: false,
+      message: `Gagal menyimpan pengaturan landing page: ${updErr.message}`,
+    };
+  }
+
+  await admin.from("audit_logs").insert({
+    outlet_id: parsed.data.outletId,
+    user_id: staff.userId,
+    role: staff.role,
+    device,
+    ip,
+    action: "outlet.landing_updated",
+    entity: "outlets",
+    entity_id: parsed.data.outletId,
+    before: beforeData,
+    after: {
+      operating_hours: parsed.data.operatingHours,
+      landing_tagline: parsed.data.landingTagline || null,
+      banners_count: cleanBanners.length,
+      has_news_banner: Boolean(parsed.data.landingNewsBannerUrl),
+      landing_news_title: parsed.data.landingNewsTitle,
+      partnership_url: parsed.data.partnershipUrl || null,
+      reservation_url: parsed.data.reservationUrl || null,
+      feedback_url: parsed.data.feedbackUrl || null,
+    },
+    reason: `Owner memperbarui banner & link landing page kios '${String(beforeData.name)}'`,
+    prev_hash: "",
+    hash: "",
+  });
+
+  revalidatePath("/dashboard/cabang");
+  revalidatePath("/dashboard/landing-page");
+  revalidatePath("/dashboard/pengaturan");
+  revalidatePath("/m", "layout");
+
+  return {
+    ok: true,
+    message: `Banner iklan & link landing page '${String(beforeData.name)}' berhasil disimpan.`,
+  };
 }
 
 export async function switchActiveOutletAction(outletId: string): Promise<ActionResult> {
@@ -294,7 +461,7 @@ export async function switchActiveOutletAction(outletId: string): Promise<Action
     .maybeSingle();
 
   if (!out) {
-    return { ok: false, message: "Cabang tidak ditemukan atau sudah nonaktif." };
+    return { ok: false, message: "Kios tidak ditemukan atau sudah nonaktif." };
   }
 
   const cookieStore = await cookies();
@@ -302,12 +469,23 @@ export async function switchActiveOutletAction(outletId: string): Promise<Action
     path: "/",
     httpOnly: true,
     sameSite: "lax",
-    maxAge: 30 * 24 * 60 * 60, // 30 hari
   });
 
   revalidatePath("/", "layout");
 
-  return { ok: true, message: `Berhasil beralih ke cabang: ${out.name}` };
+  return { ok: true, message: `Masuk ke kios: ${out.name}` };
+}
+
+export async function leaveActiveOutletAction(): Promise<ActionResult> {
+  await requireStaffRole(["owner"]);
+  const cookieStore = await cookies();
+  cookieStore.delete("fnb1621_active_outlet");
+  revalidatePath("/", "layout");
+
+  return {
+    ok: true,
+    message: "Kembali ke Dashboard Pemilik (Semua Kios).",
+  };
 }
 
 export async function resetOutletDemoTransactionsAction(
