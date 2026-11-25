@@ -31,6 +31,7 @@ import {
   ROLE_DEFAULT_PERMISSIONS,
   ROLE_LABELS_ID,
 } from "@/lib/auth";
+import type { OutletView } from "@/lib/outlets";
 import type { PermissionKey, UserRole } from "@/lib/types/database";
 import {
   createStaffUserAction,
@@ -40,7 +41,6 @@ import {
   updateStaffPermissionsAction,
   type StaffMemberWithEmail,
 } from "@/server/auth";
-import type { OutletView } from "@/server/outlets";
 
 interface BrowserPasswordCredentialData {
   id: string;

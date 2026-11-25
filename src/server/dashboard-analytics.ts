@@ -184,44 +184,42 @@ export async function getEsbDashboardAnalytics(params?: {
 
   const selectedPeriod = params?.period ?? "today";
   const bounds = getWibPeriodBounds(selectedPeriod);
+  const activeOutletId = params?.outletId ?? staff.outletId;
 
-  // Ambil daftar seluruh outlet aktif
-  const { data: rawOutlets } = await admin
-    .from("outlets")
-    .select("id, name")
-    .order("created_at", { ascending: true });
+  // Jalankan query daftar outlet, pesanan periode ini, dan periode sebelumnya secara paralel
+  const [outletsRes, curOrdersRes, prevOrdersRes] = await Promise.all([
+    admin
+      .from("outlets")
+      .select("id, name")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("orders")
+      .select("id, order_no, order_type, status, subtotal, discount, total, created_at, paid_at, cancelled_at, outlet_id")
+      .eq("outlet_id", activeOutletId)
+      .is("deleted_at", null)
+      .gte("created_at", bounds.current.startIso)
+      .lte("created_at", bounds.current.endIso),
+    admin
+      .from("orders")
+      .select("id, status, total")
+      .eq("outlet_id", activeOutletId)
+      .is("deleted_at", null)
+      .gte("created_at", bounds.previous.startIso)
+      .lte("created_at", bounds.previous.endIso),
+  ]);
 
-  const availableOutlets = (rawOutlets ?? []).map((o) => ({
+  const availableOutlets = (outletsRes.data ?? []).map((o) => ({
     id: String(o.id),
     name: String(o.name),
   }));
 
-  const activeOutletId = params?.outletId ?? staff.outletId;
   const activeOutletName =
     availableOutlets.find((o) => o.id === activeOutletId)?.name ?? "1621F&B Pusat";
 
-  // Ambil data pesanan periode saat ini
-  const { data: curOrdersData } = await admin
-    .from("orders")
-    .select("id, order_no, order_type, status, subtotal, discount, total, created_at, paid_at, cancelled_at, outlet_id")
-    .eq("outlet_id", activeOutletId)
-    .is("deleted_at", null)
-    .gte("created_at", bounds.current.startIso)
-    .lte("created_at", bounds.current.endIso);
-
-  const curOrders = (curOrdersData ?? []) as Array<Record<string, unknown>>;
+  const curOrders = (curOrdersRes.data ?? []) as Array<Record<string, unknown>>;
   const curOrderIds = curOrders.map((o) => String(o.id));
-
-  // Ambil data pesanan periode sebelumnya untuk komparasi tren %
-  const { data: prevOrdersData } = await admin
-    .from("orders")
-    .select("id, status, total")
-    .eq("outlet_id", activeOutletId)
-    .is("deleted_at", null)
-    .gte("created_at", bounds.previous.startIso)
-    .lte("created_at", bounds.previous.endIso);
-
-  const prevOrders = (prevOrdersData ?? []) as Array<Record<string, unknown>>;
+  const prevOrders = (prevOrdersRes.data ?? []) as Array<Record<string, unknown>>;
 
   // Ambil payments & order items untuk periode saat ini
   const [paymentsRes, itemsRes, refundsRes, qrisAuditsRes] = curOrderIds.length > 0

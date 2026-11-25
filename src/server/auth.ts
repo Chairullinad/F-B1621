@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -139,105 +140,112 @@ async function recordAuthAuditLog(params: {
 
 /**
  * Mengambil sesi staf aktif saat ini beserta profil dari tabel public.profiles.
+ * Dibungkus React `cache()` agar hanya dieksekusi sekali per request (tidak berulang di Layout & Page).
  * Mengembalikan null jika belum login atau akun nonaktif/dihapus.
  */
-export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | null> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
+const loadCurrentStaffSessionCached = cache(
+  async (): Promise<AuthenticatedStaff | null> => {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
 
-    if (userErr || !user) {
-      return null;
-    }
+      if (userErr || !user) {
+        return null;
+      }
 
-    const admin = createSupabaseAdminClient();
-    let profile: {
-      id: string;
-      outlet_id: string;
-      full_name: string;
-      role: string;
-      is_active: boolean;
-      deleted_at: string | null;
-      custom_permissions?: unknown;
-    } | null = null;
-    let profileErr: { message: string } | null = null;
+      const admin = createSupabaseAdminClient();
+      let profile: {
+        id: string;
+        outlet_id: string;
+        full_name: string;
+        role: string;
+        is_active: boolean;
+        deleted_at: string | null;
+        custom_permissions?: unknown;
+      } | null = null;
+      let profileErr: { message: string } | null = null;
 
-    const firstRes = await admin
-      .from("profiles")
-      .select(
-        "id, outlet_id, full_name, role, is_active, deleted_at, custom_permissions"
-      )
-      .eq("id", user.id)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (
-      firstRes.error &&
-      firstRes.error.message.includes("custom_permissions")
-    ) {
-      const fallbackRes = await admin
+      const firstRes = await admin
         .from("profiles")
-        .select("id, outlet_id, full_name, role, is_active, deleted_at")
+        .select(
+          "id, outlet_id, full_name, role, is_active, deleted_at, custom_permissions"
+        )
         .eq("id", user.id)
         .is("deleted_at", null)
         .maybeSingle();
-      profile = fallbackRes.data;
-      profileErr = fallbackRes.error;
-    } else {
-      profile = firstRes.data;
-      profileErr = firstRes.error;
-    }
 
-    if (profileErr || !profile || !profile.is_active) {
+      if (
+        firstRes.error &&
+        firstRes.error.message.includes("custom_permissions")
+      ) {
+        const fallbackRes = await admin
+          .from("profiles")
+          .select("id, outlet_id, full_name, role, is_active, deleted_at")
+          .eq("id", user.id)
+          .is("deleted_at", null)
+          .maybeSingle();
+        profile = fallbackRes.data;
+        profileErr = fallbackRes.error;
+      } else {
+        profile = firstRes.data;
+        profileErr = firstRes.error;
+      }
+
+      if (profileErr || !profile || !profile.is_active) {
+        return null;
+      }
+
+      const role = profile.role as UserRole;
+      const customPermissions = sanitizeCustomPermissions(
+        profile.custom_permissions
+      );
+      const activeOutletId = String(profile.outlet_id);
+      let resolvedOutletId = activeOutletId;
+      let selectedOutletId: string | null =
+        role === "owner" ? null : activeOutletId;
+
+      if (role === "owner") {
+        try {
+          const cookieStore = await cookies();
+          const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
+          if (cookieOutletId) {
+            const { data: out } = await admin
+              .from("outlets")
+              .select("id")
+              .eq("id", cookieOutletId)
+              .is("deleted_at", null)
+              .maybeSingle();
+            if (out) {
+              resolvedOutletId = String(out.id);
+              selectedOutletId = String(out.id);
+            }
+          }
+        } catch {
+          // Abaikan jika pemanggilan cookies di context non-request
+        }
+      }
+
+      return {
+        userId: profile.id,
+        email: user.email ?? "",
+        outletId: resolvedOutletId,
+        selectedOutletId,
+        fullName: profile.full_name,
+        role,
+        customPermissions,
+        isActive: profile.is_active,
+      };
+    } catch {
       return null;
     }
-
-    const role = profile.role as UserRole;
-    const customPermissions = sanitizeCustomPermissions(
-      profile.custom_permissions
-    );
-    const activeOutletId = String(profile.outlet_id);
-    let resolvedOutletId = activeOutletId;
-    let selectedOutletId: string | null =
-      role === "owner" ? null : activeOutletId;
-
-    if (role === "owner") {
-      try {
-        const cookieStore = await cookies();
-        const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
-        if (cookieOutletId) {
-          const { data: out } = await admin
-            .from("outlets")
-            .select("id")
-            .eq("id", cookieOutletId)
-            .is("deleted_at", null)
-            .maybeSingle();
-          if (out) {
-            resolvedOutletId = String(out.id);
-            selectedOutletId = String(out.id);
-          }
-        }
-      } catch {
-        // Abaikan jika pemanggilan cookies di context non-request
-      }
-    }
-
-    return {
-      userId: profile.id,
-      email: user.email ?? "",
-      outletId: resolvedOutletId,
-      selectedOutletId,
-      fullName: profile.full_name,
-      role,
-      customPermissions,
-      isActive: profile.is_active,
-    };
-  } catch {
-    return null;
   }
+);
+
+export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | null> {
+  return loadCurrentStaffSessionCached();
 }
 
 /**
