@@ -29,7 +29,7 @@ import {
   ROLE_LABELS_ID,
   type StaffNavItem,
 } from "@/lib/auth";
-import type { OutletView } from "@/lib/outlets";
+import type { SidebarOutletView } from "@/lib/outlets";
 import type { UserCustomPermissions, UserRole } from "@/lib/types/database";
 import { changeOwnPasswordAction } from "@/server/auth";
 import type { StaffSidebarBadges } from "@/server/inventory";
@@ -46,7 +46,7 @@ interface StaffSidebarShellProps {
   };
   navItems: ReadonlyArray<StaffNavItem>;
   badges: StaffSidebarBadges;
-  outlets?: OutletView[];
+  outlets?: SidebarOutletView[];
   activeOutletId?: string | null;
   logoutAction: () => Promise<void>;
   children: React.ReactNode;
@@ -148,7 +148,6 @@ export function StaffSidebarShell({
         items: [
           { href: "/dashboard", label: "Dashboard" },
           { href: "/dashboard/stok-menu", label: "Stok Menu" },
-          { href: "/dashboard/keuangan", label: "Pembukuan" },
         ],
       },
       {
@@ -234,30 +233,10 @@ export function StaffSidebarShell({
               ]),
         ],
       },
-      {
-        id: "laporan",
-        label: "Laporan",
-        icon: <Receipt className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
-        roles: ["owner"],
-        items: [
-          { href: "/dashboard/transaksi", label: "Laporan Penjualan & Struk" },
-          { href: "/dashboard/keuangan?tab=aruskas", label: "Laporan Laba Rugi & Pajak" },
-        ],
-      },
-      {
-        id: "master",
-        label: "Akses & Keamanan",
-        icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
-        roles: ["owner"],
-        items: [
-          { href: "/dashboard/staf", label: "Kelola Staf & Hak Akses" },
-          { href: "/dashboard/audit", label: "Jejak Audit Sistem" },
-        ],
-      },
     ];
   }, [staff.role, badges]);
 
-  // Filter grup sesuai role & custom per-user permissions (Mode Holding Owner mempertahankan Dashboard + Laporan + Setting Kios + Pengaturan + Akses & Keamanan)
+  // Filter grup sesuai role & custom per-user permissions (Mode Holding Owner mempertahankan Beranda + Laporan + Setting Outlet + Pengaturan + Akses & Keamanan)
   const visibleGroups: MainMenuGroup[] = React.useMemo(() => {
     if (isHoldingMode) {
       return [
@@ -638,9 +617,7 @@ export function StaffSidebarShell({
                         <Link
                           key={item.href + item.label}
                           href={item.href}
-                          prefetch={true}
-                          onMouseEnter={() => router.prefetch(item.href)}
-                          onTouchStart={() => router.prefetch(item.href)}
+                          prefetch={false}
                           onClick={() => {
                             setPendingHref(item.href);
                             setMobileOpen(false);

@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 interface KeuanganPageProps {
   searchParams: Promise<{
     outletId?: string;
+    period?: string;
     tab?: string;
     date?: string;
   }>;
@@ -15,7 +16,10 @@ interface KeuanganPageProps {
 export default async function KeuanganPage({ searchParams }: KeuanganPageProps) {
   const sp = await searchParams;
   const [data, dailyPreview] = await Promise.all([
-    getFinancialReportData({ outletId: sp.outletId }),
+    getFinancialReportData({
+      outletId: sp.outletId,
+      period: sp.period,
+    }),
     getDailyEmailTemplatePreview(sp.date).catch(() => undefined),
   ]);
 
@@ -27,4 +31,3 @@ export default async function KeuanganPage({ searchParams }: KeuanganPageProps) 
     />
   );
 }
-
