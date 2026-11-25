@@ -118,7 +118,9 @@ export async function getOwnerHoldingAnalytics(params?: {
   const [outletsRes, earliestOrderRes, yearOrdersRes] = await Promise.all([
     admin
       .from("outlets")
-      .select("*")
+      .select(
+        "id, name, address, phone, description, receipt_footer, logo_url, theme_color, is_active, order_expiry_minutes, tax_enabled, tax_percent, service_enabled, service_percent, created_at, deleted_at, operating_hours, landing_tagline"
+      )
       .is("deleted_at", null)
       .order("created_at", { ascending: true }),
     admin

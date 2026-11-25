@@ -9,9 +9,13 @@ import type { DailyHoldingReportPreview } from "@/server/holding-reports";
 export function DailyEmailReportTemplate({
   preview,
   dateQueryBasePath = "/dashboard/keuangan",
+  onDateChange,
+  isUpdating = false,
 }: {
   preview: DailyHoldingReportPreview;
   dateQueryBasePath?: string;
+  onDateChange?: (nextDate: string) => void;
+  isUpdating?: boolean;
 }) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = React.useState(preview.dateWib);
@@ -23,6 +27,10 @@ export function DailyEmailReportTemplate({
   function handleDateChange(nextDate: string) {
     setSelectedDate(nextDate);
     if (/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) {
+      if (onDateChange) {
+        onDateChange(nextDate);
+        return;
+      }
       const separator = dateQueryBasePath.includes("?") ? "&" : "?";
       router.push(
         `${dateQueryBasePath}${separator}date=${encodeURIComponent(nextDate)}`
@@ -59,9 +67,10 @@ export function DailyEmailReportTemplate({
             <input
               id="daily-template-date"
               type="date"
+              disabled={isUpdating}
               value={selectedDate}
               onChange={(e) => handleDateChange(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer disabled:opacity-50"
             />
           </div>
 

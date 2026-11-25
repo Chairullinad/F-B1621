@@ -5,7 +5,11 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { formatRupiah, validateTaxAndServiceConfig } from "@/lib/money";
-import { mapOutletRowToView, type OutletView } from "@/lib/outlets";
+import {
+  mapOutletRowToSidebarView,
+  mapOutletRowToView,
+  type OutletView,
+} from "@/lib/outlets";
 import { parseEmvTags } from "@/lib/qris";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -506,7 +510,7 @@ export async function listTablesForOwner(): Promise<TableRow[]> {
 
   const { data, error } = await admin
     .from("tables")
-    .select("*")
+    .select("id, outlet_id, table_no, name, qr_token, is_active, created_at, deleted_at")
     .eq("outlet_id", owner.outletId)
     .is("deleted_at", null)
     .order("table_no", { ascending: true });
@@ -516,6 +520,36 @@ export async function listTablesForOwner(): Promise<TableRow[]> {
   }
 
   return data as TableRow[];
+}
+
+/**
+ * Mengambil identitas ringkas outlet (nama, logo, warna tema) untuk halaman cetak QR
+ * tanpa menarik kolom landing page / notification settings yang berat.
+ */
+export async function getOutletBrandSummaryForOwner(): Promise<{
+  name: string;
+  logoUrl: string;
+  themeColor: string;
+}> {
+  const owner = await requireStaffRole(["owner"], "menu_kedai");
+  const admin = createSupabaseAdminClient();
+
+  const { data, error } = await admin
+    .from("outlets")
+    .select("id, name, logo_url, theme_color, receipt_footer")
+    .eq("id", owner.outletId)
+    .single();
+
+  if (error || !data) {
+    throw new Error("Data outlet tidak ditemukan.");
+  }
+
+  const view = mapOutletRowToSidebarView(data as Record<string, unknown>);
+  return {
+    name: view.name,
+    logoUrl: view.logoUrl,
+    themeColor: view.themeColor,
+  };
 }
 
 export async function toggleTableActiveAction(rawInput: {

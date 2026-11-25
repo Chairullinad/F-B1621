@@ -170,6 +170,14 @@ export function ProductManager({
     return map;
   }, [categories]);
 
+  const productCountByCategory = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of products) {
+      counts.set(p.category_id, (counts.get(p.category_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [products]);
+
   const addonGroupMap = React.useMemo(() => {
     const map = new Map<string, ProductAddonGroupWithOptions>();
     for (const g of addonGroups) {
@@ -471,7 +479,7 @@ export function ProductManager({
               Semua Kategori ({products.length})
             </button>
             {categories.map((c) => {
-              const count = products.filter((p) => p.category_id === c.id).length;
+              const count = productCountByCategory.get(c.id) ?? 0;
               return (
                 <button
                   key={c.id}

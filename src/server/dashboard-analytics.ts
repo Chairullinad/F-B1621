@@ -186,8 +186,15 @@ export async function getEsbDashboardAnalytics(params?: {
   const bounds = getWibPeriodBounds(selectedPeriod);
   const activeOutletId = params?.outletId ?? staff.outletId;
 
-  // Jalankan query daftar outlet, pesanan periode ini, dan periode sebelumnya secara paralel
-  const [outletsRes, curOrdersRes, prevOrdersRes] = await Promise.all([
+  // Jalankan query daftar outlet, pesanan periode ini & sebelumnya, bahan baku, produk, dan kategori secara paralel
+  const [
+    outletsRes,
+    curOrdersRes,
+    prevOrdersRes,
+    ingredientsRes,
+    productsRes,
+    categoriesRes,
+  ] = await Promise.all([
     admin
       .from("outlets")
       .select("id, name")
@@ -207,6 +214,20 @@ export async function getEsbDashboardAnalytics(params?: {
       .is("deleted_at", null)
       .gte("created_at", bounds.previous.startIso)
       .lte("created_at", bounds.previous.endIso),
+    admin
+      .from("ingredients")
+      .select("id, name, unit, current_stock, min_stock")
+      .eq("outlet_id", activeOutletId)
+      .is("deleted_at", null)
+      .order("current_stock", { ascending: true }),
+    admin
+      .from("products")
+      .select("id, name, category_id")
+      .eq("outlet_id", activeOutletId),
+    admin
+      .from("categories")
+      .select("id, name")
+      .eq("outlet_id", activeOutletId),
   ]);
 
   const availableOutlets = (outletsRes.data ?? []).map((o) => ({
@@ -380,13 +401,8 @@ export async function getEsbDashboardAnalytics(params?: {
     });
   }
 
-  // Ambil Data Bahan Baku Kritis (Stok <= Batas Aman)
-  const { data: rawIngredients } = await admin
-    .from("ingredients")
-    .select("id, name, unit, current_stock, min_stock")
-    .eq("outlet_id", activeOutletId)
-    .is("deleted_at", null)
-    .order("current_stock", { ascending: true });
+  // Data Bahan Baku Kritis (Stok <= Batas Aman) sudah di-fetch paralel di atas
+  const rawIngredients = ingredientsRes.data ?? [];
 
   const lowStockIngredients: LowStockIngredientView[] = [];
   let criticalStockCount = 0;
@@ -406,15 +422,9 @@ export async function getEsbDashboardAnalytics(params?: {
     }
   }
 
-  // Hitung Komposisi Kategori & Top 5 Menu
+  // Hitung Komposisi Kategori & Top 5 Menu menggunakan peta produk/kategori yang sudah di-fetch paralel
   const productSalesMap = new Map<string, { name: string; category: string; sales: number; qty: number }>();
   const categorySalesMap = new Map<string, { sales: number; count: number }>();
-
-  // Fetch products & categories for naming
-  const [productsRes, categoriesRes] = await Promise.all([
-    admin.from("products").select("id, name, category_id"),
-    admin.from("categories").select("id, name"),
-  ]);
 
   const categoryNameMap = new Map<string, string>();
   for (const c of categoriesRes.data ?? []) {

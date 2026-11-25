@@ -218,7 +218,13 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
   const admin = createSupabaseAdminClient();
 
   const [outletRes, catRes, prodRes, tablesRes, addonCatalog] = await Promise.all([
-    admin.from("outlets").select("*").eq("id", staff.outletId).single(),
+    admin
+      .from("outlets")
+      .select(
+        "id, name, tax_enabled, tax_percent, service_enabled, service_percent, price_includes_tax, max_cashier_discount_percent, max_cashier_discount_amount, qris_enabled, qris_merchant_name, qris_raw_payload"
+      )
+      .eq("id", staff.outletId)
+      .single(),
     admin
       .from("categories")
       .select("*")
@@ -400,7 +406,13 @@ export async function createManualCashierOrderAction(rawInput: {
       .select("id, name, price, is_available, is_active, deleted_at")
       .eq("outlet_id", staff.outletId)
       .in("id", productIds),
-    admin.from("outlets").select("*").eq("id", staff.outletId).single(),
+    admin
+      .from("outlets")
+      .select(
+        "id, tax_enabled, tax_percent, service_enabled, service_percent, price_includes_tax, max_cashier_discount_percent, max_cashier_discount_amount"
+      )
+      .eq("id", staff.outletId)
+      .single(),
     loadOutletAddonCatalog(staff.outletId),
   ]);
 

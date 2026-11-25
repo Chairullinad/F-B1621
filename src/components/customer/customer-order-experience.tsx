@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatDateTimeWIB } from "@/lib/datetime";
+import { playToneSequence } from "@/lib/audio";
 import { calculateOrderTotals, formatRupiah } from "@/lib/money";
 import type {
   OrderItemAddonSnapshot,
@@ -74,33 +75,91 @@ function formatRemainingCountdown(expiresAtIso: string | null, nowMs: number): {
 }
 
 function playCustomerStatusChime(isAlert = false) {
-  try {
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      navigator.vibrate(isAlert ? [200, 100, 200] : [120, 60, 140]);
+  playToneSequence(
+    [
+      { freq: isAlert ? 360 : 587.33, delaySec: 0, durationSec: 0.2 },
+      { freq: isAlert ? 260 : 880, delaySec: 0.14, durationSec: 0.38 },
+    ],
+    {
+      type: isAlert ? "sawtooth" : "sine",
+      gain: 0.22,
+      vibratePattern: isAlert ? [200, 100, 200] : [120, 60, 140],
     }
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = isAlert ? "sawtooth" : "sine";
-    osc.frequency.setValueAtTime(isAlert ? 360 : 587.33, ctx.currentTime);
-    osc.frequency.setValueAtTime(
-      isAlert ? 260 : 880,
-      ctx.currentTime + 0.14
-    );
-    gain.gain.setValueAtTime(0.22, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.38);
-  } catch {
-    // Abaikan jika browser memblokir audio
+  );
+}
+
+function areTrackingOrdersEqual(
+  a: CustomerOrderTrackingView,
+  b: CustomerOrderTrackingView
+): boolean {
+  if (
+    a.orderId !== b.orderId ||
+    a.status !== b.status ||
+    a.sessionExpired !== b.sessionExpired ||
+    a.paymentChoice !== b.paymentChoice ||
+    a.customerClaimedPaidAt !== b.customerClaimedPaidAt ||
+    a.expiresAt !== b.expiresAt ||
+    a.cancelledAt !== b.cancelledAt ||
+    a.cancelReason !== b.cancelReason ||
+    a.qrisSvg !== b.qrisSvg ||
+    a.subtotal !== b.subtotal ||
+    a.discount !== b.discount ||
+    a.serviceAmount !== b.serviceAmount ||
+    a.taxAmount !== b.taxAmount ||
+    a.total !== b.total ||
+    a.paidAt !== b.paidAt ||
+    a.readyAt !== b.readyAt ||
+    a.servedAt !== b.servedAt ||
+    a.items.length !== b.items.length
+  ) {
+    return false;
   }
+
+  for (let i = 0; i < a.items.length; i++) {
+    const ia = a.items[i];
+    const ib = b.items[i];
+    if (
+      !ia ||
+      !ib ||
+      ia.id !== ib.id ||
+      ia.product_name !== ib.product_name ||
+      ia.qty !== ib.qty ||
+      ia.unit_price !== ib.unit_price ||
+      ia.line_total !== ib.line_total ||
+      ia.note !== ib.note
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Komponen timer terisolasi agar detak 1 detik hanya me-render teks angka
+ * countdown dan tidak me-render ulang seluruh halaman pemesanan pelanggan.
+ */
+function OrderCountdownText({ expiresAtIso }: { expiresAtIso: string | null }) {
+  const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
+
+  React.useEffect(() => {
+    const syncNow = () => setNowMs(Date.now());
+    const interval = window.setInterval(() => {
+      if (!document.hidden) {
+        syncNow();
+      }
+    }, 1000);
+    const onVisibility = () => {
+      if (!document.hidden) syncNow();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [expiresAtIso]);
+
+  return <>{formatRemainingCountdown(expiresAtIso, nowMs).formatted}</>;
 }
 
 export function CustomerOrderExperience({
@@ -132,11 +191,16 @@ export function CustomerOrderExperience({
   const [activeOrder, setActiveOrder] =
     React.useState<CustomerOrderTrackingView | null>(null);
   const prevStatusRef = React.useRef<string | null>(null);
-  const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
   const [servedExpireCountdown, setServedExpireCountdown] = React.useState<
     number | null
   >(null);
   const [isPending, startTransition] = React.useTransition();
+
+  const activeOrderId = activeOrder?.orderId ?? null;
+  const activeOrderStatus = activeOrder?.status ?? null;
+  const activeOrderSessionExpired = activeOrder?.sessionExpired ?? false;
+  const activeOrderTableName = activeOrder?.tableName ?? data.table.name;
+  const activeOrderCancelReason = activeOrder?.cancelReason ?? null;
 
   // Muat order aktif dari sessionStorage jika pelanggan me-refresh halaman
   React.useEffect(() => {
@@ -164,23 +228,14 @@ export function CustomerOrderExperience({
     }
   }, [cart.length, viewStep]);
 
-  // Timer 1 detik untuk hitung mundur 15 menit
-  React.useEffect(() => {
-    if (!activeOrder || activeOrder.status !== "pending") return;
-    const interval = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [activeOrder]);
-
   // Deteksi perubahan status pesanan di layar pelanggan untuk notifikasi audio & getar
   React.useEffect(() => {
-    if (!activeOrder) {
+    if (!activeOrderStatus) {
       prevStatusRef.current = null;
       return;
     }
     const prev = prevStatusRef.current;
-    const curr = activeOrder.status;
+    const curr = activeOrderStatus;
     if (prev && prev !== curr) {
       if (curr === "paid") {
         playCustomerStatusChime(false);
@@ -190,7 +245,7 @@ export function CustomerOrderExperience({
       } else if (curr === "ready") {
         playCustomerStatusChime(false);
         toast.success(
-          `Pesanan Anda sudah selesai dimasak dan sedang diantar ke ${activeOrder.tableName}!`
+          `Pesanan Anda sudah selesai dimasak dan sedang diantar ke ${activeOrderTableName}!`
         );
       } else if (curr === "served") {
         playCustomerStatusChime(false);
@@ -198,74 +253,118 @@ export function CustomerOrderExperience({
       } else if (curr === "cancelled" || curr === "expired") {
         playCustomerStatusChime(true);
         toast.error(
-          activeOrder.cancelReason
-            ? `Pesanan dibatalkan: ${activeOrder.cancelReason}`
+          activeOrderCancelReason
+            ? `Pesanan dibatalkan: ${activeOrderCancelReason}`
             : "Pesanan Anda telah dibatalkan / kedaluwarsa."
         );
       }
     }
     prevStatusRef.current = curr;
-  }, [activeOrder]);
+  }, [activeOrderStatus, activeOrderTableName, activeOrderCancelReason]);
 
-  // Polling status order setiap 3 detik selama order aktif dan belum expired sesinya
+  // Polling status order setiap 3 detik tanpa me-reset timer saat payload belum berubah
   React.useEffect(() => {
-    if (!activeOrder || activeOrder.sessionExpired) return;
+    if (!activeOrderId || activeOrderSessionExpired) return;
     if (
-      activeOrder.status === "expired" ||
-      activeOrder.status === "cancelled"
+      activeOrderStatus === "expired" ||
+      activeOrderStatus === "cancelled"
     ) {
       return;
     }
 
-    const pollInterval = window.setInterval(async () => {
-      const res = await getCustomerOrderStatusAction({
-        qrToken: data.table.qrToken,
-        orderId: activeOrder.orderId,
-      });
-      if (res.ok && res.order) {
-        setActiveOrder(res.order);
+    let isInFlight = false;
+    let isCancelled = false;
+
+    const pollOnce = async () => {
+      if (isCancelled || isInFlight) return;
+      if (typeof document !== "undefined" && document.hidden) return;
+      isInFlight = true;
+      try {
+        const res = await getCustomerOrderStatusAction({
+          qrToken: data.table.qrToken,
+          orderId: activeOrderId,
+        });
+        const nextOrder = res.order;
+        if (!isCancelled && res.ok && nextOrder) {
+          setActiveOrder((prev) =>
+            prev && areTrackingOrdersEqual(prev, nextOrder) ? prev : nextOrder
+          );
+        }
+      } finally {
+        isInFlight = false;
       }
+    };
+
+    const pollInterval = window.setInterval(() => {
+      void pollOnce();
     }, 3000);
 
-    return () => window.clearInterval(pollInterval);
-  }, [activeOrder, data.table.qrToken]);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        void pollOnce();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
-  // Begitu status mencapai SERVED, hitung mundur 8 detik lalu kunci sesi otomatis
+    return () => {
+      isCancelled = true;
+      window.clearInterval(pollInterval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [
+    activeOrderId,
+    activeOrderStatus,
+    activeOrderSessionExpired,
+    data.table.qrToken,
+  ]);
+
+  // Begitu status mencapai SERVED, hitung mundur 8 detik secara stabil hingga sesi dikunci
   React.useEffect(() => {
-    if (!activeOrder) return;
-    if (activeOrder.status === "served" && !activeOrder.sessionExpired) {
-      setServedExpireCountdown((prev) => (prev === null ? 8 : prev));
-      const timer = window.setInterval(() => {
-        setServedExpireCountdown((prev) => {
-          if (prev === null) return null;
-          if (prev <= 1) {
-            window.clearInterval(timer);
-            void (async () => {
-              const res = await getCustomerOrderStatusAction({
-                qrToken: data.table.qrToken,
-                orderId: activeOrder.orderId,
-                acknowledgeServed: true,
-              });
-              if (typeof window !== "undefined") {
-                window.sessionStorage.removeItem(storageKey);
-              }
-              if (res.ok && res.order) {
-                setActiveOrder(res.order);
-              } else {
-                setActiveOrder((curr) =>
-                  curr ? { ...curr, sessionExpired: true } : null
-                );
-              }
-            })();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => window.clearInterval(timer);
+    if (
+      !activeOrderId ||
+      activeOrderStatus !== "served" ||
+      activeOrderSessionExpired
+    ) {
+      return;
     }
-  }, [activeOrder, data.table.qrToken, storageKey]);
+
+    setServedExpireCountdown((prev) => (prev === null ? 8 : prev));
+    const timer = window.setInterval(() => {
+      setServedExpireCountdown((prev) => {
+        if (prev === null) return null;
+        if (prev <= 1) {
+          window.clearInterval(timer);
+          void (async () => {
+            const res = await getCustomerOrderStatusAction({
+              qrToken: data.table.qrToken,
+              orderId: activeOrderId,
+              acknowledgeServed: true,
+            });
+            if (typeof window !== "undefined") {
+              window.sessionStorage.removeItem(storageKey);
+            }
+            if (res.ok && res.order) {
+              setActiveOrder(res.order);
+            } else {
+              setActiveOrder((curr) =>
+                curr ? { ...curr, sessionExpired: true } : null
+              );
+            }
+          })();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [
+    activeOrderId,
+    activeOrderStatus,
+    activeOrderSessionExpired,
+    data.table.qrToken,
+    storageKey,
+  ]);
 
   const categoryNameMap = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -520,7 +619,6 @@ export function CustomerOrderExperience({
       setViewStep("menu");
       setIdempotencyKey(generateClientIdempotencyKey(data.table.tableNo));
       setActiveOrder(res.order);
-      setNowMs(Date.now());
       if (typeof window !== "undefined") {
         window.sessionStorage.setItem(storageKey, res.order.orderId);
       }
@@ -591,7 +689,6 @@ export function CustomerOrderExperience({
   // TAMPILAN 2: LAYAR STATUS & INSTRUKSI PEMBAYARAN REAL-TIME
   // ==========================================================================
   if (activeOrder) {
-    const countdown = formatRemainingCountdown(activeOrder.expiresAt, nowMs);
     const steps: Array<{
       key: CustomerOrderTrackingView["status"];
       label: string;
@@ -733,7 +830,7 @@ export function CustomerOrderExperience({
                   <Clock className="h-3.5 w-3.5" />
                   <span>Batas Waktu Bayar:</span>
                   <span className="font-mono text-sm">
-                    {countdown.formatted}
+                    <OrderCountdownText expiresAtIso={activeOrder.expiresAt} />
                   </span>
                 </div>
 
@@ -808,7 +905,12 @@ export function CustomerOrderExperience({
                     </div>
                     <p className="text-xs leading-relaxed text-amber-900">
                       Silakan menuju ke meja Kasir dalam waktu{" "}
-                      <strong>{countdown.formatted}</strong> dan tunjukkan nomor
+                      <strong>
+                        <OrderCountdownText
+                          expiresAtIso={activeOrder.expiresAt}
+                        />
+                      </strong>{" "}
+                      dan tunjukkan nomor
                       pesanan <strong>#{activeOrder.orderNo}</strong> untuk{" "}
                       <strong>{activeOrder.tableName}</strong> dengan total{" "}
                       <strong>{formatRupiah(activeOrder.total)}</strong>.
