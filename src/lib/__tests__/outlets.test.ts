@@ -2,7 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   assignDistinctOutletColors,
+  buildQrStandeeFilename,
+  getStandeeContrastPalette,
   isSafeActionLinkUrl,
+  mapOutletRowToSidebarView,
   mapOutletRowToView,
   parseLandingBanners,
 } from "../outlets.ts";
@@ -110,5 +113,45 @@ describe("src/lib/outlets.ts", () => {
     assert.equal(isSafeActionLinkUrl(""), false);
 
     assert.equal(parseLandingBanners(null, null).length, 0);
+  });
+
+  it("menghitung warna background, outline, dan kontras teks dinamis untuk standee QR Meja", () => {
+    const redStandee = getStandeeContrastPalette("#e11d48");
+    assert.equal(redStandee.backgroundHex, "#E11D48");
+    assert.equal(redStandee.isLightBackground, false);
+    assert.equal(redStandee.foregroundColor, "#FFFFFF");
+    assert.equal(redStandee.pillTextColor, "#E11D48");
+
+    const lightYellow = getStandeeContrastPalette("#FEF08A");
+    assert.equal(lightYellow.isLightBackground, true);
+    assert.equal(lightYellow.foregroundColor, "#0F172A");
+    assert.equal(lightYellow.pillTextColor, "#0F172A");
+
+    const invalid = getStandeeContrastPalette("not-a-color");
+    assert.equal(invalid.backgroundHex, "#0284C7");
+
+    assert.equal(
+      buildQrStandeeFilename("SAIKO RAMEN", 9),
+      "qr-meja-09-saiko-ramen.png"
+    );
+    assert.equal(
+      buildQrStandeeFilename("LATTESPACE @ 1621!", 1),
+      "qr-meja-01-lattespace-1621.png"
+    );
+
+    const sidebarOutlet = mapOutletRowToSidebarView({
+      id: "out-side",
+      name: "KOPI 1621",
+      description: "Roastery",
+      logo_url: "/logo.png",
+      theme_color: "#1E88E5",
+    });
+    assert.deepEqual(sidebarOutlet, {
+      id: "out-side",
+      name: "KOPI 1621",
+      description: "Roastery",
+      logoUrl: "/logo.png",
+      themeColor: "#1E88E5",
+    });
   });
 });

@@ -1,8 +1,12 @@
-import zlib from "node:zlib";
+/**
+ * src/lib/zip.ts
+ * Pembungkus arsip ZIP murni dalam TypeScript (PKZIP STORED / method 0 dengan CRC-32)
+ * tanpa dependensi eksternal. Ideal untuk file PNG yang sudah terkompresi.
+ */
 
 export interface ZipEntryInput {
   name: string;
-  content: string | Buffer;
+  data: Uint8Array;
 }
 
 const CRC32_TABLE = (() => {
@@ -17,103 +21,115 @@ const CRC32_TABLE = (() => {
   return table;
 })();
 
-function crc32(buf: Buffer): number {
+export function computeCrc32(bytes: Uint8Array): number {
   let crc = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) {
-    const byteVal = buf[i] ?? 0;
-    const tableVal = CRC32_TABLE[(crc ^ byteVal) & 0xff] ?? 0;
-    crc = tableVal ^ (crc >>> 8);
+  for (let i = 0; i < bytes.length; i++) {
+    const idx = (crc ^ (bytes[i] ?? 0)) & 0xff;
+    crc = (CRC32_TABLE[idx] ?? 0) ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function getDosDateTime(date: Date): { dosTime: number; dosDate: number } {
-  // Gunakan WIB (UTC+7) agar timestamp file ZIP sesuai jam Indonesia Barat
-  const wib = new Date(date.getTime() + 7 * 60 * 60 * 1000);
-  const year = Math.max(1980, wib.getUTCFullYear());
-  const month = wib.getUTCMonth() + 1;
-  const day = wib.getUTCDate();
-  const hours = wib.getUTCHours();
-  const minutes = wib.getUTCMinutes();
-  const seconds = Math.floor(wib.getUTCSeconds() / 2);
-
-  const dosTime = (hours << 11) | (minutes << 5) | seconds;
-  const dosDate = ((year - 1980) << 9) | (month << 5) | day;
-  return { dosTime, dosDate };
-}
-
 /**
- * Membentuk arsip .zip standar (DEFLATE + UTF-8 filenames) tanpa dependency eksternal.
+ * Menggabungkan daftar file menjadi byte array berformat `.zip` standar PKZIP.
  */
-export function createZipBuffer(
-  entries: ReadonlyArray<ZipEntryInput>,
-  now: Date = new Date()
-): Buffer {
-  const localParts: Buffer[] = [];
-  const centralParts: Buffer[] = [];
-  let offset = 0;
-  const { dosTime, dosDate } = getDosDateTime(now);
+export function createZipUint8Array(
+  entries: ReadonlyArray<ZipEntryInput>
+): Uint8Array<ArrayBuffer> {
+  const encoder = new TextEncoder();
 
-  for (const entry of entries) {
-    const cleanName = entry.name.replace(/^\/+/, "");
-    const nameBuf = Buffer.from(cleanName, "utf8");
-    const rawData =
-      typeof entry.content === "string"
-        ? Buffer.from(entry.content, "utf8")
-        : entry.content;
-    const compressed = zlib.deflateRawSync(rawData, { level: 6 });
-    const checksum = crc32(rawData);
-
-    // Local File Header (30 bytes + filename)
-    const localHeader = Buffer.alloc(30);
-    localHeader.writeUInt32LE(0x04034b50, 0);
-    localHeader.writeUInt16LE(20, 4); // version needed: 2.0
-    localHeader.writeUInt16LE(0x0800, 6); // UTF-8 filename flag
-    localHeader.writeUInt16LE(8, 8); // compression method: 8 = deflate
-    localHeader.writeUInt16LE(dosTime, 10);
-    localHeader.writeUInt16LE(dosDate, 12);
-    localHeader.writeUInt32LE(checksum, 14);
-    localHeader.writeUInt32LE(compressed.length, 18);
-    localHeader.writeUInt32LE(rawData.length, 22);
-    localHeader.writeUInt16LE(nameBuf.length, 26);
-    localHeader.writeUInt16LE(0, 28); // extra field length
-
-    localParts.push(localHeader, nameBuf, compressed);
-
-    // Central Directory File Header (46 bytes + filename)
-    const centralHeader = Buffer.alloc(46);
-    centralHeader.writeUInt32LE(0x02014b50, 0);
-    centralHeader.writeUInt16LE(20, 4); // version made by
-    centralHeader.writeUInt16LE(20, 6); // version needed
-    centralHeader.writeUInt16LE(0x0800, 8); // UTF-8 flag
-    centralHeader.writeUInt16LE(8, 10); // deflate
-    centralHeader.writeUInt16LE(dosTime, 12);
-    centralHeader.writeUInt16LE(dosDate, 14);
-    centralHeader.writeUInt32LE(checksum, 16);
-    centralHeader.writeUInt32LE(compressed.length, 20);
-    centralHeader.writeUInt32LE(rawData.length, 24);
-    centralHeader.writeUInt16LE(nameBuf.length, 28);
-    centralHeader.writeUInt16LE(0, 30);
-    centralHeader.writeUInt16LE(0, 32);
-    centralHeader.writeUInt16LE(0, 34);
-    centralHeader.writeUInt16LE(0, 36);
-    centralHeader.writeUInt32LE(0, 38);
-    centralHeader.writeUInt32LE(offset, 42);
-
-    centralParts.push(centralHeader, nameBuf);
-    offset += localHeader.length + nameBuf.length + compressed.length;
+  interface PreparedEntry {
+    nameBytes: Uint8Array;
+    data: Uint8Array;
+    crc: number;
+    localHeaderOffset: number;
   }
 
-  const centralDir = Buffer.concat(centralParts);
-  const endRecord = Buffer.alloc(22);
-  endRecord.writeUInt32LE(0x06054b50, 0);
-  endRecord.writeUInt16LE(0, 4);
-  endRecord.writeUInt16LE(0, 6);
-  endRecord.writeUInt16LE(entries.length, 8);
-  endRecord.writeUInt16LE(entries.length, 10);
-  endRecord.writeUInt32LE(centralDir.length, 12);
-  endRecord.writeUInt32LE(offset, 16);
-  endRecord.writeUInt16LE(0, 20);
+  const prepared: PreparedEntry[] = [];
+  let offset = 0;
+  let centralDirSize = 0;
 
-  return Buffer.concat([...localParts, centralDir, endRecord]);
+  for (const entry of entries) {
+    const nameBytes = encoder.encode(entry.name);
+    const crc = computeCrc32(entry.data);
+    prepared.push({
+      nameBytes,
+      data: entry.data,
+      crc,
+      localHeaderOffset: offset,
+    });
+    offset += 30 + nameBytes.length + entry.data.length;
+    centralDirSize += 46 + nameBytes.length;
+  }
+
+  const totalSize = offset + centralDirSize + 22;
+  const buffer = new ArrayBuffer(totalSize);
+  const out = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+
+  // MS-DOS timestamp tetap valid (2026-11-25 11:00)
+  const dosTime = 0x5800;
+  const dosDate = 0x5d79;
+
+  // 1. Tulis Local File Headers + isi file
+  let cursor = 0;
+  for (const item of prepared) {
+    view.setUint32(cursor, 0x04034b50, true); // Local file header signature
+    view.setUint16(cursor + 4, 20, true); // Version needed
+    view.setUint16(cursor + 6, 0x0800, true); // UTF-8 filename flag
+    view.setUint16(cursor + 8, 0, true); // Method 0 = STORED
+    view.setUint16(cursor + 10, dosTime, true);
+    view.setUint16(cursor + 12, dosDate, true);
+    view.setUint32(cursor + 14, item.crc, true);
+    view.setUint32(cursor + 18, item.data.length, true);
+    view.setUint32(cursor + 22, item.data.length, true);
+    view.setUint16(cursor + 26, item.nameBytes.length, true);
+    view.setUint16(cursor + 28, 0, true); // Extra length
+
+    out.set(item.nameBytes, cursor + 30);
+    out.set(item.data, cursor + 30 + item.nameBytes.length);
+    cursor += 30 + item.nameBytes.length + item.data.length;
+  }
+
+  // 2. Tulis Central Directory Headers
+  const centralDirStart = cursor;
+  for (const item of prepared) {
+    view.setUint32(cursor, 0x02014b50, true); // Central directory signature
+    view.setUint16(cursor + 4, 20, true); // Version made by
+    view.setUint16(cursor + 6, 20, true); // Version needed
+    view.setUint16(cursor + 8, 0x0800, true); // UTF-8 filename flag
+    view.setUint16(cursor + 10, 0, true); // Method 0 = STORED
+    view.setUint16(cursor + 12, dosTime, true);
+    view.setUint16(cursor + 14, dosDate, true);
+    view.setUint32(cursor + 16, item.crc, true);
+    view.setUint32(cursor + 20, item.data.length, true);
+    view.setUint32(cursor + 24, item.data.length, true);
+    view.setUint16(cursor + 28, item.nameBytes.length, true);
+    view.setUint16(cursor + 30, 0, true); // Extra length
+    view.setUint16(cursor + 32, 0, true); // Comment length
+    view.setUint16(cursor + 34, 0, true); // Disk number start
+    view.setUint16(cursor + 36, 0, true); // Internal attributes
+    view.setUint32(cursor + 38, 0, true); // External attributes
+    view.setUint32(cursor + 42, item.localHeaderOffset, true);
+
+    out.set(item.nameBytes, cursor + 46);
+    cursor += 46 + item.nameBytes.length;
+  }
+
+  // 3. Tulis End of Central Directory (EOCD)
+  view.setUint32(cursor, 0x06054b50, true);
+  view.setUint16(cursor + 4, 0, true);
+  view.setUint16(cursor + 6, 0, true);
+  view.setUint16(cursor + 8, prepared.length, true);
+  view.setUint16(cursor + 10, prepared.length, true);
+  view.setUint32(cursor + 12, centralDirSize, true);
+  view.setUint32(cursor + 16, centralDirStart, true);
+  view.setUint16(cursor + 20, 0, true);
+
+  return out;
+}
+
+export function createZipBlob(entries: ReadonlyArray<ZipEntryInput>): Blob {
+  const bytes = createZipUint8Array(entries);
+  return new Blob([bytes.buffer], { type: "application/zip" });
 }

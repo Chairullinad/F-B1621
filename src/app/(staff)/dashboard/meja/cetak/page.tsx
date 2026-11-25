@@ -1,7 +1,9 @@
-import Image from "next/image";
 import Link from "next/link";
 import { headers } from "next/headers";
+import { DownloadAllQrPngButton } from "@/components/dashboard/download-all-qr-png-button";
+import { DownloadQrPngButton } from "@/components/dashboard/download-qr-png-button";
 import { PrintTriggerButton } from "@/components/dashboard/print-trigger-button";
+import { TableQrStandeeCard } from "@/components/dashboard/table-qr-standee-card";
 import { Button } from "@/components/ui/button";
 import { generateQrSvgString } from "@/lib/qrcode";
 import {
@@ -14,12 +16,13 @@ export default async function CetakQrMejaPage({
 }: {
   searchParams: Promise<{ table?: string }>;
 }) {
-  const [{ table: tableFilter }, tables, { outlet }, hdrs] = await Promise.all([
-    searchParams,
-    listTablesForOwner(),
-    getOutletAndNotificationSettings(),
-    headers(),
-  ]);
+  const [{ table: tableFilter }, tables, { outletView }, hdrs] =
+    await Promise.all([
+      searchParams,
+      listTablesForOwner(),
+      getOutletAndNotificationSettings(),
+      headers(),
+    ]);
 
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "localhost:3000";
   const proto = hdrs.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
@@ -38,15 +41,16 @@ export default async function CetakQrMejaPage({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 print:hidden">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            Cetak Standee QR Meja — {outlet.name} ({activeTables.length} Meja)
+            Cetak Standee QR Meja — {outletView.name} ({activeTables.length} Meja)
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Gunakan tombol <strong>Cetak / Simpan PDF</strong> di kanan untuk
-            mencetak stiker atau akrilik QR meja resmi berlogo <strong>1621 Group</strong>.
+            Klik <strong>Cetak / Simpan PDF</strong> di kanan, lalu pastikan opsi{" "}
+            <strong>Background graphics / Grafis latar belakang</strong> dicentang pada dialog cetak agar warna{" "}
+            <span className="font-mono font-semibold">{outletView.themeColor.toUpperCase()}</span> ikut tercetak.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline">
             <Link href="/dashboard/meja">Kembali ke Daftar Meja</Link>
           </Button>
@@ -55,11 +59,32 @@ export default async function CetakQrMejaPage({
               <Link href="/dashboard/meja/cetak">Tampilkan Semua Meja Aktif</Link>
             </Button>
           ) : null}
+          {activeTables.length === 1 && activeTables[0] ? (
+            <DownloadQrPngButton
+              outletName={outletView.name}
+              outletLogoUrl={outletView.logoUrl}
+              outletThemeColor={outletView.themeColor}
+              tableNo={activeTables[0].table_no}
+              qrToken={activeTables[0].qr_token}
+              variant="default"
+              className="bg-[#1E88E5] hover:bg-[#1976D2] text-white"
+            />
+          ) : activeTables.length > 1 ? (
+            <DownloadAllQrPngButton
+              outletName={outletView.name}
+              outletLogoUrl={outletView.logoUrl}
+              outletThemeColor={outletView.themeColor}
+              tables={activeTables.map((t) => ({
+                tableNo: t.table_no,
+                qrToken: t.qr_token,
+              }))}
+            />
+          ) : null}
           <PrintTriggerButton />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 print:grid-cols-3 print:gap-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-2 print:gap-5">
         {activeTables.map((table) => {
           const qrUrl = `${baseUrl}/m/${table.qr_token}`;
           const svgMarkup = generateQrSvgString(qrUrl, 2);
@@ -67,46 +92,30 @@ export default async function CetakQrMejaPage({
           return (
             <div
               key={table.id}
-              className="flex flex-col items-center justify-between rounded-2xl border-2 border-[#1B5E86] bg-white p-4 text-center shadow-xs break-inside-avoid"
+              className="break-inside-avoid flex flex-col items-center gap-2.5 [content-visibility:auto] [contain-intrinsic-size:330px_420px] print:[content-visibility:visible]"
             >
-              {/* Header Brand 1621 Group + Nama Cabang */}
-              <div className="flex w-full flex-col items-center border-b border-slate-100 pb-2.5">
-                <Image
-                  src="/logo-1621group.png"
-                  alt="1621 Group"
-                  width={136}
-                  height={38}
-                  className="h-8 w-auto object-contain"
+              <div className="w-full max-w-[330px]">
+                <TableQrStandeeCard
+                  outletName={outletView.name}
+                  outletLogoUrl={outletView.logoUrl}
+                  outletThemeColor={outletView.themeColor}
+                  tableNo={table.table_no}
+                  qrSvg={svgMarkup}
+                  compact={true}
                 />
-                <span className="mt-1 rounded-full bg-[#EBF5FF] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1B5E86]">
-                  {outlet.name}
-                </span>
               </div>
-
-              {/* Nomor Meja */}
-              <div className="my-2.5">
-                <h2 className="inline-block rounded-lg bg-[#1B5E86] px-4 py-1 text-lg font-extrabold tracking-wide text-white uppercase">
-                  {table.name}
-                </h2>
-              </div>
-
-              {/* QR Code Murni Presisi Tinggi */}
-              <div
-                className="h-40 w-40 rounded-xl border-2 border-slate-200 bg-white p-2"
-                dangerouslySetInnerHTML={{ __html: svgMarkup }}
-              />
-
-              {/* Footer Panduan 3 Langkah & Identitas */}
-              <div className="mt-3 w-full space-y-1 border-t border-slate-100 pt-2.5">
-                <p className="text-[11px] font-bold tracking-wide text-slate-900">
-                  SCAN UNTUK PESAN DI MEJA
-                </p>
-                <p className="text-[10px] font-medium text-slate-600">
-                  1. Scan QR &bull; 2. Pilih Menu &bull; 3. Bayar QRIS/Kasir
-                </p>
-                <p className="font-mono text-[9px] text-slate-400">
-                  1621 GROUP POS &bull; #{table.table_no} &bull; {table.qr_token.slice(0, 8)}
-                </p>
+              <div className="w-full max-w-[330px] print:hidden">
+                <DownloadQrPngButton
+                  outletName={outletView.name}
+                  outletLogoUrl={outletView.logoUrl}
+                  outletThemeColor={outletView.themeColor}
+                  tableNo={table.table_no}
+                  qrToken={table.qr_token}
+                  label={`Simpan PNG (${table.name})`}
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-10"
+                />
               </div>
             </div>
           );

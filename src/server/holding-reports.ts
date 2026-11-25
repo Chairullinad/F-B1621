@@ -11,7 +11,7 @@ import type {
   HoldingSettingsRow,
   InstantNotificationEvents,
 } from "@/lib/types/database";
-import { createZipBuffer, type ZipEntryInput } from "@/lib/zip";
+import { createZipBuffer, type ZipEntryInput } from "@/lib/zip-server";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 import { sendTransactionalEmail } from "@/server/owner-notifications";
 
