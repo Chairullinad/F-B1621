@@ -626,7 +626,7 @@ export function OutletLandingEditor({
             <button
               type="submit"
               disabled={isPending || isProcessingUpload}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#00884A] hover:bg-[#00733E] disabled:opacity-55 px-6 text-sm font-bold text-white shadow-sm cursor-pointer"
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1E88E5] hover:bg-[#1976D2] disabled:opacity-55 px-6 text-sm font-bold text-white shadow-sm cursor-pointer"
             >
               <Save className="h-4 w-4" />
               <span>

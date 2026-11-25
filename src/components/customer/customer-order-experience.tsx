@@ -477,10 +477,10 @@ export function CustomerOrderExperience({
   // ==========================================================================
   if (activeOrder && activeOrder.sessionExpired) {
     return (
-      <main className="min-h-screen bg-[#F6F8FB] flex items-center justify-center px-4 py-8">
-        <Card className="w-full max-w-md rounded-2xl border-2 border-[#00884A] bg-white shadow-sm">
+      <main className="min-h-screen bg-[#F4F7FA] flex items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-md rounded-2xl border-2 border-[#1E88E5] bg-white shadow-sm">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#00884A] text-lg font-bold text-white">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#1E88E5] text-lg font-bold text-white">
               ✓
             </div>
             <CardTitle className="text-xl text-slate-900">
@@ -495,7 +495,7 @@ export function CustomerOrderExperience({
           <CardContent className="space-y-3">
             <Button
               type="button"
-              className="h-12 w-full rounded-xl bg-[#00884A] hover:bg-[#00733E] text-white font-bold"
+              className="h-12 w-full rounded-xl bg-[#1E88E5] hover:bg-[#1976D2] text-white font-bold"
               onClick={handleStartNewOrder}
             >
               Pesan Menu Tambahan di {data.table.name}
@@ -524,7 +524,7 @@ export function CustomerOrderExperience({
             ? activeOrder.customerClaimedPaidAt
               ? `Kasir sedang mencocokkan pembayaran QRIS ${activeOrder.tableName} sebesar ${formatRupiah(activeOrder.total)}.`
               : "Scan/simpan QRIS di bawah lalu tekan 'Saya Sudah Bayar'."
-            : `Silakan bayar tunai di Kasir dengan menyebutkan ${activeOrder.tableName}.`,
+            : `Silakan lakukan pembayaran di Kasir dengan menyebutkan ${activeOrder.tableName}.`,
       },
       {
         key: "paid",
@@ -552,13 +552,13 @@ export function CustomerOrderExperience({
     const currentStepIdx = statusOrderIndex[activeOrder.status] ?? -1;
 
     return (
-      <div className="min-h-screen bg-[#F6F8FB] px-4 py-6 text-slate-900">
+      <div className="min-h-screen bg-[#F4F7FA] px-4 py-6 text-slate-900">
         <main className="mx-auto max-w-md space-y-4">
           {/* Header Identitas Meja & Order */}
           <Card className="rounded-2xl border border-slate-200 bg-white shadow-2xs">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
-                <Badge className="rounded-full bg-[#00884A] text-white px-3.5 py-1 text-xs font-bold">
+                <Badge className="rounded-full bg-[#1E88E5] text-white px-3.5 py-1 text-xs font-bold">
                   {activeOrder.tableName}
                 </Badge>
                 <Badge
@@ -646,7 +646,7 @@ export function CustomerOrderExperience({
 
           {/* Kotak Pembayaran saat Status masih PENDING */}
           {activeOrder.status === "pending" ? (
-            <Card className="rounded-2xl border-2 border-[#00884A] bg-white shadow-sm">
+            <Card className="rounded-2xl border-2 border-[#1E88E5] bg-white shadow-sm">
               <CardHeader className="text-center pb-3">
                 <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-amber-100 px-3.5 py-1 text-xs font-bold text-amber-900">
                   <Clock className="h-3.5 w-3.5" />
@@ -699,9 +699,9 @@ export function CustomerOrderExperience({
                     ) : null}
 
                     {activeOrder.customerClaimedPaidAt ? (
-                      <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-left text-sm text-emerald-950">
+                      <div className="rounded-xl border border-sky-300 bg-[#EBF5FF] p-4 text-left text-sm text-sky-950">
                         <p className="flex items-center gap-1.5 font-bold">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                          <CheckCircle2 className="h-4 w-4 text-[#1E88E5]" />
                           Konfirmasi Pembayaran Terkirim ke Kasir
                         </p>
                       </div>
@@ -709,7 +709,7 @@ export function CustomerOrderExperience({
                       <Button
                         type="button"
                         size="lg"
-                        className="h-12 w-full rounded-xl bg-[#00884A] hover:bg-[#00733E] text-white font-bold"
+                        className="h-12 w-full rounded-xl bg-[#1E88E5] hover:bg-[#1976D2] text-white font-bold"
                         disabled={isPending}
                         onClick={handleConfirmQrisPaid}
                       >
@@ -740,12 +740,12 @@ export function CustomerOrderExperience({
 
           {/* Pengumuman Saat Sudah SERVED */}
           {activeOrder.status === "served" ? (
-            <Card className="rounded-2xl border-2 border-[#00884A] bg-emerald-50">
+            <Card className="rounded-2xl border-2 border-[#1E88E5] bg-[#EBF5FF]">
               <CardHeader>
-                <CardTitle className="text-base text-emerald-950">
+                <CardTitle className="text-base text-slate-900">
                   Pesanan Sudah Disajikan di {activeOrder.tableName}!
                 </CardTitle>
-                <CardDescription className="text-emerald-900">
+                <CardDescription className="text-slate-700">
                   Selamat menikmati hidangan Anda. Halaman pemantauan pesanan
                   ini otomatis selesai dalam{" "}
                   <strong>{servedExpireCountdown ?? 5} detik</strong>.
@@ -777,9 +777,9 @@ export function CustomerOrderExperience({
                       key={step.key}
                       className={`rounded-xl border p-3.5 transition-colors ${
                         isCurrent
-                          ? "border-[#00884A] bg-[#00884A] text-white"
+                          ? "border-[#1E88E5] bg-[#1E88E5] text-white"
                           : isDone
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                            ? "border-sky-200 bg-[#EBF5FF] text-slate-900"
                             : "border-slate-200 bg-slate-50 text-slate-400"
                       }`}
                     >
@@ -787,9 +787,9 @@ export function CustomerOrderExperience({
                       <p
                         className={`mt-0.5 text-xs ${
                           isCurrent
-                            ? "text-emerald-50"
+                            ? "text-sky-50"
                             : isDone
-                              ? "text-emerald-800"
+                              ? "text-[#1976D2]"
                               : "text-slate-400"
                         }`}
                       >
@@ -959,7 +959,7 @@ export function CustomerOrderExperience({
 
             <span
               className="inline-flex h-9 items-center rounded-full px-3.5 text-xs font-extrabold text-white shadow-xs shrink-0"
-              style={{ backgroundColor: data.outlet.themeColor || "#00884A" }}
+              style={{ backgroundColor: data.outlet.themeColor || "#1E88E5" }}
             >
               {data.table.name}
             </span>
@@ -973,7 +973,7 @@ export function CustomerOrderExperience({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari makanan atau minuman favorit..."
-              className="h-11 w-full rounded-full border border-slate-200/80 bg-slate-100/85 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#00884A] focus:bg-white focus:outline-none transition"
+              className="h-11 w-full rounded-full border border-slate-200/80 bg-slate-100/85 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#1E88E5] focus:bg-white focus:outline-none transition"
             />
             {searchQuery && (
               <button
@@ -994,7 +994,7 @@ export function CustomerOrderExperience({
               onClick={() => setSelectedCategoryId("ALL")}
               className={`inline-flex h-10 shrink-0 items-center rounded-full px-4 text-xs font-bold transition cursor-pointer ${
                 selectedCategoryId === "ALL"
-                  ? "bg-slate-900 text-white shadow-xs"
+                  ? "bg-[#1E88E5] text-white shadow-xs"
                   : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -1007,7 +1007,7 @@ export function CustomerOrderExperience({
                 onClick={() => setSelectedCategoryId(cat.id)}
                 className={`inline-flex h-10 shrink-0 items-center rounded-full px-4 text-xs font-bold transition cursor-pointer ${
                   selectedCategoryId === cat.id
-                    ? "bg-slate-900 text-white shadow-xs"
+                    ? "bg-[#1E88E5] text-white shadow-xs"
                     : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -1108,7 +1108,7 @@ export function CustomerOrderExperience({
                   onClick={() => handleJumpToCategory("ALL")}
                   className={`flex w-full items-center justify-between px-5 py-3.5 text-left text-sm font-bold transition cursor-pointer ${
                     selectedCategoryId === "ALL"
-                      ? "bg-emerald-50/70 text-[#00884A]"
+                      ? "bg-[#EBF5FF] text-[#1E88E5]"
                       : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
@@ -1128,7 +1128,7 @@ export function CustomerOrderExperience({
                       onClick={() => handleJumpToCategory(cat.id)}
                       className={`flex w-full items-center justify-between px-5 py-3.5 text-left text-sm font-semibold transition cursor-pointer ${
                         selectedCategoryId === cat.id
-                          ? "bg-emerald-50/70 text-[#00884A] font-bold"
+                          ? "bg-[#EBF5FF] text-[#1E88E5] font-bold"
                           : "text-slate-700 hover:bg-slate-50"
                       }`}
                     >
@@ -1151,7 +1151,7 @@ export function CustomerOrderExperience({
             <button
               type="button"
               onClick={() => setMenuSheetOpen((prev) => !prev)}
-              className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-[#D92D4E] hover:bg-[#BE1E3D] px-4 text-xs font-extrabold text-white shadow-[0_6px_18px_rgba(217,45,78,0.35)] active:scale-95 transition cursor-pointer"
+              className="pointer-events-auto inline-flex h-11 items-center gap-2 rounded-full bg-slate-900 hover:bg-slate-800 px-4 text-xs font-extrabold text-white shadow-[0_6px_18px_rgba(15,23,42,0.3)] active:scale-95 transition cursor-pointer"
             >
               <Utensils className="h-3.5 w-3.5" />
               <span>Menu</span>
@@ -1164,16 +1164,16 @@ export function CustomerOrderExperience({
               <button
                 type="button"
                 onClick={() => setViewStep("detail")}
-                className="flex min-h-14 flex-1 items-center justify-between gap-3 rounded-full bg-[#00884A] hover:bg-[#00733E] px-5 py-2.5 text-left text-white shadow-[0_10px_28px_rgba(0,136,74,0.38)] active:scale-[0.99] transition cursor-pointer"
+                className="flex min-h-14 flex-1 items-center justify-between gap-3 rounded-full bg-[#1E88E5] hover:bg-[#1976D2] px-5 py-2.5 text-left text-white shadow-[0_10px_28px_rgba(30,136,229,0.38)] active:scale-[0.99] transition cursor-pointer"
               >
                 <div className="min-w-0">
                   <div className="text-sm font-extrabold leading-tight flex items-center gap-1.5">
                     <span>{totalItemsInCart} item</span>
-                    <span className="text-xs font-medium text-emerald-100">
+                    <span className="text-xs font-medium text-sky-100">
                       &bull; Lihat Detail
                     </span>
                   </div>
-                  <div className="mt-0.5 truncate text-[11px] font-medium text-emerald-100/95">
+                  <div className="mt-0.5 truncate text-[11px] font-medium text-sky-100/95">
                     {data.outlet.name} &bull; {data.table.name}
                   </div>
                 </div>
@@ -1182,7 +1182,7 @@ export function CustomerOrderExperience({
                   <span className="text-base font-black tracking-tight tabular-nums">
                     {formatRupiah(cartTotals.total)}
                   </span>
-                  <ChevronRight className="h-4 w-4 text-emerald-100" />
+                  <ChevronRight className="h-4 w-4 text-sky-100" />
                 </div>
               </button>
 
@@ -1190,10 +1190,10 @@ export function CustomerOrderExperience({
                 type="button"
                 onClick={() => setViewStep("detail")}
                 aria-label={`Buka keranjang (${totalItemsInCart} item)`}
-                className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-[#00884A]/15 bg-white text-[#00884A] shadow-[0_8px_22px_rgba(15,23,42,0.12)] hover:bg-emerald-50 active:scale-95 transition cursor-pointer"
+                className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-[#1E88E5]/20 bg-white text-[#1E88E5] shadow-[0_8px_22px_rgba(15,23,42,0.12)] hover:bg-[#EBF5FF] active:scale-95 transition cursor-pointer"
               >
                 <ShoppingBag className="h-6 w-6" />
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#D92D4E] px-1 text-[10px] font-extrabold text-white shadow">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1976D2] px-1 text-[10px] font-extrabold text-white shadow">
                   {totalItemsInCart}
                 </span>
               </button>

@@ -15,6 +15,8 @@ describe("src/lib/customer-order.ts", () => {
     assert.equal(qrisResult.ok, false);
     if (!qrisResult.ok) {
       assert.match(qrisResult.message, /sedang dalam perbaikan/i);
+      assert.match(qrisResult.message, /Bayar di Kasir/i);
+      assert.doesNotMatch(qrisResult.message, /Tunai/i);
     }
 
     const cashResult = resolveCustomerPaymentChoice("cash", true);
