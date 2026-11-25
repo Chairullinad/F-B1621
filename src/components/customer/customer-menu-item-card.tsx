@@ -20,12 +20,12 @@ function renderFallbackMenuIcon(productName: string, categoryName: string) {
     return <Coffee className="h-8 w-8 text-amber-700/80" />;
   }
   if (haystack.includes("minum") || haystack.includes("teh") || haystack.includes("es ") || haystack.includes("jus")) {
-    return <CupSoda className="h-8 w-8 text-sky-600/80" />;
+    return <CupSoda className="h-8 w-8 text-[#1E88E5]/85" />;
   }
   if (haystack.includes("ramen") || haystack.includes("mie") || haystack.includes("kuah") || haystack.includes("sup")) {
     return <Soup className="h-8 w-8 text-orange-600/80" />;
   }
-  return <UtensilsCrossed className="h-8 w-8 text-emerald-700/75" />;
+  return <UtensilsCrossed className="h-8 w-8 text-[#1E88E5]/80" />;
 }
 
 export function CustomerMenuItemCard({
@@ -44,8 +44,8 @@ export function CustomerMenuItemCard({
         isOut
           ? "border-slate-200/80 bg-slate-50/80 opacity-65"
           : qtyInCart > 0
-            ? "border-[#00884A]/35 shadow-[0_2px_12px_rgba(0,136,74,0.08)]"
-            : "border-slate-100 shadow-[0_1px_6px_rgba(15,23,42,0.04)] hover:border-slate-200 hover:shadow-sm"
+            ? "border-[#1E88E5]/45 shadow-[0_2px_12px_rgba(30,136,229,0.12)]"
+            : "border-slate-100 shadow-[0_1px_6px_rgba(15,23,42,0.04)] hover:border-sky-200 hover:shadow-sm"
       }`}
     >
       {/* Kolom Kiri: Nama Menu, Deskripsi/Kategori & Harga */}
@@ -70,7 +70,7 @@ export function CustomerMenuItemCard({
             {formatRupiah(product.price)}
           </span>
           {qtyInCart > 0 && !isOut && (
-            <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[11px] font-bold text-[#00884A]">
+            <span className="inline-flex items-center rounded-full bg-[#EBF5FF] border border-sky-200 px-2 py-0.5 text-[11px] font-bold text-[#1E88E5]">
               {qtyInCart} di keranjang
             </span>
           )}
@@ -79,7 +79,7 @@ export function CustomerMenuItemCard({
 
       {/* Kolom Kanan: Thumbnail Gambar + Tombol + atau Pill - qty + ala Menu Modern */}
       <div className="relative flex w-[104px] shrink-0 flex-col items-center pb-3">
-        <div className="relative h-24 w-24 overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-br from-emerald-50 via-sky-50 to-amber-50 shadow-2xs flex items-center justify-center">
+        <div className="relative h-24 w-24 overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-br from-[#EBF5FF] via-sky-50 to-slate-100 shadow-2xs flex items-center justify-center">
           {product.image_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -104,7 +104,7 @@ export function CustomerMenuItemCard({
         {!isOut && (
           <div className="absolute bottom-0 inset-x-0 flex justify-center">
             {qtyInCart > 0 ? (
-              <div className="inline-flex h-11 items-center rounded-full border border-slate-200 bg-white px-1 shadow-md">
+              <div className="inline-flex h-11 items-center rounded-full border border-sky-200 bg-white px-1 shadow-md">
                 <button
                   type="button"
                   onClick={() => onChangeQty(product.id, -1)}
@@ -120,7 +120,7 @@ export function CustomerMenuItemCard({
                   type="button"
                   onClick={() => onChangeQty(product.id, 1)}
                   aria-label={`Tambah ${product.name}`}
-                  className="flex h-9 w-8 items-center justify-center rounded-full text-[#00884A] hover:bg-emerald-50 active:scale-95 transition cursor-pointer"
+                  className="flex h-9 w-8 items-center justify-center rounded-full text-[#1E88E5] hover:bg-[#EBF5FF] active:scale-95 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5 stroke-[2.75]" />
                 </button>
@@ -130,7 +130,7 @@ export function CustomerMenuItemCard({
                 type="button"
                 onClick={() => onAdd(product)}
                 aria-label={`Tambah ${product.name} ke keranjang`}
-                className="ml-auto mr-0.5 flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#00884A]/20 bg-white text-[#00884A] shadow-md hover:border-[#00884A] hover:bg-[#00884A] hover:text-white active:scale-95 transition cursor-pointer"
+                className="ml-auto mr-0.5 flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#1E88E5]/25 bg-white text-[#1E88E5] shadow-md hover:border-[#1E88E5] hover:bg-[#1E88E5] hover:text-white active:scale-95 transition cursor-pointer"
               >
                 <Plus className="h-5 w-5 stroke-[2.75]" />
               </button>

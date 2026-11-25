@@ -21,7 +21,7 @@ export function resolveCustomerPaymentChoice(
     return {
       ok: false,
       message:
-        "Pembayaran QRIS sedang dalam perbaikan. Untuk sementara silakan pilih pembayaran Tunai di Kasir.",
+        "Pembayaran QRIS di meja sedang dalam perbaikan. Untuk sementara silakan pilih Bayar di Kasir.",
     };
   }
   return {

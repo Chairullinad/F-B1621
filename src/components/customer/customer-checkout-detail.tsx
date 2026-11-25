@@ -66,7 +66,7 @@ export function CustomerCheckoutDetail({
   const totalItems = cart.reduce((acc, item) => acc + item.qty, 0);
 
   return (
-    <div className="min-h-screen bg-[#F6F8FB] pb-28 text-slate-900">
+    <div className="min-h-screen bg-[#F4F7FA] pb-28 text-slate-900">
       {/* Sticky Top Navigation */}
       <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
@@ -88,7 +88,7 @@ export function CustomerCheckoutDetail({
             </p>
           </div>
 
-          <span className="inline-flex h-8 items-center rounded-full bg-emerald-50 border border-emerald-200 px-2.5 text-xs font-bold text-[#00884A] shrink-0">
+          <span className="inline-flex h-8 items-center rounded-full bg-[#EBF5FF] border border-sky-200 px-2.5 text-xs font-bold text-[#1E88E5] shrink-0">
             {totalItems} Item
           </span>
         </div>
@@ -99,7 +99,7 @@ export function CustomerCheckoutDetail({
         <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-[#00884A]">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#EBF5FF] text-[#1E88E5]">
                 <ShoppingBag className="h-4 w-4" />
               </div>
               <div>
@@ -160,7 +160,7 @@ export function CustomerCheckoutDetail({
                           type="button"
                           onClick={() => onChangeQty(item.product.id, 1)}
                           aria-label={`Tambah ${item.product.name}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-[#00884A] hover:bg-white cursor-pointer"
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-[#1E88E5] hover:bg-white cursor-pointer"
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>
@@ -188,7 +188,7 @@ export function CustomerCheckoutDetail({
                     value={item.note}
                     onChange={(e) => onChangeNote(item.product.id, e.target.value)}
                     placeholder="Catatan dapur (opsional, misal: tidak pedas, es sedikit)"
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#00884A] focus:bg-white focus:outline-none"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#1E88E5] focus:bg-white focus:outline-none"
                   />
                 </div>
               </div>
@@ -198,9 +198,9 @@ export function CustomerCheckoutDetail({
           <button
             type="button"
             onClick={onBackToMenu}
-            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-sky-200 bg-[#EBF5FF]/50 text-xs font-bold text-[#1E88E5] hover:bg-[#EBF5FF] transition cursor-pointer"
           >
-            <Plus className="h-4 w-4 text-[#00884A]" />
+            <Plus className="h-4 w-4 text-[#1E88E5]" />
             <span>Tambah Menu Lainnya</span>
           </button>
         </section>
@@ -223,14 +223,14 @@ export function CustomerCheckoutDetail({
               onClick={() => onSelectPayment("cash")}
               className={`flex w-full items-start gap-3.5 rounded-2xl border-2 p-4 text-left transition cursor-pointer ${
                 paymentChoice === "cash"
-                  ? "border-[#00884A] bg-emerald-50/60 shadow-2xs"
+                  ? "border-[#1E88E5] bg-[#EBF5FF]/70 shadow-2xs"
                   : "border-slate-200 bg-white hover:border-slate-300"
               }`}
             >
               <div
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
                   paymentChoice === "cash"
-                    ? "bg-[#00884A] text-white"
+                    ? "bg-[#1E88E5] text-white"
                     : "bg-slate-100 text-slate-600"
                 }`}
               >
@@ -240,9 +240,9 @@ export function CustomerCheckoutDetail({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-extrabold text-slate-900">
-                    Bayar di Kasir (Tunai)
+                    Bayar di Kasir
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-bold text-[#1976D2]">
                     <CheckCircle2 className="h-3 w-3" />
                     <span>Tersedia</span>
                   </span>
@@ -268,7 +268,7 @@ export function CustomerCheckoutDetail({
                 isQrisUnderMaintenance
                   ? "border-amber-200/90 bg-amber-50/45 opacity-90 cursor-not-allowed"
                   : paymentChoice === "qris"
-                    ? "border-2 border-[#00884A] bg-emerald-50/60 cursor-pointer"
+                    ? "border-2 border-[#1E88E5] bg-[#EBF5FF]/70 cursor-pointer"
                     : "border-slate-200 bg-white hover:border-slate-300 cursor-pointer"
               }`}
             >
@@ -338,7 +338,7 @@ export function CustomerCheckoutDetail({
 
             <div className="flex items-center justify-between border-t border-slate-200 pt-2.5 text-base font-extrabold text-slate-900">
               <span>Total Bayar di Kasir</span>
-              <span className="text-lg text-[#00884A] tabular-nums">
+              <span className="text-lg text-[#1E88E5] tabular-nums">
                 {formatRupiah(totals.total)}
               </span>
             </div>
@@ -353,7 +353,7 @@ export function CustomerCheckoutDetail({
             type="button"
             disabled={isPending || cart.length === 0}
             onClick={onSubmitOrder}
-            className="flex h-12 sm:h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#00884A] hover:bg-[#00733E] disabled:opacity-60 px-5 text-sm sm:text-base font-extrabold text-white shadow-[0_8px_20px_rgba(0,136,74,0.28)] active:scale-[0.99] transition cursor-pointer"
+            className="flex h-12 sm:h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#1E88E5] hover:bg-[#1976D2] disabled:opacity-60 px-5 text-sm sm:text-base font-extrabold text-white shadow-[0_8px_20px_rgba(30,136,229,0.32)] active:scale-[0.99] transition cursor-pointer"
           >
             <span>
               {isPending
