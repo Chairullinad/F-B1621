@@ -31,18 +31,27 @@ import {
 } from "@/lib/money";
 import { generateQrSvgString } from "@/lib/qrcode";
 import { DEFAULT_FALLBACK_STATIC_QRIS } from "@/lib/qris";
-import type { OrderType, PaymentMethod } from "@/lib/types/database";
+import type {
+  OrderItemAddonSnapshot,
+  OrderType,
+  PaymentMethod,
+  ProductRow,
+} from "@/lib/types/database";
 import {
   createManualCashierOrderAction,
   type ManualOrderWorkspaceData,
 } from "@/server/manual-order-and-transactions";
+import { ProductAddonPickerModal } from "../shared/product-addon-picker-modal";
 
 interface ManualCartItem {
+  cartItemId: string;
   productId: string;
   productName: string;
   unitPrice: number;
   qty: number;
   note: string;
+  selectedOptionIds: string[];
+  selectedAddons: OrderItemAddonSnapshot[];
 }
 
 export function ManualOrderPos({
@@ -59,6 +68,7 @@ export function ManualOrderPos({
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const [cart, setCart] = useState<ManualCartItem[]>([]);
+  const [pickerProduct, setPickerProduct] = useState<ProductRow | null>(null);
   const [discountType, setDiscountType] = useState<
     "none" | "amount" | "percent"
   >("none");
@@ -177,30 +187,60 @@ export function ManualOrderPos({
     selectedTableObj,
   ]);
 
-  function handleAddToCart(product: ManualOrderWorkspaceData["products"][number]) {
-    if (!product.is_available) return;
+  function addConfiguredItem(params: {
+    product: ProductRow;
+    selectedOptionIds: string[];
+    selectedAddons: OrderItemAddonSnapshot[];
+    unitPrice: number;
+    qty: number;
+    note: string;
+  }) {
+    const canonicalAddonKey = [...params.selectedOptionIds].sort().join(",");
+    const cleanNote = params.note.trim();
+    const cartItemId = `${params.product.id}::${canonicalAddonKey}::${cleanNote}`;
+
     setCompletedOrder(null);
     setErrorMsg(null);
     setCart((prev) => {
-      const idx = prev.findIndex((i) => i.productId === product.id);
+      const idx = prev.findIndex((i) => i.cartItemId === cartItemId);
       if (idx >= 0) {
         const next = [...prev];
         const curr = next[idx];
         if (curr) {
-          next[idx] = { ...curr, qty: curr.qty + 1 };
+          next[idx] = { ...curr, qty: Math.min(100, curr.qty + params.qty) };
         }
         return next;
       }
       return [
         ...prev,
         {
-          productId: product.id,
-          productName: product.name,
-          unitPrice: product.price,
-          qty: 1,
-          note: "",
+          cartItemId,
+          productId: params.product.id,
+          productName: params.product.name,
+          unitPrice: params.unitPrice,
+          qty: Math.min(100, params.qty),
+          note: cleanNote,
+          selectedOptionIds: [...params.selectedOptionIds].sort(),
+          selectedAddons: params.selectedAddons,
         },
       ];
+    });
+  }
+
+  function handleAddToCart(product: ManualOrderWorkspaceData["products"][number]) {
+    if (!product.is_available) return;
+    const assignedAddons = initialData.addonsByProduct[product.id] ?? [];
+    if (assignedAddons.length > 0) {
+      setPickerProduct(product);
+      return;
+    }
+    addConfiguredItem({
+      product,
+      selectedOptionIds: [],
+      selectedAddons: [],
+      unitPrice: product.price,
+      qty: 1,
+      note: "",
     });
   }
 
@@ -233,6 +273,7 @@ export function ManualOrderPos({
           productId: i.productId,
           qty: i.qty,
           note: i.note.trim() || null,
+          addonOptionIds: i.selectedOptionIds,
         })),
         discountType,
         discountValue: rawDiscountVal,
@@ -419,7 +460,11 @@ export function ManualOrderPos({
               {/* Grid Produk */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {filteredProducts.map((product) => {
-                  const inCart = cart.find((i) => i.productId === product.id);
+                  const totalQtyInCart = cart
+                    .filter((i) => i.productId === product.id)
+                    .reduce((sum, i) => sum + i.qty, 0);
+                  const hasAddons =
+                    (initialData.addonsByProduct[product.id]?.length ?? 0) > 0;
                   return (
                     <button
                       key={product.id}
@@ -429,7 +474,7 @@ export function ManualOrderPos({
                       className={`flex min-h-24 flex-col justify-between rounded-xl border p-3 text-left transition-all ${
                         !product.is_available
                           ? "cursor-not-allowed border-zinc-200 bg-zinc-100 opacity-60 dark:border-slate-800 dark:bg-slate-800/50"
-                          : inCart
+                          : totalQtyInCart > 0
                             ? "border-2 border-blue-600 bg-blue-50/50 shadow-xs dark:border-sky-500 dark:bg-sky-950/40"
                             : "border-slate-200 bg-white hover:border-slate-400 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
                       }`}
@@ -452,23 +497,27 @@ export function ManualOrderPos({
                             <span className="text-sm font-bold leading-tight text-slate-900 dark:text-slate-100">
                               {product.name}
                             </span>
-                            {inCart && (
+                            {totalQtyInCart > 0 && (
                               <Badge variant="default" className="shrink-0 text-2xs">
-                                {inCart.qty}x
+                                {totalQtyInCart}x
                               </Badge>
                             )}
                           </div>
                         </div>
                       </div>
-                      <div className="mt-2 flex items-center justify-between">
+                      <div className="mt-2 flex items-center justify-between gap-1">
                         <span className="text-xs font-extrabold text-blue-700 dark:text-sky-400">
                           {formatRupiah(product.price)}
                         </span>
-                        {!product.is_available && (
+                        {!product.is_available ? (
                           <Badge variant="outline" className="text-2xs">
                             HABIS
                           </Badge>
-                        )}
+                        ) : hasAddons ? (
+                          <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-sky-950/60 dark:text-sky-300">
+                            + Add-on
+                          </span>
+                        ) : null}
                       </div>
                     </button>
                   );
@@ -504,13 +553,28 @@ export function ManualOrderPos({
               ) : (
                 <div className="divide-y divide-zinc-200 dark:divide-slate-800 rounded-xl border border-zinc-200 dark:border-slate-800">
                   {cart.map((item, idx) => (
-                    <div key={item.productId} className="space-y-2 p-3">
+                    <div key={item.cartItemId} className="space-y-2 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <p className="text-sm font-bold text-zinc-900 dark:text-slate-100">
                             {item.productName}
                           </p>
-                          <p className="text-xs text-zinc-500 dark:text-slate-400">
+                          {item.selectedAddons.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {item.selectedAddons.map((addon) => (
+                                <span
+                                  key={addon.optionId}
+                                  className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-sky-950/50 dark:text-sky-300"
+                                >
+                                  {addon.optionName}
+                                  {addon.priceDelta > 0
+                                    ? ` (+${formatRupiah(addon.priceDelta)})`
+                                    : ""}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-slate-400">
                             {formatRupiah(item.unitPrice)} x {item.qty} ={" "}
                             <strong>
                               {formatRupiah(item.unitPrice * item.qty)}
@@ -932,6 +996,20 @@ export function ManualOrderPos({
           </div>
         </div>
       )}
+
+      <ProductAddonPickerModal
+        product={pickerProduct}
+        groups={
+          pickerProduct
+            ? (initialData.addonsByProduct[pickerProduct.id] ?? [])
+            : []
+        }
+        onClose={() => setPickerProduct(null)}
+        onConfirm={(payload) => {
+          addConfiguredItem(payload);
+          setPickerProduct(null);
+        }}
+      />
     </div>
   );
 }

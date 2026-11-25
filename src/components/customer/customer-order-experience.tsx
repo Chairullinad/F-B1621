@@ -7,10 +7,14 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Coffee,
+  CupSoda,
   MapPin,
   Search,
   ShoppingBag,
+  Soup,
   Utensils,
+  UtensilsCrossed,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,7 +29,11 @@ import {
 } from "@/components/ui/card";
 import { formatDateTimeWIB } from "@/lib/datetime";
 import { calculateOrderTotals, formatRupiah } from "@/lib/money";
-import type { PaymentMethod, ProductRow } from "@/lib/types/database";
+import type {
+  OrderItemAddonSnapshot,
+  PaymentMethod,
+  ProductRow,
+} from "@/lib/types/database";
 import {
   confirmCustomerQrisPaidAction,
   createCustomerOrderAction,
@@ -33,6 +41,7 @@ import {
   type CustomerOrderTrackingView,
   type CustomerTablePublicData,
 } from "@/server/customer-order";
+import { ProductAddonPickerModal } from "../shared/product-addon-picker-modal";
 import {
   CustomerCheckoutDetail,
   type CustomerCartItem,
@@ -105,6 +114,10 @@ export function CustomerOrderExperience({
     "landing"
   );
   const [menuSheetOpen, setMenuSheetOpen] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [pickerProduct, setPickerProduct] = React.useState<ProductRow | null>(
+    null
+  );
   const [selectedCategoryId, setSelectedCategoryId] =
     React.useState<string>("ALL");
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -338,7 +351,7 @@ export function CustomerOrderExperience({
     }
     return calculateOrderTotals({
       items: cart.map((c) => ({
-        unitPrice: c.product.price,
+        unitPrice: c.unitPrice,
         qty: c.qty,
       })),
       config: data.outlet.taxConfig,
@@ -350,39 +363,106 @@ export function CustomerOrderExperience({
     [cart]
   );
 
-  function addToCart(product: ProductRow) {
-    if (!product.is_available) return;
+  const totalQtyByProduct = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of cart) {
+      map.set(c.product.id, (map.get(c.product.id) ?? 0) + c.qty);
+    }
+    return map;
+  }, [cart]);
+
+  const categoryThumbnailMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of data.products) {
+      if (p.image_url && !map.has(p.category_id)) {
+        map.set(p.category_id, p.image_url);
+      }
+    }
+    return map;
+  }, [data.products]);
+
+  function addConfiguredItemToCart(params: {
+    product: ProductRow;
+    selectedOptionIds: string[];
+    selectedAddons: OrderItemAddonSnapshot[];
+    unitPrice: number;
+    qty: number;
+    note: string;
+  }) {
+    if (!params.product.is_available) return;
+    const canonicalAddonKey = [...params.selectedOptionIds].sort().join(",");
+    const cleanNote = params.note.trim();
+    const cartItemId = `${params.product.id}::${canonicalAddonKey}::${cleanNote}`;
+
     setCart((prev) => {
-      const idx = prev.findIndex((i) => i.product.id === product.id);
+      const idx = prev.findIndex((i) => i.cartItemId === cartItemId);
       if (idx === -1) {
-        return [...prev, { product, qty: 1, note: "" }];
+        return [
+          ...prev,
+          {
+            cartItemId,
+            product: params.product,
+            selectedOptionIds: [...params.selectedOptionIds].sort(),
+            selectedAddons: params.selectedAddons,
+            unitPrice: params.unitPrice,
+            qty: Math.min(50, params.qty),
+            note: cleanNote,
+          },
+        ];
       }
       return prev.map((item, i) =>
-        i === idx ? { ...item, qty: Math.min(50, item.qty + 1) } : item
+        i === idx
+          ? { ...item, qty: Math.min(50, item.qty + params.qty) }
+          : item
       );
     });
   }
 
-  function updateCartQty(productId: string, delta: number) {
+  function addQuickItemToCart(product: ProductRow) {
+    addConfiguredItemToCart({
+      product,
+      selectedOptionIds: [],
+      selectedAddons: [],
+      unitPrice: product.price,
+      qty: 1,
+      note: "",
+    });
+  }
+
+  function updateCartQty(cartItemId: string, delta: number) {
     setCart((prev) =>
       prev
         .map((item) =>
-          item.product.id === productId
-            ? { ...item, qty: item.qty + delta }
+          item.cartItemId === cartItemId
+            ? { ...item, qty: Math.min(50, item.qty + delta) }
             : item
         )
         .filter((item) => item.qty > 0)
     );
   }
 
-  function removeFromCart(productId: string) {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+  function updateSingleVariantQty(productId: string, delta: number) {
+    setCart((prev) => {
+      const targetIdx = prev.findIndex((i) => i.product.id === productId);
+      if (targetIdx === -1) return prev;
+      return prev
+        .map((item, i) =>
+          i === targetIdx
+            ? { ...item, qty: Math.min(50, item.qty + delta) }
+            : item
+        )
+        .filter((item) => item.qty > 0);
+    });
   }
 
-  function updateCartNote(productId: string, note: string) {
+  function removeFromCart(cartItemId: string) {
+    setCart((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
+  }
+
+  function updateCartNote(cartItemId: string, note: string) {
     setCart((prev) =>
       prev.map((item) =>
-        item.product.id === productId ? { ...item, note } : item
+        item.cartItemId === cartItemId ? { ...item, note } : item
       )
     );
   }
@@ -426,6 +506,7 @@ export function CustomerOrderExperience({
           productId: c.product.id,
           qty: c.qty,
           note: c.note.trim() || null,
+          addonOptionIds: c.selectedOptionIds,
         })),
       });
 
@@ -911,117 +992,224 @@ export function CustomerOrderExperience({
   }
 
   // ==========================================================================
-  // TAMPILAN 3A: JELAJAH MENU & MASUKKAN KE KERANJANG (ALA GAMBAR 2)
+  // TAMPILAN 3A: JELAJAH MENU MODERN ALA GAMBAR 1 + ADD-ON MODAL
   // ==========================================================================
+  const featuredBanner = data.outlet.landingBanners[0] ?? null;
+  const activeSectionTitle =
+    selectedCategoryId === "ALL"
+      ? "Menu Pilihan"
+      : (categoryNameMap.get(selectedCategoryId) ?? "Menu Pilihan");
+
   return (
-    <div className="min-h-screen bg-[#F6F8FB] pb-40 text-slate-900">
-      {/* Sticky Header Outlet, Pencarian & Kategori */}
-      <header className="sticky top-0 z-20 border-b border-slate-200/75 bg-white/95 backdrop-blur-md shadow-[0_2px_12px_rgba(15,23,42,0.03)]">
-        <div className="mx-auto max-w-2xl px-4 pt-3.5 pb-3 space-y-3">
-          {/* Identitas Usaha & Nomor Meja */}
-          <div className="flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2.5 min-w-0">
+    <div className="min-h-screen bg-[#F5F6F8] pb-40 text-slate-900">
+      {/* Sticky Minimalist Header ala Gambar 1 */}
+      <header className="sticky top-0 z-20 bg-[#F5F6F8]/95 backdrop-blur-md">
+        <div className="mx-auto max-w-2xl px-4 pt-3.5 pb-2.5 space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            {/* Kiri: Tombol Kembali & Tombol Search */}
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setViewStep("landing")}
                 aria-label="Kembali ke halaman sambutan"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50 text-slate-700 hover:bg-slate-100 active:scale-95 transition cursor-pointer"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-700 shadow-2xs border border-slate-200/70 hover:bg-slate-50 active:scale-95 transition cursor-pointer"
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-1 shadow-2xs">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={data.outlet.logoUrl}
-                  alt={data.outlet.name}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-
-              <div className="min-w-0">
-                <h1 className="text-base font-extrabold tracking-tight text-slate-900 truncate">
-                  {data.outlet.name}
-                </h1>
-                <p className="text-xs text-slate-500 truncate flex items-center gap-1">
-                  {data.outlet.address ? (
-                    <>
-                      <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span className="truncate">{data.outlet.address}</span>
-                    </>
-                  ) : (
-                    <span>
-                      {data.outlet.description || "Pesan langsung dari meja"}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <span
-              className="inline-flex h-9 items-center rounded-full px-3.5 text-xs font-extrabold text-white shadow-xs shrink-0"
-              style={{ backgroundColor: data.outlet.themeColor || "#1E88E5" }}
-            >
-              {data.table.name}
-            </span>
-          </div>
-
-          {/* Search Menu Bersih */}
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari makanan atau minuman favorit..."
-              className="h-11 w-full rounded-full border border-slate-200/80 bg-slate-100/85 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#1E88E5] focus:bg-white focus:outline-none transition"
-            />
-            {searchQuery && (
               <button
                 type="button"
-                onClick={() => setSearchQuery("")}
-                aria-label="Hapus pencarian"
-                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-700 cursor-pointer"
+                onClick={() => setSearchOpen((prev) => !prev)}
+                aria-label="Cari menu"
+                className={`flex h-11 w-11 items-center justify-center rounded-full shadow-2xs border transition cursor-pointer ${
+                  searchOpen || searchQuery
+                    ? "border-[#1E88E5] bg-[#1E88E5] text-white"
+                    : "border-slate-200/70 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <Search className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Tengah: Outlet & Nomor Meja */}
+            <div className="min-w-0 text-center px-2">
+              <p className="text-[11px] font-medium text-slate-400 truncate">
+                {data.outlet.name}
+              </p>
+              <p className="text-sm font-extrabold text-slate-900 truncate flex items-center justify-center gap-1">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-[#1E88E5]" />
+                <span>{data.table.name}</span>
+              </p>
+            </div>
+
+            {/* Kanan: Avatar Logo Outlet + Indikator Aktif */}
+            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white p-1.5 shadow-2xs">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={data.outlet.logoUrl}
+                alt={data.outlet.name}
+                className="h-full w-full rounded-full object-contain"
+              />
+              <span
+                className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white"
+                style={{ backgroundColor: data.outlet.themeColor || "#1E88E5" }}
+              />
+            </div>
+          </div>
+
+          {/* Search Bar Expandable */}
+          {(searchOpen || searchQuery.length > 0) && (
+            <div className="relative animate-in fade-in slide-in-from-top-1 duration-150">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari makanan, minuman, atau topping..."
+                className="h-11 w-full rounded-full border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 shadow-2xs focus:border-[#1E88E5] focus:outline-none transition"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSearchOpen(false);
+                }}
+                aria-label="Tutup pencarian"
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
+      </header>
 
-          {/* Tab Kategori Tanpa Scrollbar Kasar */}
-          <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              type="button"
-              onClick={() => setSelectedCategoryId("ALL")}
-              className={`inline-flex h-10 shrink-0 items-center rounded-full px-4 text-xs font-bold transition cursor-pointer ${
+      {/* Main Content ala Gambar 1 */}
+      <main className="mx-auto max-w-2xl px-4 pt-2 space-y-4">
+        {/* Bar Judul Besar + Lihat Semua */}
+        <div className="flex items-baseline justify-between gap-2">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
+            {activeSectionTitle}
+          </h1>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedCategoryId("ALL");
+              setSearchQuery("");
+              setSearchOpen(false);
+            }}
+            className="text-xs font-semibold text-slate-400 hover:text-[#1E88E5] transition cursor-pointer py-1 px-2"
+          >
+            Lihat Semua
+          </button>
+        </div>
+
+        {/* Chip Kategori Horizontal Bergambar ala Gambar 1 */}
+        <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryId("ALL")}
+            className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-full pl-2 pr-4 text-xs font-bold transition cursor-pointer ${
+              selectedCategoryId === "ALL"
+                ? "bg-[#1E88E5] text-white shadow-sm"
+                : "bg-white text-slate-700 border border-slate-200/70 hover:bg-slate-50"
+            }`}
+          >
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-full ${
                 selectedCategoryId === "ALL"
-                  ? "bg-[#1E88E5] text-white shadow-xs"
-                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  ? "bg-white/20 text-white"
+                  : "bg-[#EBF5FF] text-[#1E88E5]"
               }`}
             >
-              Semua Menu
-            </button>
-            {data.categories.map((cat) => (
+              <UtensilsCrossed className="h-3.5 w-3.5" />
+            </span>
+            <span>Semua Menu</span>
+          </button>
+
+          {data.categories.map((cat) => {
+            const isSelected = selectedCategoryId === cat.id;
+            const thumbUrl = categoryThumbnailMap.get(cat.id);
+            const lower = cat.name.toLowerCase();
+            return (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategoryId(cat.id)}
-                className={`inline-flex h-10 shrink-0 items-center rounded-full px-4 text-xs font-bold transition cursor-pointer ${
-                  selectedCategoryId === cat.id
-                    ? "bg-[#1E88E5] text-white shadow-xs"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-full pl-2 pr-4 text-xs font-bold transition cursor-pointer ${
+                  isSelected
+                    ? "bg-[#1E88E5] text-white shadow-sm"
+                    : "bg-white text-slate-700 border border-slate-200/70 hover:bg-slate-50"
                 }`}
               >
-                {cat.name}
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100">
+                  {thumbUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={thumbUrl}
+                      alt={cat.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : lower.includes("kopi") || lower.includes("coffee") ? (
+                    <Coffee className="h-3.5 w-3.5 text-amber-700" />
+                  ) : lower.includes("minum") || lower.includes("tea") ? (
+                    <CupSoda className="h-3.5 w-3.5 text-[#1E88E5]" />
+                  ) : lower.includes("ramen") || lower.includes("mie") ? (
+                    <Soup className="h-3.5 w-3.5 text-orange-600" />
+                  ) : (
+                    <UtensilsCrossed className="h-3.5 w-3.5 text-slate-500" />
+                  )}
+                </span>
+                <span>{cat.name}</span>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      </header>
 
-      {/* Daftar Menu Dikelompokkan Per Kategori */}
-      <main className="mx-auto max-w-2xl px-4 pt-4 space-y-6">
+        {/* Kartu Banner Gelap Modern ala Gambar 1 (Data Real Outlet) */}
+        {!searchQuery.trim() && selectedCategoryId === "ALL" && (
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0F172A] via-[#13294B] to-[#1976D2] p-4 sm:p-5 text-white shadow-md">
+            <div className="flex items-center justify-between gap-4">
+              {featuredBanner ? (
+                <div className="h-20 w-24 sm:h-24 sm:w-32 shrink-0 overflow-hidden rounded-2xl border border-white/15 bg-white/10">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={featuredBanner.imageUrl}
+                    alt={featuredBanner.caption || data.outlet.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white p-2 shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={data.outlet.logoUrl}
+                    alt={data.outlet.name}
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+              )}
+
+              <div className="min-w-0 flex-1 space-y-1">
+                <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-100">
+                  {data.outlet.name} &bull; {data.table.name}
+                </span>
+                <p className="text-base sm:text-lg font-extrabold leading-snug line-clamp-2">
+                  {featuredBanner?.caption ||
+                    data.outlet.landingTagline ||
+                    "Pesan Langsung dari Meja Anda"}
+                </p>
+                <p className="text-xs text-sky-100/85">
+                  Jam Buka: {data.outlet.operatingHours}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Daftar Menu Grid 2 Kolom Modern */}
         {groupedSections.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center">
             <p className="text-sm font-bold text-slate-700">
               Menu tidak ditemukan
             </p>
@@ -1035,6 +1223,7 @@ export function CustomerOrderExperience({
               className="mt-4 h-10 rounded-full"
               onClick={() => {
                 setSearchQuery("");
+                setSearchOpen(false);
                 setSelectedCategoryId("ALL");
               }}
             >
@@ -1042,43 +1231,71 @@ export function CustomerOrderExperience({
             </Button>
           </div>
         ) : (
-          groupedSections.map((section) => (
-            <section
-              key={section.id}
-              id={`menu-section-${section.id}`}
-              className="scroll-mt-48 space-y-3"
-            >
-              <div className="flex items-center justify-between px-0.5">
-                <h2 className="text-sm font-black uppercase tracking-wide text-slate-900">
-                  {section.title}
-                </h2>
-                <span className="text-xs font-semibold text-slate-400">
-                  {section.items.length} menu
-                </span>
-              </div>
+          <div className="space-y-6 pt-1">
+            {groupedSections.map((section) => (
+              <section
+                key={section.id}
+                id={`menu-section-${section.id}`}
+                className="scroll-mt-36 space-y-3"
+              >
+                {(groupedSections.length > 1 || searchQuery.trim().length > 0) && (
+                  <div className="flex items-center justify-between px-0.5">
+                    <h2 className="text-sm font-extrabold tracking-tight text-slate-900">
+                      {section.title}
+                    </h2>
+                    <span className="text-xs font-semibold text-slate-400">
+                      {section.items.length} menu
+                    </span>
+                  </div>
+                )}
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {section.items.map((product) => {
-                  const inCart = cart.find((c) => c.product.id === product.id);
-                  return (
-                    <CustomerMenuItemCard
-                      key={product.id}
-                      product={product}
-                      categoryName={
-                        categoryNameMap.get(product.category_id) ?? ""
-                      }
-                      qtyInCart={inCart?.qty ?? 0}
-                      noteInCart={inCart?.note ?? ""}
-                      onAdd={addToCart}
-                      onChangeQty={updateCartQty}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-          ))
+                <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
+                  {section.items.map((product) => {
+                    const hasAddons =
+                      (data.addonsByProduct[product.id]?.length ?? 0) > 0;
+                    const totalQtyInCart =
+                      totalQtyByProduct.get(product.id) ?? 0;
+
+                    return (
+                      <CustomerMenuItemCard
+                        key={product.id}
+                        product={product}
+                        categoryName={
+                          categoryNameMap.get(product.category_id) ?? ""
+                        }
+                        hasAddons={hasAddons}
+                        totalQtyInCart={totalQtyInCart}
+                        onQuickAdd={addQuickItemToCart}
+                        onOpenOptions={(prod) => setPickerProduct(prod)}
+                        onChangeSingleVariantQty={updateSingleVariantQty}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
         )}
       </main>
+
+      {/* Modal / Bottom Sheet Pilih Add-On & Catatan */}
+      <ProductAddonPickerModal
+        product={pickerProduct}
+        categoryName={
+          pickerProduct
+            ? categoryNameMap.get(pickerProduct.category_id)
+            : undefined
+        }
+        groups={
+          pickerProduct ? (data.addonsByProduct[pickerProduct.id] ?? []) : []
+        }
+        onClose={() => setPickerProduct(null)}
+        onConfirm={(payload) => {
+          addConfiguredItemToCart(payload);
+          toast.success(`${payload.product.name} ditambahkan ke keranjang.`);
+          setPickerProduct(null);
+        }}
+      />
 
       {/* Drawer Daftar Kategori Cepat saat Tombol Melayang "Menu" Diklik */}
       {menuSheetOpen && (

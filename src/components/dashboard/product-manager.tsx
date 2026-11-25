@@ -10,6 +10,7 @@ import {
   ImagePlus,
   Plus,
   Search,
+  SlidersHorizontal,
   Tag,
   Trash2,
   Upload,
@@ -17,8 +18,14 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import type { ProductAddonGroupWithOptions } from "@/lib/addons";
 import { formatRupiah } from "@/lib/money";
-import type { CategoryRow, ProductRow } from "@/lib/types/database";
+import type {
+  CategoryRow,
+  ProductAddonAssignmentRow,
+  ProductRow,
+} from "@/lib/types/database";
+import type { OutletAddonCatalog } from "@/server/addon-helpers";
 import {
   createCategoryAction,
   createProductAction,
@@ -27,13 +34,17 @@ import {
   toggleProductAvailabilityAction,
   updateProductAction,
 } from "@/server/master-data";
+import { setProductAddonGroupsAction } from "@/server/product-addons";
+import { AddonSettingsModal } from "./addon-settings-modal";
 
 export function ProductManager({
   initialProducts,
   categories: initialCategories,
+  initialAddonCatalog,
 }: {
   initialProducts: ReadonlyArray<ProductRow>;
   categories: ReadonlyArray<CategoryRow>;
+  initialAddonCatalog: OutletAddonCatalog;
 }) {
   const router = useRouter();
   const [products, setProducts] = React.useState<ProductRow[]>([
@@ -54,6 +65,20 @@ export function ProductManager({
   // Modal State
   const [showAddProductModal, setShowAddProductModal] = React.useState(false);
   const [showCategoryModal, setShowCategoryModal] = React.useState(false);
+  const [showAddonModal, setShowAddonModal] = React.useState(false);
+
+  // Add-on assignment state per produk
+  const [addonGroups, setAddonGroups] = React.useState<ProductAddonGroupWithOptions[]>(
+    () => [...initialAddonCatalog.groups]
+  );
+  const [addonAssignments, setAddonAssignments] = React.useState<
+    ProductAddonAssignmentRow[]
+  >(() => [...initialAddonCatalog.assignments]);
+
+  React.useEffect(() => {
+    setAddonGroups([...initialAddonCatalog.groups]);
+    setAddonAssignments([...initialAddonCatalog.assignments]);
+  }, [initialAddonCatalog]);
 
   // Form Tambah Produk
   const [name, setName] = React.useState("");
@@ -63,6 +88,7 @@ export function ProductManager({
   const [priceStr, setPriceStr] = React.useState("");
   const [imageUrl, setImageUrl] = React.useState("");
   const [isAvailable, setIsAvailable] = React.useState(true);
+  const [createAddonGroupIds, setCreateAddonGroupIds] = React.useState<string[]>([]);
 
   // Form Tambah Kategori
   const [newCategoryName, setNewCategoryName] = React.useState("");
@@ -79,6 +105,7 @@ export function ProductManager({
   const [editPriceStr, setEditPriceStr] = React.useState("");
   const [editImageUrl, setEditImageUrl] = React.useState("");
   const [editIsAvailable, setEditIsAvailable] = React.useState(true);
+  const [editAddonGroupIds, setEditAddonGroupIds] = React.useState<string[]>([]);
 
   const [isPending, startTransition] = React.useTransition();
   const [isProcessingImage, setIsProcessingImage] = React.useState(false);
@@ -142,6 +169,33 @@ export function ProductManager({
     }
     return map;
   }, [categories]);
+
+  const addonGroupMap = React.useMemo(() => {
+    const map = new Map<string, ProductAddonGroupWithOptions>();
+    for (const g of addonGroups) {
+      map.set(g.id, g);
+    }
+    return map;
+  }, [addonGroups]);
+
+  const addonGroupIdsByProduct = React.useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const a of addonAssignments) {
+      if (!addonGroupMap.has(a.addon_group_id)) continue;
+      const list = map.get(a.product_id) ?? [];
+      if (!list.includes(a.addon_group_id)) {
+        list.push(a.addon_group_id);
+      }
+      map.set(a.product_id, list);
+    }
+    return map;
+  }, [addonAssignments, addonGroupMap]);
+
+  function toggleGroupInList(list: string[], groupId: string): string[] {
+    return list.includes(groupId)
+      ? list.filter((id) => id !== groupId)
+      : [...list, groupId];
+  }
 
   const filteredProducts = React.useMemo(() => {
     return products.filter((p) => {
@@ -216,6 +270,12 @@ export function ProductManager({
         toast.error(res.message);
         return;
       }
+      if (res.product && createAddonGroupIds.length > 0 && initialAddonCatalog.schemaReady) {
+        await setProductAddonGroupsAction({
+          productId: res.product.id,
+          addonGroupIds: createAddonGroupIds,
+        });
+      }
       toast.success(res.message);
       if (res.product) {
         setProducts((prev) => [res.product!, ...prev]);
@@ -224,6 +284,7 @@ export function ProductManager({
       setPriceStr("");
       setImageUrl("");
       setIsAvailable(true);
+      setCreateAddonGroupIds([]);
       setShowAddProductModal(false);
       router.refresh();
     });
@@ -263,6 +324,7 @@ export function ProductManager({
     setEditPriceStr(String(product.price));
     setEditImageUrl(product.image_url ?? "");
     setEditIsAvailable(product.is_available);
+    setEditAddonGroupIds(addonGroupIdsByProduct.get(product.id) ?? []);
   }
 
   function handleSaveEdit(e: React.FormEvent) {
@@ -275,6 +337,7 @@ export function ProductManager({
     }
 
     const targetId = editingProduct.id;
+    const targetAddonGroupIds = [...editAddonGroupIds];
     setProducts((prev) =>
       prev.map((p) =>
         p.id === targetId
@@ -305,6 +368,15 @@ export function ProductManager({
         setProducts([...initialProducts]);
         toast.error(res.message);
         return;
+      }
+      if (initialAddonCatalog.schemaReady) {
+        const addonRes = await setProductAddonGroupsAction({
+          productId: targetId,
+          addonGroupIds: targetAddonGroupIds,
+        });
+        if (!addonRes.ok) {
+          toast.error(addonRes.message);
+        }
       }
       toast.success(res.message);
       router.refresh();
@@ -348,6 +420,15 @@ export function ProductManager({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAddonModal(true)}
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-sky-200 dark:border-sky-800 bg-[#EBF5FF] dark:bg-sky-950/50 px-3.5 text-[13px] font-semibold text-[#1E88E5] dark:text-sky-300 hover:bg-sky-100 transition cursor-pointer"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            <span>Kelola Add-On ({addonGroups.length})</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowCategoryModal(true)}
@@ -466,9 +547,27 @@ export function ProductManager({
                             <UtensilsCrossed className="h-4 w-4" />
                           </div>
                         )}
-                        <span className="font-semibold text-slate-800 dark:text-slate-100">
-                          {product.name}
-                        </span>
+                        <div className="min-w-0">
+                          <span className="font-semibold text-slate-800 dark:text-slate-100 block">
+                            {product.name}
+                          </span>
+                          {(addonGroupIdsByProduct.get(product.id)?.length ?? 0) > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {addonGroupIdsByProduct.get(product.id)?.map((gid) => {
+                                const grp = addonGroupMap.get(gid);
+                                if (!grp) return null;
+                                return (
+                                  <span
+                                    key={gid}
+                                    className="inline-flex items-center rounded-md bg-sky-50 dark:bg-sky-950/60 border border-sky-200/80 dark:border-sky-800 px-1.5 py-0.5 text-[10px] font-semibold text-[#1E88E5] dark:text-sky-300"
+                                  >
+                                    + {grp.name}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
 
@@ -538,7 +637,7 @@ export function ProductManager({
       {/* Modal Tambah Menu Baru */}
       {showAddProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="max-h-[90vh] overflow-y-auto w-full max-w-md rounded-xl bg-white dark:bg-slate-900 p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">
@@ -676,6 +775,44 @@ export function ProductManager({
                 <span>Langsung Tersedia untuk Dipesan</span>
               </label>
 
+              {addonGroups.length > 0 && (
+                <div className="space-y-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                      Add-On untuk Menu Ini (Opsional)
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {createAddonGroupIds.length} dipilih
+                    </span>
+                  </div>
+                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                    {addonGroups.map((grp) => (
+                      <label
+                        key={grp.id}
+                        className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs hover:bg-white dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2 truncate font-medium text-slate-700 dark:text-slate-200">
+                          <input
+                            type="checkbox"
+                            checked={createAddonGroupIds.includes(grp.id)}
+                            onChange={() =>
+                              setCreateAddonGroupIds((prev) =>
+                                toggleGroupInList(prev, grp.id)
+                              )
+                            }
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-[#1E88E5]"
+                          />
+                          <span className="truncate">{grp.name}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400 shrink-0">
+                          {grp.options.length} opsi
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
@@ -701,7 +838,7 @@ export function ProductManager({
       {/* Modal Edit Menu */}
       {editingProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="max-h-[90vh] overflow-y-auto w-full max-w-md rounded-xl bg-white dark:bg-slate-900 p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">
@@ -825,6 +962,44 @@ export function ProductManager({
                 </div>
               </div>
 
+              {addonGroups.length > 0 && (
+                <div className="space-y-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                      Add-On untuk Menu Ini (Opsional)
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {editAddonGroupIds.length} aktif
+                    </span>
+                  </div>
+                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                    {addonGroups.map((grp) => (
+                      <label
+                        key={grp.id}
+                        className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs hover:bg-white dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2 truncate font-medium text-slate-700 dark:text-slate-200">
+                          <input
+                            type="checkbox"
+                            checked={editAddonGroupIds.includes(grp.id)}
+                            onChange={() =>
+                              setEditAddonGroupIds((prev) =>
+                                toggleGroupInList(prev, grp.id)
+                              )
+                            }
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-[#1E88E5]"
+                          />
+                          <span className="truncate">{grp.name}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400 shrink-0">
+                          {grp.options.length} opsi
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
@@ -909,6 +1084,17 @@ export function ProductManager({
           </div>
         </div>
       )}
+
+      <AddonSettingsModal
+        open={showAddonModal}
+        onClose={() => setShowAddonModal(false)}
+        schemaReady={initialAddonCatalog.schemaReady}
+        groups={addonGroups}
+        assignments={addonAssignments}
+        products={products}
+        categories={categories}
+        onUpdated={() => router.refresh()}
+      />
     </div>
   );
 }

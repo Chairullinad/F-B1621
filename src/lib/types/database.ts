@@ -185,6 +185,52 @@ export interface OrderRow {
   deleted_at: string | null;
 }
 
+export interface OrderItemAddonSnapshot {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  optionName: string;
+  priceDelta: number;
+}
+
+export type AddonSelectionType = "single" | "multiple";
+
+export interface ProductAddonGroupRow {
+  id: string;
+  outlet_id: string;
+  name: string;
+  selection_type: AddonSelectionType;
+  is_required: boolean;
+  max_select: number | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ProductAddonOptionRow {
+  id: string;
+  group_id: string;
+  outlet_id: string;
+  name: string;
+  price_delta: number;
+  is_available: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ProductAddonAssignmentRow {
+  id: string;
+  outlet_id: string;
+  product_id: string;
+  addon_group_id: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface OrderItemRow {
   id: string;
   order_id: string;
@@ -193,6 +239,7 @@ export interface OrderItemRow {
   unit_price: number;
   qty: number;
   note: string | null;
+  addons_snapshot?: OrderItemAddonSnapshot[] | null;
   line_total: number;
   created_at: string;
   updated_at: string;

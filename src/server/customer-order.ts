@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { z } from "zod";
+import type { ProductAddonGroupWithOptions } from "@/lib/addons";
 import {
   CUSTOMER_QRIS_UNDER_MAINTENANCE,
   resolveCustomerPaymentChoice,
@@ -22,6 +23,11 @@ import type {
   PaymentMethod,
   ProductRow,
 } from "@/lib/types/database";
+import {
+  insertOrderItemsWithAddonFallback,
+  loadOutletAddonCatalog,
+  resolveServerOrderItemsWithAddons,
+} from "@/server/addon-helpers";
 
 const DEFAULT_FALLBACK_STATIC_QRIS =
   "00020101021126650014ID.CO.QRIS.WWW01189360050300000898240214123456789012340303UMI5204581253033605802ID59101621 GROUP6007JAKARTA6105101106304A1B2";
@@ -62,6 +68,10 @@ const createCustomerOrderSchema = z.object({
           .max(160, "Catatan item maksimal 160 karakter.")
           .nullable()
           .optional(),
+        addonOptionIds: z
+          .array(z.string().uuid("ID opsi add-on tidak valid."))
+          .max(40)
+          .optional(),
       })
     )
     .min(1, "Keranjang pesanan tidak boleh kosong.")
@@ -100,6 +110,7 @@ export interface CustomerTablePublicData {
   };
   categories: CategoryRow[];
   products: ProductRow[];
+  addonsByProduct: Record<string, ProductAddonGroupWithOptions[]>;
 }
 
 export interface CustomerOrderTrackingView {
@@ -179,7 +190,7 @@ export async function getCustomerTableMenuByToken(
     return null;
   }
 
-  const [outletRes, catRes, prodRes] = await Promise.all([
+  const [outletRes, catRes, prodRes, addonCatalog] = await Promise.all([
     admin
       .from("outlets")
       .select("*")
@@ -201,6 +212,7 @@ export async function getCustomerTableMenuByToken(
       .eq("is_active", true)
       .is("deleted_at", null)
       .order("name", { ascending: true }),
+    loadOutletAddonCatalog(String(tableRow.outlet_id)),
   ]);
 
   if (outletRes.error || !outletRes.data) {
@@ -256,6 +268,7 @@ export async function getCustomerTableMenuByToken(
     },
     categories: (catRes.data ?? []) as CategoryRow[],
     products: (prodRes.data ?? []) as ProductRow[],
+    addonsByProduct: addonCatalog.addonsByProduct,
   };
 }
 
@@ -450,7 +463,12 @@ export async function createCustomerOrderAction(rawInput: {
   qrToken: string;
   paymentChoice: PaymentMethod;
   idempotencyKey: string;
-  items: Array<{ productId: string; qty: number; note?: string | null }>;
+  items: Array<{
+    productId: string;
+    qty: number;
+    note?: string | null;
+    addonOptionIds?: string[];
+  }>;
 }): Promise<CreateCustomerOrderResult> {
   const parsed = createCustomerOrderSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -549,13 +567,16 @@ export async function createCustomerOrderAction(rawInput: {
     };
   }
 
-  // 5. Ambil produk dari database untuk memvalidasi ketersediaan & menyalin harga asli (snapshot)
+  // 5. Ambil produk dan katalog add-on dari database untuk validasi & snapshot harga sah
   const productIds = Array.from(new Set(items.map((i) => i.productId)));
-  const { data: dbProducts, error: prodErr } = await admin
-    .from("products")
-    .select("id, name, price, is_available, is_active, deleted_at")
-    .eq("outlet_id", tableRow.outlet_id)
-    .in("id", productIds);
+  const [{ data: dbProducts, error: prodErr }, addonCatalog] = await Promise.all([
+    admin
+      .from("products")
+      .select("id, name, price, is_available, is_active, deleted_at")
+      .eq("outlet_id", tableRow.outlet_id)
+      .in("id", productIds),
+    loadOutletAddonCatalog(String(tableRow.outlet_id)),
+  ]);
 
   if (prodErr || !dbProducts) {
     return { ok: false, message: "Gagal memuat daftar harga produk." };
@@ -563,53 +584,32 @@ export async function createCustomerOrderAction(rawInput: {
 
   const productMap = new Map<
     string,
-    { id: string; name: string; price: number; is_available: boolean }
+    { name: string; price: number; isAvailable: boolean }
   >();
   for (const p of dbProducts) {
     if (p.is_active && p.deleted_at === null) {
       productMap.set(String(p.id), {
-        id: String(p.id),
         name: String(p.name),
         price: Number(p.price),
-        is_available: Boolean(p.is_available),
+        isAvailable: Boolean(p.is_available),
       });
     }
   }
 
-  // Gabungkan item jika ada productId yang sama dengan catatan yang sama
-  const normalizedItems: Array<{
-    productId: string;
-    productName: string;
-    unitPrice: number;
-    qty: number;
-    note: string | null;
-    lineTotal: number;
-  }> = [];
+  const resolvedOrderItems = resolveServerOrderItemsWithAddons({
+    items,
+    productMap,
+    addonsByProduct: addonCatalog.addonsByProduct,
+  });
 
-  for (const reqItem of items) {
-    const dbProd = productMap.get(reqItem.productId);
-    if (!dbProd) {
-      return {
-        ok: false,
-        message: "Salah satu menu yang dipilih sudah tidak aktif.",
-      };
-    }
-    if (!dbProd.is_available) {
-      return {
-        ok: false,
-        message: `Maaf, menu "${dbProd.name}" baru saja habis. Silakan hapus dari keranjang.`,
-      };
-    }
-
-    normalizedItems.push({
-      productId: dbProd.id,
-      productName: dbProd.name,
-      unitPrice: dbProd.price,
-      qty: reqItem.qty,
-      note: reqItem.note && reqItem.note.length > 0 ? reqItem.note : null,
-      lineTotal: dbProd.price * reqItem.qty,
-    });
+  if (!resolvedOrderItems.ok) {
+    return {
+      ok: false,
+      message: resolvedOrderItems.message,
+    };
   }
+
+  const normalizedItems = resolvedOrderItems.items;
 
   // 6. Hitung total, pajak, dan service charge di server menggunakan src/lib/money.ts
   const taxConfig: TaxAndServiceConfig = {
@@ -726,20 +726,11 @@ export async function createCustomerOrderAction(rawInput: {
     hash: "",
   });
 
-  // 9. Simpan snapshot item ke order_items
-  const orderItemsPayload = normalizedItems.map((item) => ({
-    order_id: orderId,
-    product_id: item.productId,
-    product_name: item.productName,
-    unit_price: item.unitPrice,
-    qty: item.qty,
-    note: item.note,
-    line_total: item.lineTotal,
-  }));
-
-  const { error: itemsErr } = await admin
-    .from("order_items")
-    .insert(orderItemsPayload);
+  // 9. Simpan snapshot item + add-on ke order_items
+  const { error: itemsErr } = await insertOrderItemsWithAddonFallback(
+    orderId,
+    normalizedItems
+  );
 
   if (itemsErr) {
     return {
