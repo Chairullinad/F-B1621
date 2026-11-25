@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { ROLE_LABELS_ID, type StaffNavItem } from "@/lib/auth";
-import type { OutletView } from "@/lib/outlets";
+import type { SidebarOutletView } from "@/lib/outlets";
 import type { UserRole } from "@/lib/types/database";
 import type { StaffSidebarBadges } from "@/server/inventory";
 import {
@@ -38,7 +38,7 @@ interface StaffSidebarShellProps {
   };
   navItems: ReadonlyArray<StaffNavItem>;
   badges: StaffSidebarBadges;
-  outlets?: OutletView[];
+  outlets?: SidebarOutletView[];
   activeOutletId?: string | null;
   logoutAction: () => Promise<void>;
   children: React.ReactNode;
@@ -135,7 +135,6 @@ export function StaffSidebarShell({
         items: [
           { href: "/dashboard", label: "Dashboard" },
           { href: "/dashboard/stok-menu", label: "Stok Menu" },
-          { href: "/dashboard/keuangan", label: "Pembukuan" },
         ],
       },
       {
@@ -221,30 +220,10 @@ export function StaffSidebarShell({
               ]),
         ],
       },
-      {
-        id: "laporan",
-        label: "Laporan",
-        icon: <Receipt className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
-        roles: ["owner"],
-        items: [
-          { href: "/dashboard/transaksi", label: "Laporan Penjualan & Struk" },
-          { href: "/dashboard/keuangan?tab=labarugi", label: "Laporan Laba Rugi & Pajak" },
-        ],
-      },
-      {
-        id: "master",
-        label: "Akses & Keamanan",
-        icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
-        roles: ["owner"],
-        items: [
-          { href: "/dashboard/staf", label: "Kelola Staf & Hak Akses" },
-          { href: "/dashboard/audit", label: "Jejak Audit Sistem" },
-        ],
-      },
     ];
   }, [staff.role, badges]);
 
-  // Filter grup sesuai role pengguna (Mode Holding Owner mempertahankan Dashboard + Laporan + Setting Kios + Akses & Keamanan)
+  // Filter grup sesuai role pengguna (Mode Holding Owner mempertahankan Dashboard + Laporan + Setting)
   const visibleGroups: MainMenuGroup[] = React.useMemo(() => {
     if (isHoldingMode) {
       return [
@@ -274,14 +253,6 @@ export function StaffSidebarShell({
           roles: ["owner"],
           items: [
             { href: "/dashboard/cabang", label: "Setting Kios" },
-          ],
-        },
-        {
-          id: "holding-akses",
-          label: "Akses & Keamanan",
-          icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
-          roles: ["owner"],
-          items: [
             { href: "/dashboard/staf", label: "Kelola Staf & Hak Akses" },
             { href: "/dashboard/audit", label: "Jejak Audit Sistem" },
           ],
@@ -319,7 +290,6 @@ export function StaffSidebarShell({
         "holding-dashboard": true,
         "holding-laporan": true,
         "holding-setting": true,
-        "holding-akses": true,
       }));
     } else if (staff.role === "owner") {
       setOpenGroups((prev) => ({
@@ -511,9 +481,7 @@ export function StaffSidebarShell({
                         <Link
                           key={item.href + item.label}
                           href={item.href}
-                          prefetch={true}
-                          onMouseEnter={() => router.prefetch(item.href)}
-                          onTouchStart={() => router.prefetch(item.href)}
+                          prefetch={false}
                           onClick={() => {
                             setPendingHref(item.href);
                             setMobileOpen(false);

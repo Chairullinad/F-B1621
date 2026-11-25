@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +16,10 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import {
+  FINANCIAL_PERIOD_OPTIONS,
+  type FinancialPeriodKey,
+} from "@/lib/datetime";
 import { formatRupiah } from "@/lib/money";
 import {
   createManualAccountingEntryAction,
@@ -62,6 +66,20 @@ export function FinancialReportTabs({
       ? initialData.selectedOutletId
       : (initialData.outlets[0]?.id ?? "")
   );
+
+  // Sinkronkan tab & kios manual saat query parameter URL berubah
+  useEffect(() => {
+    const nextTab: TabKey = VALID_TABS.includes(initialTab as TabKey)
+      ? (initialTab as TabKey)
+      : "jurnal";
+    setActiveTab(nextTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (initialData.selectedOutletId !== "ALL") {
+      setManualOutletId(initialData.selectedOutletId);
+    }
+  }, [initialData.selectedOutletId]);
   const [category, setCategory] = useState<
     | "expense_salary"
     | "expense_rent"
@@ -82,10 +100,23 @@ export function FinancialReportTabs({
     return j.source_type === journalFilter;
   });
 
+  function buildReportUrl(next: {
+    outletId?: string;
+    period?: FinancialPeriodKey;
+    tab?: TabKey;
+  }) {
+    const outlet = next.outletId ?? initialData.selectedOutletId;
+    const period = next.period ?? initialData.activePeriod;
+    const tab = next.tab ?? activeTab;
+    return `/dashboard/keuangan?outletId=${encodeURIComponent(outlet)}&period=${encodeURIComponent(period)}&tab=${encodeURIComponent(tab)}`;
+  }
+
   function handleOutletScopeChange(nextOutletId: string) {
-    router.push(
-      `/dashboard/keuangan?outletId=${encodeURIComponent(nextOutletId)}&tab=${activeTab}`
-    );
+    router.push(buildReportUrl({ outletId: nextOutletId }));
+  }
+
+  function handlePeriodChange(nextPeriod: FinancialPeriodKey) {
+    router.push(buildReportUrl({ period: nextPeriod }));
   }
 
   function handleCreateManualJournal(e: React.FormEvent) {
@@ -148,39 +179,76 @@ export function FinancialReportTabs({
 
   return (
     <div className="space-y-5 bg-[#F4F7FA] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100">
-      {/* Breadcrumb & Header Banner ala ESB POSLite */}
-      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-        <div>
-          <div className="text-[12px] text-slate-400 font-medium">
-            <Link href="/dashboard" className="hover:text-[#1E88E5]">
-              {initialData.isHoldingMode ? "Dashboard Owner" : "Beranda"}
-            </Link>{" "}
-            &gt;{" "}
-            <span className="text-slate-600 dark:text-slate-300">
-              Pembukuan &amp; Laporan Keuangan
-            </span>
+      {/* Header & Bar Filter ala ESB POSLite (Seragam dengan Riwayat Transaksi) */}
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 md:p-5 shadow-2xs space-y-4">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+          <div>
+            <div className="text-[12px] text-slate-400 font-medium">
+              <Link href="/dashboard" className="hover:text-[#1E88E5]">
+                {initialData.isHoldingMode ? "Dashboard Owner" : "Beranda"}
+              </Link>{" "}
+              &gt;{" "}
+              <span className="text-slate-600 dark:text-slate-300">
+                Pembukuan &amp; Laporan Keuangan
+              </span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
+                Laporan Keuangan &amp; Akuntansi ({initialData.periodLabel})
+              </h1>
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2.5 py-0.5 text-[11px] font-semibold text-[#1E88E5] dark:text-sky-300">
+                <Building2 className="h-3 w-3" />
+                <span>{initialData.scopeLabel}</span>
+              </span>
+            </div>
+            <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Catat Kas Masuk / Kas Keluar harian serta pantau Jurnal Umum, Laba Rugi, Neraca, Arus Kas, dan Pajak per outlet maupun konsolidasi.
+            </p>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
-              Laporan Keuangan &amp; Akuntansi ({initialData.periodLabel})
-            </h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2.5 py-0.5 text-[11px] font-semibold text-[#1E88E5] dark:text-sky-300">
-              <Building2 className="h-3 w-3" />
-              <span>{initialData.scopeLabel}</span>
-            </span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              <Download className="h-4 w-4 text-slate-500" />
+              <span>Export CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCategory("owner_capital");
+                setShowManualModal(true);
+              }}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 px-3.5 text-[13px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 cursor-pointer"
+            >
+              <ArrowDownCircle className="h-4 w-4" />
+              <span>+ Kas Masuk / Modal</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCategory("expense_utility");
+                setShowManualModal(true);
+              }}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-[#1E88E5] px-4 text-[13px] font-semibold text-white hover:bg-[#1976D2] cursor-pointer"
+            >
+              <ArrowUpCircle className="h-4 w-4" />
+              <span>+ Kas Keluar / Biaya</span>
+            </button>
           </div>
-          <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Catat Kas Masuk / Kas Keluar harian serta pantau Jurnal Umum, Laba Rugi, Neraca, Arus Kas, dan Pajak secara otomatis.
-          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+
+        {/* Bar Filter Outlet & Periode (konsisten dengan halaman Laporan Penjualan & Struk) */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-800 pt-3.5">
           {initialData.isHoldingMode && (
             <Link
               href="/dashboard"
-              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
-              <ArrowLeft className="h-4 w-4 text-slate-500" />
-              <span>Portal Owner</span>
+              <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
+              <span>Dashboard Owner</span>
             </Link>
           )}
           {initialData.outlets.length > 0 && (
@@ -188,7 +256,7 @@ export function FinancialReportTabs({
               aria-label="Filter laporan keuangan per kios"
               value={initialData.selectedOutletId}
               onChange={(e) => handleOutletScopeChange(e.target.value)}
-              className="h-11 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-[13px] font-semibold text-slate-700 dark:text-slate-200 focus:border-[#1E88E5] focus:outline-none cursor-pointer"
+              className="h-11 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-[13px] font-semibold text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] focus:outline-none cursor-pointer"
             >
               <option value="ALL">Semua Usaha / Kios (Konsolidasi)</option>
               {initialData.outlets.map((o) => (
@@ -198,36 +266,25 @@ export function FinancialReportTabs({
               ))}
             </select>
           )}
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-          >
-            <Download className="h-4 w-4 text-slate-500" />
-            <span>Export CSV</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setCategory("owner_capital");
-              setShowManualModal(true);
-            }}
-            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 px-3.5 text-[13px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 cursor-pointer"
-          >
-            <ArrowDownCircle className="h-4 w-4" />
-            <span>+ Kas Masuk / Modal</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setCategory("expense_utility");
-              setShowManualModal(true);
-            }}
-            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#1E88E5] px-4 text-[13px] font-semibold text-white hover:bg-[#1976D2] cursor-pointer"
-          >
-            <ArrowUpCircle className="h-4 w-4" />
-            <span>+ Kas Keluar / Biaya</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {FINANCIAL_PERIOD_OPTIONS.map((p) => {
+              const isActivePeriod = initialData.activePeriod === p.key;
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => handlePeriodChange(p.key)}
+                  className={`inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                    isActivePeriod
+                      ? "bg-[#1E88E5] text-white shadow-2xs"
+                      : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -470,13 +527,19 @@ export function FinancialReportTabs({
       {/* 2. LABA RUGI */}
       {activeTab === "labarugi" && (
         <div className="space-y-6 rounded-b-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-          <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              Laporan Laba Rugi (Income Statement)
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Periode {initialData.periodLabel} • Metode Akrual Sesuai Standar Akuntansi Keuangan
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Laporan Laba Rugi (Income Statement)
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Cakupan: {initialData.scopeLabel} • Periode {initialData.periodLabel} • Metode Akrual Sesuai Standar Akuntansi Keuangan
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/60 px-3 py-1 text-xs font-semibold text-[#1E88E5] dark:text-sky-300">
+              <Building2 className="h-3.5 w-3.5" />
+              <span>{initialData.scopeLabel}</span>
+            </span>
           </div>
 
           <div className="space-y-6">

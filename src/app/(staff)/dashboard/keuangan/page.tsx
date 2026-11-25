@@ -6,13 +6,17 @@ export const dynamic = "force-dynamic";
 interface KeuanganPageProps {
   searchParams: Promise<{
     outletId?: string;
+    period?: string;
     tab?: string;
   }>;
 }
 
 export default async function KeuanganPage({ searchParams }: KeuanganPageProps) {
   const sp = await searchParams;
-  const data = await getFinancialReportData({ outletId: sp.outletId });
+  const data = await getFinancialReportData({
+    outletId: sp.outletId,
+    period: sp.period,
+  });
 
   return <FinancialReportTabs initialData={data} initialTab={sp.tab} />;
 }
