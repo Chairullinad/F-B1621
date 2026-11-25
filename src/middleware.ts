@@ -22,9 +22,10 @@ export async function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
+  const isProtected = isStaffProtectedPathname(pathname);
 
-  // Halaman pelanggan (/m/[token]) tidak memerlukan autentikasi staf
-  if (pathname.startsWith("/m/")) {
+  // Lewati autentikasi & query profil pada rute publik/statis/API selain halaman staf & /login
+  if (!isProtected && pathname !== "/login") {
     return supabaseResponse;
   }
 
@@ -56,8 +57,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const isProtected = isStaffProtectedPathname(pathname);
 
   if (!user) {
     if (isProtected) {

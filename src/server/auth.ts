@@ -1,7 +1,7 @@
 "use server";
 
 import { cache } from "react";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -138,9 +138,67 @@ async function recordAuthAuditLog(params: {
   }
 }
 
+interface CachedStaffProfileRecord {
+  id: string;
+  outlet_id: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+  deleted_at: string | null;
+  custom_permissions?: unknown;
+}
+
+const getCachedStaffProfileById = unstable_cache(
+  async (userId: string): Promise<CachedStaffProfileRecord | null> => {
+    const admin = createSupabaseAdminClient();
+    const firstRes = await admin
+      .from("profiles")
+      .select(
+        "id, outlet_id, full_name, role, is_active, deleted_at, custom_permissions"
+      )
+      .eq("id", userId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (
+      firstRes.error &&
+      firstRes.error.message.includes("custom_permissions")
+    ) {
+      const fallbackRes = await admin
+        .from("profiles")
+        .select("id, outlet_id, full_name, role, is_active, deleted_at")
+        .eq("id", userId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (fallbackRes.error || !fallbackRes.data) return null;
+      return fallbackRes.data;
+    }
+
+    if (firstRes.error || !firstRes.data) return null;
+    return firstRes.data;
+  },
+  ["staff_profile_by_id"],
+  { revalidate: 30, tags: ["staff_profiles"] }
+);
+
+const getCachedActiveOutletExists = unstable_cache(
+  async (outletId: string): Promise<string | null> => {
+    const admin = createSupabaseAdminClient();
+    const { data: out } = await admin
+      .from("outlets")
+      .select("id")
+      .eq("id", outletId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    return out ? String(out.id) : null;
+  },
+  ["staff_active_outlet_exists"],
+  { revalidate: 60, tags: ["sidebar_outlets"] }
+);
+
 /**
  * Mengambil sesi staf aktif saat ini beserta profil dari tabel public.profiles.
- * Dibungkus React `cache()` agar hanya dieksekusi sekali per request (tidak berulang di Layout & Page).
+ * Dibungkus React `cache()` + `unstable_cache` untuk profil & validasi outlet agar perpindahan halaman super cepat.
  * Mengembalikan null jika belum login atau akun nonaktif/dihapus.
  */
 const loadCurrentStaffSessionCached = cache(
@@ -156,45 +214,9 @@ const loadCurrentStaffSessionCached = cache(
         return null;
       }
 
-      const admin = createSupabaseAdminClient();
-      let profile: {
-        id: string;
-        outlet_id: string;
-        full_name: string;
-        role: string;
-        is_active: boolean;
-        deleted_at: string | null;
-        custom_permissions?: unknown;
-      } | null = null;
-      let profileErr: { message: string } | null = null;
+      const profile = await getCachedStaffProfileById(user.id);
 
-      const firstRes = await admin
-        .from("profiles")
-        .select(
-          "id, outlet_id, full_name, role, is_active, deleted_at, custom_permissions"
-        )
-        .eq("id", user.id)
-        .is("deleted_at", null)
-        .maybeSingle();
-
-      if (
-        firstRes.error &&
-        firstRes.error.message.includes("custom_permissions")
-      ) {
-        const fallbackRes = await admin
-          .from("profiles")
-          .select("id, outlet_id, full_name, role, is_active, deleted_at")
-          .eq("id", user.id)
-          .is("deleted_at", null)
-          .maybeSingle();
-        profile = fallbackRes.data;
-        profileErr = fallbackRes.error;
-      } else {
-        profile = firstRes.data;
-        profileErr = firstRes.error;
-      }
-
-      if (profileErr || !profile || !profile.is_active) {
+      if (!profile || !profile.is_active) {
         return null;
       }
 
@@ -212,15 +234,12 @@ const loadCurrentStaffSessionCached = cache(
           const cookieStore = await cookies();
           const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
           if (cookieOutletId) {
-            const { data: out } = await admin
-              .from("outlets")
-              .select("id")
-              .eq("id", cookieOutletId)
-              .is("deleted_at", null)
-              .maybeSingle();
-            if (out) {
-              resolvedOutletId = String(out.id);
-              selectedOutletId = String(out.id);
+            const validOutletId = await getCachedActiveOutletExists(
+              cookieOutletId
+            );
+            if (validOutletId) {
+              resolvedOutletId = validOutletId;
+              selectedOutletId = validOutletId;
             }
           }
         } catch {
@@ -561,6 +580,7 @@ export async function createStaffUserAction(rawInput: {
     };
   }
 
+  revalidateTag("staff_profiles");
   revalidatePath("/dashboard/staf");
   return {
     ok: true,
@@ -612,6 +632,7 @@ export async function updateStaffRoleAction(rawInput: {
     return { ok: false, message: `Gagal mengubah role: ${error.message}` };
   }
 
+  revalidateTag("staff_profiles");
   revalidatePath("/dashboard/staf");
   return { ok: true, message: "Role dan hak akses staf berhasil diperbarui." };
 }
@@ -669,6 +690,7 @@ export async function updateStaffMemberAction(rawInput: {
     };
   }
 
+  revalidateTag("staff_profiles");
   revalidatePath("/dashboard/staf");
   return {
     ok: true,
@@ -789,6 +811,7 @@ export async function toggleStaffActiveAction(rawInput: {
     };
   }
 
+  revalidateTag("staff_profiles");
   revalidatePath("/dashboard/staf");
   return {
     ok: true,
@@ -890,6 +913,7 @@ export async function updateStaffPermissionsAction(rawInput: {
     };
   }
 
+  revalidateTag("staff_profiles");
   revalidatePath("/dashboard/staf");
   return {
     ok: true,

@@ -86,6 +86,16 @@ export function StaffSidebarShell({
   const [nextPw, setNextPw] = React.useState("");
   const [confirmNextPw, setConfirmNextPw] = React.useState("");
   const [isUpdatingPw, startPwTransition] = React.useTransition();
+  const prefetchedHrefsRef = React.useRef<Set<string>>(new Set());
+
+  const prefetchRouteOnce = React.useCallback(
+    (href: string) => {
+      if (prefetchedHrefsRef.current.has(href)) return;
+      prefetchedHrefsRef.current.add(href);
+      router.prefetch(href);
+    },
+    [router]
+  );
 
   const [optimisticOutletId, setOptimisticOutletId] = React.useState<
     string | null | undefined
@@ -110,13 +120,18 @@ export function StaffSidebarShell({
     setOutletMenuOpen(false);
     setOptimisticOutletId(targetId);
     startSwitchTransition(async () => {
-      const res = await switchActiveOutletAction(targetId);
-      if (res.ok) {
-        toast.success(res.message);
-        router.refresh();
-      } else {
+      try {
+        const res = await switchActiveOutletAction(targetId);
+        if (res.ok) {
+          toast.success(res.message);
+          router.refresh();
+        } else {
+          setOptimisticOutletId(activeOutletId);
+          toast.error(res.message);
+        }
+      } catch {
         setOptimisticOutletId(activeOutletId);
-        toast.error(res.message);
+        toast.error("Gagal mengganti outlet. Silakan coba lagi.");
       }
     });
   };
@@ -125,14 +140,19 @@ export function StaffSidebarShell({
     setOutletMenuOpen(false);
     setOptimisticOutletId(null);
     startSwitchTransition(async () => {
-      const res = await leaveActiveOutletAction();
-      if (res.ok) {
-        toast.success(res.message);
-        router.push("/dashboard");
-        router.refresh();
-      } else {
+      try {
+        const res = await leaveActiveOutletAction();
+        if (res.ok) {
+          toast.success(res.message);
+          router.push("/dashboard");
+          router.refresh();
+        } else {
+          setOptimisticOutletId(activeOutletId);
+          toast.error(res.message);
+        }
+      } catch {
         setOptimisticOutletId(activeOutletId);
-        toast.error(res.message);
+        toast.error("Gagal kembali ke Portal Owner. Silakan coba lagi.");
       }
     });
   };
@@ -600,6 +620,9 @@ export function StaffSidebarShell({
                           key={item.href + item.label}
                           href={item.href}
                           prefetch={false}
+                          onMouseEnter={() => prefetchRouteOnce(item.href)}
+                          onFocus={() => prefetchRouteOnce(item.href)}
+                          onTouchStart={() => prefetchRouteOnce(item.href)}
                           onClick={() => {
                             setPendingHref(item.href);
                             setMobileOpen(false);

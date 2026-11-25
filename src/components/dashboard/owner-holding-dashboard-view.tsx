@@ -98,14 +98,21 @@ export function OwnerHoldingDashboardView({
   const handleEnterOutlet = (outletId: string) => {
     setEnteringOutletId(outletId);
     startTransition(async () => {
-      const res = await switchActiveOutletAction(outletId);
-      if (res.ok) {
-        toast.success(res.message);
-        router.replace("/dashboard");
-        router.refresh();
-      } else {
+      try {
+        const res = await switchActiveOutletAction(outletId);
+        if (res.ok) {
+          toast.success(res.message);
+          if (typeof window !== "undefined" && window.location.search) {
+            router.replace("/dashboard");
+          }
+          router.refresh();
+        } else {
+          setEnteringOutletId(null);
+          toast.error(res.message);
+        }
+      } catch {
         setEnteringOutletId(null);
-        toast.error(res.message);
+        toast.error("Gagal masuk ke dashboard outlet. Silakan coba lagi.");
       }
     });
   };
