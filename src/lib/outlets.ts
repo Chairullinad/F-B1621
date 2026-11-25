@@ -30,6 +30,11 @@ export interface OutletView {
   feedbackUrl: string | null;
 }
 
+export type SidebarOutletView = Pick<
+  OutletView,
+  "id" | "name" | "description" | "logoUrl" | "themeColor"
+>;
+
 export const OUTLET_CHART_FALLBACK_PALETTE = [
   "#0284C7", // Sky Blue
   "#E11D48", // Rose
@@ -218,6 +223,22 @@ export function mapOutletRowToView(raw: Record<string, unknown>): OutletView {
 }
 
 /**
+ * Memetakan baris tabel `public.outlets` ke versi ringkas khusus navigasi sidebar/topbar.
+ */
+export function mapOutletRowToSidebarView(
+  raw: Record<string, unknown>
+): SidebarOutletView {
+  const full = mapOutletRowToView(raw);
+  return {
+    id: full.id,
+    name: full.name,
+    description: full.description,
+    logoUrl: full.logoUrl,
+    themeColor: full.themeColor,
+  };
+}
+
+/**
  * Memastikan setiap kios pada grafik bulanan mendapat warna yang unik dan mudah dibedakan.
  */
 export function assignDistinctOutletColors(
@@ -246,4 +267,65 @@ export function assignDistinctOutletColors(
   }
 
   return result;
+}
+
+export interface StandeeContrastPalette {
+  backgroundHex: string;
+  outlineHex: string;
+  isLightBackground: boolean;
+  foregroundColor: string;
+  pillTextColor: string;
+}
+
+/**
+ * Menghasilkan palet warna kontras dan warna garis tepi untuk standee QR Meja
+ * berdasarkan `theme_color` yang diatur Owner pada Setting Kios.
+ */
+export function getStandeeContrastPalette(
+  rawThemeColor: string | null | undefined
+): StandeeContrastPalette {
+  const trimmed = rawThemeColor?.trim() ?? "";
+  const backgroundHex = /^#[0-9a-f]{6}$/i.test(trimmed)
+    ? trimmed.toUpperCase()
+    : "#0284C7";
+
+  const r = Number.parseInt(backgroundHex.slice(1, 3), 16);
+  const g = Number.parseInt(backgroundHex.slice(3, 5), 16);
+  const b = Number.parseInt(backgroundHex.slice(5, 7), 16);
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const isLightBackground = luminance > 0.72;
+
+  const darken = (channel: number) =>
+    Math.max(12, Math.round(channel * 0.42))
+      .toString(16)
+      .padStart(2, "0");
+
+  const outlineHex = isLightBackground
+    ? "#0F172A"
+    : `#${darken(r)}${darken(g)}${darken(b)}`.toUpperCase();
+
+  return {
+    backgroundHex,
+    outlineHex,
+    isLightBackground,
+    foregroundColor: isLightBackground ? "#0F172A" : "#FFFFFF",
+    pillTextColor: isLightBackground ? "#0F172A" : backgroundHex,
+  };
+}
+
+/**
+ * Menghasilkan nama file PNG yang aman dan deskriptif untuk standee QR meja.
+ */
+export function buildQrStandeeFilename(
+  outletName: string,
+  tableNo: number
+): string {
+  const paddedTable = String(Math.max(0, Math.floor(tableNo))).padStart(2, "0");
+  const slug = outletName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `qr-meja-${paddedTable}-${slug || "kios"}.png`;
 }
