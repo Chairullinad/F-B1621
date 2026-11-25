@@ -163,11 +163,11 @@ export function CategoryManager({
               return (
                 <div
                   key={cat.id}
-                  className="space-y-3 rounded-xl border border-zinc-900 bg-zinc-50 p-4"
+                  className="space-y-3 rounded-xl border border-zinc-900 dark:border-sky-500 bg-zinc-50 dark:bg-slate-800/70 p-4"
                 >
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-zinc-700">
+                      <label className="text-xs font-medium text-zinc-700 dark:text-slate-300">
                         Nama Kategori
                       </label>
                       <Input
@@ -177,7 +177,7 @@ export function CategoryManager({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-zinc-700">
+                      <label className="text-xs font-medium text-zinc-700 dark:text-slate-300">
                         Urutan Tampil
                       </label>
                       <Input
@@ -196,7 +196,7 @@ export function CategoryManager({
                         type="checkbox"
                         checked={editActive}
                         onChange={(e) => setEditActive(e.target.checked)}
-                        className="h-5 w-5 rounded border-zinc-300"
+                        className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
                       />
                       Kategori Aktif
                     </label>
@@ -228,7 +228,7 @@ export function CategoryManager({
             return (
               <div
                 key={cat.id}
-                className="flex flex-col justify-between gap-3 rounded-xl border border-zinc-200 p-4 sm:flex-row sm:items-center"
+                className="flex flex-col justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 p-4 sm:flex-row sm:items-center"
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">

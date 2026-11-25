@@ -63,29 +63,29 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
   );
 
   return (
-    <div className="space-y-6 bg-[#F4F6F9] -m-4 md:-m-6 p-4 md:p-6 min-h-screen text-slate-800 font-sans">
-      {/* 1. Filter Bar Dashboard (Kini langsung di bagian atas tanpa banner promo) */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 md:p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
+    <div className="space-y-6 bg-[#F4F6F9] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen text-slate-800 dark:text-slate-100 font-sans transition-colors">
+      {/* 1. Filter Bar Dashboard */}
+      <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 md:p-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight">
               Filter Dashboard
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Menampilkan data operasional untuk outlet:{" "}
-              <strong className="text-sky-700">{data.staff.outletName}</strong>
+              <strong className="text-sky-700 dark:text-sky-400">{data.staff.outletName}</strong>
             </p>
           </div>
 
           {/* Toggle Hari / Bulan */}
-          <div className="flex items-center rounded-xl border border-sky-300 bg-sky-50/50 p-1 text-xs sm:text-sm font-semibold">
+          <div className="flex items-center rounded-xl border border-sky-300 dark:border-slate-700 bg-sky-50/50 dark:bg-slate-800 p-1 text-xs sm:text-sm font-semibold">
             <button
               type="button"
               onClick={() => handlePeriodChange("today")}
               className={`rounded-lg px-4 py-1.5 transition cursor-pointer ${
                 period === "today"
                   ? "bg-[#0284C7] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
+                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Hari
@@ -96,7 +96,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
               className={`rounded-lg px-4 py-1.5 transition cursor-pointer ${
                 period === "month"
                   ? "bg-[#0284C7] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
+                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Bulan
@@ -107,37 +107,37 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
         {/* Form Filter Dropdown 3 Kolom + Tombol Cari Oranye */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
               Perusahaan
             </label>
             <input
               type="text"
               readOnly
               value={data.filter.company}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-700 cursor-default"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 cursor-default"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
               Brand
             </label>
             <input
               type="text"
               readOnly
               value={data.filter.brand}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-700 cursor-default"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 cursor-default"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
               Cabang / Outlet
             </label>
             <select
               value={selectedOutletId}
               onChange={(e) => setSelectedOutletId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 shadow-2xs focus:border-[#0284C7] focus:ring-2 focus:ring-sky-100 focus:outline-hidden cursor-pointer"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 shadow-2xs focus:border-[#0284C7] focus:ring-2 focus:ring-sky-100 dark:focus:ring-sky-900 focus:outline-hidden cursor-pointer"
             >
               {data.availableOutlets.map((out) => (
                 <option key={out.id} value={out.id}>
@@ -163,15 +163,15 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
       {/* 2. Sub-Banner Rekomendasi Menu + 6 KPI Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Kotak Toska: Rekomendasi Menu */}
-        <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 p-5 flex flex-col justify-between shadow-xs">
+        <div className="rounded-2xl border border-teal-200 dark:border-teal-800/70 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-950/60 dark:to-slate-900 p-5 flex flex-col justify-between shadow-xs">
           <div>
             <span className="inline-block rounded-full bg-[#0284C7] px-3 py-0.5 text-xs font-bold text-white uppercase tracking-wider">
               INFORMASI
             </span>
-            <h4 className="mt-3 text-sm sm:text-base font-bold text-slate-900 leading-snug">
+            <h4 className="mt-3 text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">
               5 Menu Terlaris di {data.staff.outletName}!
             </h4>
-            <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+            <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               Cek dan optimalkan stok bahan baku untuk menjaga ketersediaan menu favorit pelanggan.
             </p>
           </div>
@@ -190,126 +190,126 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
         {/* 6 Kartu Metrik KPI (3 Kolom x 2 Baris pada LG) */}
         <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           {/* 1. Penjualan Bersih */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs flex flex-col justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Penjualan Bersih
               </span>
               <span
                 className={`rounded-md px-2 py-0.5 text-xs font-bold ${
                   data.kpis.netSalesTrendPct >= 0
-                    ? "bg-sky-50 text-sky-600"
-                    : "bg-rose-50 text-rose-600"
+                    ? "bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300"
+                    : "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300"
                 }`}
               >
                 {data.kpis.netSalesTrendPct >= 0 ? "+" : ""}
                 {data.kpis.netSalesTrendPct}%
               </span>
             </div>
-            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               {formatRupiah(data.kpis.netSales)}
             </div>
           </div>
 
           {/* 2. Total Bill */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs flex flex-col justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Total Bill
               </span>
               <span
                 className={`rounded-md px-2 py-0.5 text-xs font-bold ${
                   data.kpis.totalBillTrendPct >= 0
-                    ? "bg-sky-50 text-sky-600"
-                    : "bg-rose-50 text-rose-600"
+                    ? "bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300"
+                    : "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300"
                 }`}
               >
                 {data.kpis.totalBillTrendPct >= 0 ? "+" : ""}
                 {data.kpis.totalBillTrendPct}%
               </span>
             </div>
-            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               {data.kpis.totalBill}
             </div>
           </div>
 
           {/* 3. Ukuran Bill (Basket Size) */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs flex flex-col justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Ukuran Bill
               </span>
               <span
                 className={`rounded-md px-2 py-0.5 text-xs font-bold ${
                   data.kpis.basketSizeTrendPct >= 0
-                    ? "bg-sky-50 text-sky-600"
-                    : "bg-rose-50 text-rose-600"
+                    ? "bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300"
+                    : "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300"
                 }`}
               >
                 {data.kpis.basketSizeTrendPct >= 0 ? "+" : ""}
                 {data.kpis.basketSizeTrendPct}%
               </span>
             </div>
-            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               {formatRupiah(data.kpis.basketSize)}
             </div>
           </div>
 
           {/* 4. Total Pax */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs flex flex-col justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Total Pax
               </span>
               <span
                 className={`rounded-md px-2 py-0.5 text-xs font-bold ${
                   data.kpis.totalPaxTrendPct >= 0
-                    ? "bg-sky-50 text-sky-600"
-                    : "bg-rose-50 text-rose-600"
+                    ? "bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300"
+                    : "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300"
                 }`}
               >
                 {data.kpis.totalPaxTrendPct >= 0 ? "+" : ""}
                 {data.kpis.totalPaxTrendPct}%
               </span>
             </div>
-            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               {data.kpis.totalPax}
             </div>
           </div>
 
           {/* 5. Pembelanjaan Per Pax */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs flex flex-col justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Pembelanjaan Per Pax
               </span>
               <span
                 className={`rounded-md px-2 py-0.5 text-xs font-bold ${
                   data.kpis.spendPerPaxTrendPct >= 0
-                    ? "bg-sky-50 text-sky-600"
-                    : "bg-rose-50 text-rose-600"
+                    ? "bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300"
+                    : "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300"
                 }`}
               >
                 {data.kpis.spendPerPaxTrendPct >= 0 ? "+" : ""}
                 {data.kpis.spendPerPaxTrendPct}%
               </span>
             </div>
-            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               {formatRupiah(data.kpis.spendPerPax)}
             </div>
           </div>
 
           {/* 6. Penjualan Item Tertunda */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs flex flex-col justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Penjualan Item Tertunda
               </span>
-              <span className="rounded-md px-2 py-0.5 text-xs font-bold bg-slate-100 text-slate-500">
+              <span className="rounded-md px-2 py-0.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                 0%
               </span>
             </div>
-            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <div className="mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               {formatRupiah(data.kpis.pendingSales)}
             </div>
           </div>
@@ -317,13 +317,13 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
       </div>
 
       {/* 3. Statistik Penjualan — Dual-Axis Hourly Line Chart */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 md:p-6 shadow-xs">
+      <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 md:p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             Statistik Penjualan ({data.staff.outletName})
           </h3>
           {/* Legend */}
-          <div className="flex items-center gap-5 text-xs sm:text-sm font-semibold text-slate-600">
+          <div className="flex items-center gap-5 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
             <div className="flex items-center gap-2">
               <span className="h-3.5 w-3.5 rounded-sm bg-[#0284C7]" />
               <span>Total Penjualan Bersih</span>
@@ -343,7 +343,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
           />
           {/* Tooltip Hover Bubble */}
           {activeHourlyTooltip && (
-            <div className="absolute top-2 right-4 rounded-xl bg-slate-900/95 px-4 py-2.5 text-xs text-white shadow-xl pointer-events-none">
+            <div className="absolute top-2 right-4 rounded-xl bg-slate-900/95 dark:bg-slate-800 border border-slate-700 px-4 py-2.5 text-xs text-white shadow-xl pointer-events-none">
               <div className="font-bold text-sky-400 text-sm">
                 Jam {activeHourlyTooltip.hour} WIB
               </div>
@@ -359,30 +359,30 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
       </div>
 
       {/* 4. Tabel Stok Bahan Baku Kritis */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 md:p-6 shadow-xs">
+      <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 md:p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
               Stok Bahan Baku ({data.staff.outletName})
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Monitoring bahan baku kritis di bawah ambang batas aman
             </p>
           </div>
           {/* Badge Bel Oranye Peringatan */}
-          <div className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs sm:text-sm font-semibold text-amber-900 shadow-2xs">
-            <Bell className="h-4 w-4 text-amber-700" />
+          <div className="inline-flex items-center gap-2 rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50 dark:bg-amber-950/50 px-4 py-2 text-xs sm:text-sm font-semibold text-amber-900 dark:text-amber-200 shadow-2xs">
+            <Bell className="h-4 w-4 text-amber-700 dark:text-amber-400" />
             <span>Di bawah batas aman stok:</span>
-            <span className="rounded-md bg-amber-200 px-2 py-0.5 font-bold text-amber-950">
+            <span className="rounded-md bg-amber-200 dark:bg-amber-900/80 px-2 py-0.5 font-bold text-amber-950 dark:text-amber-100">
               {data.criticalStockCount} item
             </span>
           </div>
         </div>
 
         {/* Tabel */}
-        <div className="overflow-x-auto rounded-xl border border-slate-100">
+        <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
           <table className="w-full text-left text-sm">
-            <thead className="bg-sky-50/70 text-slate-700 font-bold border-b border-slate-200/70">
+            <thead className="bg-sky-50/70 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200/70 dark:border-slate-800">
               <tr>
                 <th className="py-3 px-3.5 w-14">No.</th>
                 <th className="py-3 px-3.5">Nama Bahan Baku</th>
@@ -390,10 +390,10 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
                 <th className="py-3 px-3.5 text-right">Stok Sekarang</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {displayedStock.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-slate-400 italic">
+                  <td colSpan={4} className="py-8 text-center text-slate-400 dark:text-slate-500 italic">
                     Semua stok bahan baku cabang {data.staff.outletName} saat ini berada dalam batas aman.
                   </td>
                 </tr>
@@ -402,23 +402,23 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
                   const rowNum = (stockPage - 1) * itemsPerPage + idx + 1;
                   const isNegative = item.currentStock < 0;
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                      <td className="py-3 px-3.5 text-slate-500 font-medium">
+                    <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                      <td className="py-3 px-3.5 text-slate-500 dark:text-slate-400 font-medium">
                         {rowNum}
                       </td>
-                      <td className="py-3 px-3.5 font-bold text-slate-800">
+                      <td className="py-3 px-3.5 font-bold text-slate-800 dark:text-slate-100">
                         {item.name}
                       </td>
-                      <td className="py-3 px-3.5 text-right font-medium text-slate-600">
+                      <td className="py-3 px-3.5 text-right font-medium text-slate-600 dark:text-slate-300">
                         {item.minStock.toLocaleString("id-ID")} {item.unit}
                       </td>
                       <td
                         className={`py-3 px-3.5 text-right font-bold ${
                           isNegative
-                            ? "text-rose-600 font-extrabold"
+                            ? "text-rose-600 dark:text-rose-400 font-extrabold"
                             : item.currentStock <= item.minStock
-                            ? "text-amber-600"
-                            : "text-slate-800"
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-slate-800 dark:text-slate-100"
                         }`}
                       >
                         {item.currentStock.toLocaleString("id-ID")} {item.unit}
@@ -432,13 +432,13 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
         </div>
 
         {/* Pagination Bar */}
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-500">
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               disabled={stockPage <= 1}
               onClick={() => setStockPage((p) => Math.max(1, p - 1))}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 font-bold disabled:opacity-40 cursor-pointer"
+              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 font-bold disabled:opacity-40 cursor-pointer"
             >
               &lt;
             </button>
@@ -451,7 +451,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
                   className={`rounded-lg px-3 py-1.5 font-bold cursor-pointer ${
                     stockPage === p
                       ? "bg-[#0284C7] text-white"
-                      : "border border-slate-200 hover:bg-slate-100"
+                      : "border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
                   }`}
                 >
                   {p}
@@ -463,7 +463,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
               type="button"
               disabled={stockPage >= totalPages}
               onClick={() => setStockPage((p) => Math.min(totalPages, p + 1))}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 font-bold disabled:opacity-40 cursor-pointer"
+              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 font-bold disabled:opacity-40 cursor-pointer"
             >
               &gt;
             </button>
@@ -476,17 +476,17 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
 
       {/* 5. Kontrol Fraud */}
       <div className="space-y-3">
-        <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
           Kontrol Fraud &amp; Pengurangan Pendapatan
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Card 1: Other Cost */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs border-l-4 border-l-amber-500 flex items-center justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs border-l-4 border-l-amber-500 flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-slate-500">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Transaksi Other Cost
               </div>
-              <div className="mt-1.5 text-xl font-extrabold text-slate-900">
+              <div className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-slate-100">
                 {formatRupiah(data.fraudControl.otherCost)}
               </div>
             </div>
@@ -499,12 +499,12 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
           </div>
 
           {/* Card 2: Komplimen / Diskon */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs border-l-4 border-l-amber-500 flex items-center justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs border-l-4 border-l-amber-500 flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-slate-500">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Transaksi Komplimen &amp; Diskon
               </div>
-              <div className="mt-1.5 text-xl font-extrabold text-slate-900">
+              <div className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-slate-100">
                 {formatRupiah(data.fraudControl.komplimen)}
               </div>
             </div>
@@ -517,12 +517,12 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
           </div>
 
           {/* Card 3: Pembatalan / Void */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs border-l-4 border-l-amber-500 flex items-center justify-between">
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs border-l-4 border-l-amber-500 flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-slate-500">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Pembatalan (Void)
               </div>
-              <div className="mt-1.5 text-xl font-extrabold text-slate-900">
+              <div className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-slate-100">
                 {formatRupiah(data.fraudControl.voidAmount)}
               </div>
             </div>
@@ -538,7 +538,7 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
 
       {/* 6. Komposisi — 3 Diagram Donut/Pie */}
       <div className="space-y-3">
-        <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
           Komposisi Penjualan
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -924,7 +924,7 @@ function HourlyDualAxisChart({
               y1={y}
               x2={chartWidth - paddingRight}
               y2={y}
-              stroke="#E2E8F0"
+              className="stroke-slate-200 dark:stroke-slate-800"
               strokeDasharray="2 2"
             />
             {/* Left Y Axis Label (Rp) */}
@@ -932,7 +932,7 @@ function HourlyDualAxisChart({
               x={paddingLeft - 8}
               y={y + 4}
               textAnchor="end"
-              className="text-[11px] fill-slate-400 font-medium"
+              className="text-[11px] fill-slate-400 dark:fill-slate-500 font-medium"
             >
               {salesVal === 0 ? "0,00" : (salesVal / 1000).toLocaleString("id-ID") + " rb"}
             </text>
@@ -941,7 +941,7 @@ function HourlyDualAxisChart({
               x={chartWidth - paddingRight + 8}
               y={y + 4}
               textAnchor="start"
-              className="text-[11px] fill-slate-400 font-medium"
+              className="text-[11px] fill-slate-400 dark:fill-slate-500 font-medium"
             >
               {billsVal}
             </text>
@@ -958,7 +958,7 @@ function HourlyDualAxisChart({
             x={x}
             y={chartHeight - 12}
             textAnchor="middle"
-            className="text-[11px] fill-slate-500 font-semibold"
+            className="text-[11px] fill-slate-500 dark:fill-slate-400 font-semibold"
           >
             {p.hour}
           </text>
@@ -994,9 +994,8 @@ function HourlyDualAxisChart({
             cy={c.y}
             r="4.5"
             fill="#0284C7"
-            stroke="#FFFFFF"
+            className="stroke-white dark:stroke-slate-900 cursor-pointer transition-transform hover:scale-150"
             strokeWidth="2"
-            className="cursor-pointer transition-transform hover:scale-150"
             onMouseEnter={() => onHoverPoint(c.point)}
             onMouseLeave={() => onHoverPoint(null)}
           />
@@ -1006,9 +1005,8 @@ function HourlyDualAxisChart({
             cy={billsCoords[i]?.y ?? c.y}
             r="4.5"
             fill="#EE607D"
-            stroke="#FFFFFF"
+            className="stroke-white dark:stroke-slate-900 cursor-pointer transition-transform hover:scale-150"
             strokeWidth="2"
-            className="cursor-pointer transition-transform hover:scale-150"
             onMouseEnter={() => onHoverPoint(c.point)}
             onMouseLeave={() => onHoverPoint(null)}
           />
@@ -1032,9 +1030,9 @@ function CompositionCard({
   slices: CompositionSlice[];
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs flex flex-col justify-between">
+    <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs flex flex-col justify-between">
       <div>
-        <h4 className="text-center text-sm font-bold text-slate-800 mb-4">
+        <h4 className="text-center text-sm font-bold text-slate-800 dark:text-slate-100 mb-4">
           {title}
         </h4>
 
@@ -1045,16 +1043,16 @@ function CompositionCard({
       </div>
 
       {/* Detail Table */}
-      <div className="mt-4 border-t border-slate-100 pt-3">
+      <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3">
         <table className="w-full text-left text-xs">
-          <thead className="text-slate-500 font-bold border-b border-slate-100">
+          <thead className="text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
             <tr>
               <th className="pb-2">{typeColumnName}</th>
               <th className="pb-2 text-right">Porsi</th>
               <th className="pb-2 text-right">Persentase</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50 text-slate-700 font-medium">
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-800/70 text-slate-700 dark:text-slate-200 font-medium">
             {slices.map((s) => (
               <tr key={s.label}>
                 <td className="py-2 flex items-center gap-2">
@@ -1062,14 +1060,14 @@ function CompositionCard({
                     className="h-2.5 w-2.5 rounded-sm shrink-0"
                     style={{ backgroundColor: s.color }}
                   />
-                  <span className="truncate max-w-[120px] font-bold text-slate-800">
+                  <span className="truncate max-w-[120px] font-bold text-slate-800 dark:text-slate-100">
                     {s.label}
                   </span>
                 </td>
                 <td className="py-2 text-right font-medium">
                   {formatRupiah(s.value)}
                 </td>
-                <td className="py-2 text-right font-extrabold text-slate-900">
+                <td className="py-2 text-right font-extrabold text-slate-900 dark:text-slate-100">
                   {s.percentage}%
                 </td>
               </tr>

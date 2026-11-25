@@ -198,49 +198,49 @@ export function KitchenBoard({
     <div className="space-y-4">
       {/* 3 KPI Stat Cards KDS (Antrian Baru, Sedang Dimasak, Siap Disajikan) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Antrian Baru
           </div>
           <div className="mt-1 text-3xl font-extrabold text-amber-500">
             {newQueueCount}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Menunggu mulai dimasak
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Sedang Dimasak
           </div>
-          <div className="mt-1 text-3xl font-extrabold text-blue-600">
+          <div className="mt-1 text-3xl font-extrabold text-blue-600 dark:text-blue-400">
             {cookingCount}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Diproses koki di Kitchen
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Siap Disajikan (READY)
           </div>
-          <div className="mt-1 text-3xl font-extrabold text-emerald-600">
+          <div className="mt-1 text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
             {initialData.readyCount ?? 0}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Menunggu diantar pelayan
           </div>
         </div>
       </div>
 
       {/* Header Bar Layar Kitchen */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
         <div>
-          <h1 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
-            <ChefHat className="h-5 w-5 text-slate-700" />
+          <h1 className="flex items-center gap-2 text-lg font-extrabold text-slate-900 dark:text-slate-100">
+            <ChefHat className="h-5 w-5 text-slate-700 dark:text-slate-300" />
             Layar Kitchen (KDS) — 1621 Group
           </h1>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
             Alur 3 tahap: Klik <strong>Mulai Masak</strong> saat pesanan
             diproses, lalu tekan <strong>Siap Saji</strong> agar pelayan
             mengantar ke meja.
@@ -284,8 +284,8 @@ export function KitchenBoard({
         <div
           className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium ${
             feedback.type === "success"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-              : "border-red-300 bg-red-50 text-red-950"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+              : "border-red-300 bg-red-50 text-red-950 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
           }`}
         >
           <span>{feedback.text}</span>
@@ -306,7 +306,7 @@ export function KitchenBoard({
           {visibleCancelledTickets.map((ticket) => (
             <div
               key={ticket.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-red-600 bg-red-50 p-4 text-red-950 shadow-sm"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-red-600 dark:border-red-700 bg-red-50 dark:bg-red-950/40 p-4 text-red-950 dark:text-red-200 shadow-sm"
             >
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -318,7 +318,7 @@ export function KitchenBoard({
                     {ticket.tableName} • #{ticket.orderNo}
                   </span>
                 </div>
-                <p className="mt-1 text-xs font-medium text-red-900">
+                <p className="mt-1 text-xs font-medium text-red-900 dark:text-red-300">
                   Item:{" "}
                   {ticket.items
                     .map((i) => `${i.qty}x ${i.productName}`)
@@ -350,7 +350,7 @@ export function KitchenBoard({
       {/* Grid Kartu Tiket Dapur */}
       {initialData.paidTickets.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-sm text-zinc-500">
+          <CardContent className="py-16 text-center text-sm text-zinc-500 dark:text-slate-400">
             Tidak ada antrean pesanan yang perlu dimasak saat ini. Pesanan baru
             akan muncul otomatis begitu kasir mengonfirmasi pembayaran.
           </CardContent>
@@ -367,24 +367,24 @@ export function KitchenBoard({
                 key={ticket.id}
                 className={`flex flex-col justify-between border-2 ${
                   isUrgent
-                    ? "border-red-500 bg-red-50/30"
+                    ? "border-red-500 bg-red-50/30 dark:border-red-500/70 dark:bg-red-950/20"
                     : isWarning
-                      ? "border-amber-400 bg-amber-50/20"
-                      : "border-zinc-900 bg-white"
+                      ? "border-amber-400 bg-amber-50/20 dark:border-amber-500/70 dark:bg-amber-950/20"
+                      : "border-zinc-900 bg-white dark:border-slate-700 dark:bg-slate-900"
                 }`}
               >
-                <CardHeader className="border-b border-zinc-200 pb-3">
+                <CardHeader className="border-b border-zinc-200 dark:border-slate-800 pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white">
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 dark:bg-slate-700 text-xs font-bold text-white">
                           {index + 1}
                         </span>
                         <CardTitle className="text-xl font-extrabold">
                           {ticket.tableName}
                         </CardTitle>
                       </div>
-                      <CardDescription className="mt-1 font-mono text-xs font-semibold text-zinc-700">
+                      <CardDescription className="mt-1 font-mono text-xs font-semibold text-zinc-700 dark:text-slate-300">
                         Order #{ticket.orderNo} • Bayar{" "}
                         {formatTimeWIB(ticket.paidAt)}
                       </CardDescription>
@@ -407,19 +407,19 @@ export function KitchenBoard({
                 </CardHeader>
 
                 <CardContent className="flex flex-1 flex-col justify-between space-y-4 pt-4">
-                  <div className="divide-y divide-zinc-200">
+                  <div className="divide-y divide-zinc-200 dark:divide-slate-800">
                     {ticket.items.map((item) => (
                       <div key={item.id} className="py-2.5 first:pt-0">
                         <div className="flex items-baseline gap-2.5">
-                          <span className="inline-flex min-w-9 items-center justify-center rounded-lg bg-zinc-900 px-2 py-1 text-base font-extrabold text-white">
+                          <span className="inline-flex min-w-9 items-center justify-center rounded-lg bg-zinc-900 dark:bg-slate-800 px-2 py-1 text-base font-extrabold text-white">
                             {item.qty}x
                           </span>
-                          <span className="text-base font-bold text-zinc-900">
+                          <span className="text-base font-bold text-zinc-900 dark:text-slate-100">
                             {item.productName}
                           </span>
                         </div>
                         {item.note && (
-                          <div className="mt-1.5 rounded-lg border border-amber-300 bg-amber-100/80 px-2.5 py-1 text-xs font-bold text-amber-950">
+                          <div className="mt-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-100/80 dark:bg-amber-950/50 px-2.5 py-1 text-xs font-bold text-amber-950 dark:text-amber-200">
                             Catatan Kitchen: {item.note}
                           </div>
                         )}
@@ -433,7 +433,7 @@ export function KitchenBoard({
                         type="button"
                         disabled={processingOrderId === ticket.id}
                         onClick={() => handleStartCooking(ticket.id)}
-                        className="min-h-11 flex-1 bg-blue-100 text-sm font-bold text-blue-900 hover:bg-blue-200"
+                        className="min-h-11 flex-1 bg-blue-100 text-sm font-bold text-blue-900 hover:bg-blue-200 dark:bg-blue-950/60 dark:text-blue-200 dark:hover:bg-blue-900/70"
                       >
                         <ChefHat className="mr-1.5 h-4 w-4" />
                         Mulai Masak

@@ -11,9 +11,25 @@ export default async function StaffLayout({
 }) {
   const staff = await requireStaffRole();
   const allowedNavItems = getNavItemsForRole(staff.role);
+  const badgeOutletId =
+    staff.role === "owner" ? staff.selectedOutletId : staff.outletId;
+
+  const emptyBadges = {
+    pending_orders: 0,
+    pending_opnames: 0,
+    pending_transfers: 0,
+    low_stock: 0,
+    lowStockItems: [],
+  };
+
   const [badges, outletsData] = await Promise.all([
-    getStaffSidebarBadges(staff.outletId),
-    listAllOutletsAction().catch(() => ({ outlets: [], activeOutletId: staff.outletId })),
+    badgeOutletId
+      ? getStaffSidebarBadges(badgeOutletId)
+      : Promise.resolve(emptyBadges),
+    listAllOutletsAction().catch(() => ({
+      outlets: [],
+      activeOutletId: staff.selectedOutletId,
+    })),
   ]);
 
   return (

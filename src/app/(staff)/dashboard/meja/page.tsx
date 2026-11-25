@@ -18,7 +18,7 @@ export default async function MejaPage() {
         <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
           Meja &amp; QR Code Pelanggan — {outlet.name}
         </h1>
-        <p className="text-[13px] text-slate-500">
+        <p className="text-[13px] text-slate-500 dark:text-slate-400">
           Kelola daftar meja aktif, buka simulasi scan pelanggan di tab baru, atau cetak QR Code meja.
         </p>
       </div>

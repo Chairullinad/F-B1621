@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  canOwnerAccessWithoutOutlet,
   canRoleAccessPathname,
   getDefaultRouteForRole,
   isPublicPathname,
@@ -60,6 +61,25 @@ describe("src/lib/auth.ts", () => {
     assert.equal(canRoleAccessPathname("waiter", "/kasir"), false);
     assert.equal(canRoleAccessPathname("waiter", "/dapur"), false);
     assert.equal(canRoleAccessPathname("waiter", "/dashboard"), false);
+  });
+
+  it("membatasi owner tanpa kios aktif (Holding Mode) ke Beranda, Laporan, Setting Kios, dan Akses & Keamanan", () => {
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/keuangan"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/keuangan/detail"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/transaksi"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/cabang"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/cabang/edit"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/staf"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/audit"), true);
+
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/produk"), false);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/inventory"), false);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/pengaturan"), false);
+    assert.equal(canOwnerAccessWithoutOutlet("/kasir"), false);
+    assert.equal(canOwnerAccessWithoutOutlet("/dapur"), false);
+    assert.equal(canOwnerAccessWithoutOutlet("/antar"), false);
   });
 });
 

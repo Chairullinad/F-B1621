@@ -151,14 +151,14 @@ export function InventoryManager({
         <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100 mt-1">
           Bahan Baku Gudang &amp; Resep Menu (BOM)
         </h1>
-        <p className="text-[13px] text-slate-500 mt-0.5">
+        <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">
           Kelola stok bahan baku, komposisi resep per porsi (auto-deduct saat pesanan dibayar), dan kartu mutasi stok.
         </p>
       </div>
 
       {/* Alert Banner Bahan di Bawah Minimum */}
       {lowStockItems.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-red-600 bg-red-50 px-4 py-3 text-sm text-red-950 shadow-2xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-red-600 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-950 dark:text-red-200 shadow-2xs">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
             <span>
@@ -178,45 +178,45 @@ export function InventoryManager({
 
       {/* 3 KPI Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Total Item Bahan Baku
           </div>
-          <div className="mt-1 text-3xl font-extrabold text-slate-900">
+          <div className="mt-1 text-3xl font-extrabold text-slate-900 dark:text-slate-100">
             {initialData.ingredients.length}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Aktif terhubung ke resep &amp; gudang
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Item di Bawah Minimum
           </div>
-          <div className="mt-1 text-3xl font-extrabold text-red-600">
+          <div className="mt-1 text-3xl font-extrabold text-red-600 dark:text-red-400">
             {lowStockItems.length}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Membutuhkan restock segera
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Total Nilai Persediaan
           </div>
-          <div className="mt-1 text-2xl font-extrabold text-blue-700">
+          <div className="mt-1 text-2xl font-extrabold text-blue-700 dark:text-blue-400">
             {formatRupiah(totalInventoryValue)}
           </div>
-          <div className="mt-1 text-xs text-emerald-700">
+          <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
             Otomatis sinkron ke Neraca (Aset Lancar)
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-white px-2 pt-2 rounded-t-xl shadow-2xs">
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 pt-2 rounded-t-xl shadow-2xs">
         {[
           {
             id: "stock",
@@ -242,8 +242,8 @@ export function InventoryManager({
             }
             className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-[13px] font-semibold transition-colors cursor-pointer ${
               activeTab === t.id
-                ? "border-[#1E88E5] text-[#1E88E5]"
-                : "border-transparent text-slate-500 hover:text-[#1E88E5]"
+                ? "border-[#1E88E5] text-[#1E88E5] dark:text-sky-400"
+                : "border-transparent text-slate-500 hover:text-[#1E88E5] dark:text-slate-400 dark:hover:text-sky-400"
             }`}
           >
             {t.icon}
@@ -255,14 +255,14 @@ export function InventoryManager({
       {activeTab === "stock" ? (
         <div className="space-y-6">
           {/* Tabel Bahan Baku */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-            <h3 className="mb-4 text-base font-bold text-slate-900">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+            <h3 className="mb-4 text-base font-bold text-slate-900 dark:text-slate-100">
               Daftar Bahan Baku — f&amp;b1621
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-xs sm:text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-500 dark:text-slate-400">
                     <th className="px-3 py-2.5">Bahan Baku</th>
                     <th className="px-3 py-2.5">Kategori</th>
                     <th className="px-3 py-2.5">Satuan</th>
@@ -276,7 +276,7 @@ export function InventoryManager({
                     <th className="px-3 py-2.5">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {initialData.ingredients.map((item) => {
                     const isLow = item.current_stock <= item.min_stock;
                     const isWarn =
@@ -286,48 +286,48 @@ export function InventoryManager({
                     );
 
                     return (
-                      <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="px-3 py-2.5 font-bold text-slate-900">
+                      <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-slate-100">
                           {item.name}
                         </td>
-                        <td className="px-3 py-2.5 text-slate-600">
+                        <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">
                           {item.category}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-xs text-slate-600">
+                        <td className="px-3 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400">
                           {item.unit}
                         </td>
                         <td
                           className={`px-3 py-2.5 text-right font-extrabold ${
-                            isLow ? "text-red-600" : "text-slate-900"
+                            isLow ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-slate-100"
                           }`}
                         >
                           {item.current_stock}
                         </td>
-                        <td className="px-3 py-2.5 text-right text-slate-500">
+                        <td className="px-3 py-2.5 text-right text-slate-500 dark:text-slate-400">
                           {item.min_stock}
                         </td>
-                        <td className="px-3 py-2.5 text-center font-mono text-xs text-slate-600">
+                        <td className="px-3 py-2.5 text-center font-mono text-xs text-slate-600 dark:text-slate-400">
                           G:{item.storage_stock?.gudang ?? 0} | D:
                           {item.storage_stock?.dapur ?? 0} | B:
                           {item.storage_stock?.bar ?? 0}
                         </td>
-                        <td className="px-3 py-2.5 text-right text-slate-700">
+                        <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300">
                           {formatRupiah(item.unit_cost)}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-bold text-slate-900">
+                        <td className="px-3 py-2.5 text-right font-bold text-slate-900 dark:text-slate-100">
                           {formatRupiah(totalVal)}
                         </td>
                         <td className="px-3 py-2.5">
                           {isLow ? (
-                            <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-800">
+                            <span className="inline-block rounded-full bg-red-100 dark:bg-red-950/60 px-2.5 py-0.5 text-[11px] font-bold text-red-800 dark:text-red-300">
                               Restock
                             </span>
                           ) : isWarn ? (
-                            <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+                            <span className="inline-block rounded-full bg-amber-100 dark:bg-amber-950/60 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 dark:text-amber-300">
                               Menipis
                             </span>
                           ) : (
-                            <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                            <span className="inline-block rounded-full bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
                               Aman
                             </span>
                           )}
@@ -343,15 +343,15 @@ export function InventoryManager({
           {/* Form Tambah Bahan Baku Baru */}
           <form
             onSubmit={handleCreateIngredient}
-            className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs"
           >
-            <h3 className="mb-3 flex items-center gap-1.5 text-base font-bold text-slate-900">
+            <h3 className="mb-3 flex items-center gap-1.5 text-base font-bold text-slate-900 dark:text-slate-100">
               <Plus className="h-4 w-4 text-[#1E88E5]" />
               <span>Tambah Bahan Baku Baru</span>
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
                   Nama Bahan
                 </label>
                 <Input
@@ -362,7 +362,7 @@ export function InventoryManager({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
                   Kategori
                 </label>
                 <Input
@@ -373,7 +373,7 @@ export function InventoryManager({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
                   Satuan
                 </label>
                 <select
@@ -389,7 +389,7 @@ export function InventoryManager({
                         | "porsi"
                     )
                   }
-                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                  className="h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
                 >
                   <option value="kg">kg</option>
                   <option value="gram">gram</option>
@@ -400,7 +400,7 @@ export function InventoryManager({
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
                   Stok Awal
                 </label>
                 <Input
@@ -412,7 +412,7 @@ export function InventoryManager({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
                   Batas Minimum
                 </label>
                 <Input
@@ -424,7 +424,7 @@ export function InventoryManager({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
                   Harga Beli / Satuan (Rp)
                 </label>
                 <Input
@@ -449,13 +449,13 @@ export function InventoryManager({
       ) : null}
 
       {activeTab === "recipes" ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Komposisi Resep Menu (Bill of Materials) &amp; Auto-Deduct
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Setiap kali produk ini terjual (status <code>PAID</code>), stok
                 bahan baku di bawah ini otomatis terpotong dan HPP dicatat ke
                 jurnal akuntansi.
@@ -464,13 +464,13 @@ export function InventoryManager({
           </div>
 
           <div className="mb-4 max-w-md">
-            <label className="mb-1 block text-xs font-bold text-slate-700">
+            <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Pilih Produk Menu
             </label>
             <select
               value={selectedProductId}
               onChange={(e) => setSelectedProductId(e.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold"
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm font-semibold text-slate-900 dark:text-slate-100"
             >
               {initialData.products.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -482,22 +482,22 @@ export function InventoryManager({
 
           {selectedProduct ? (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 p-3.5 text-xs sm:text-sm">
+              <div className="flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3.5 text-xs sm:text-sm">
                 <div>
                   Harga Jual:{" "}
-                  <strong className="text-slate-900">
+                  <strong className="text-slate-900 dark:text-slate-100">
                     {formatRupiah(selectedProduct.price)}
                   </strong>
                 </div>
                 <div>
                   HPP Resep per Porsi:{" "}
-                  <strong className="text-red-600">
+                  <strong className="text-red-600 dark:text-red-400">
                     {formatRupiah(draftCogs)}
                   </strong>
                 </div>
                 <div>
                   Estimasi Margin Kotor:{" "}
-                  <strong className="text-emerald-700">
+                  <strong className="text-emerald-700 dark:text-emerald-400">
                     {formatRupiah(selectedProduct.price - draftCogs)} (
                     {selectedProduct.price > 0
                       ? Math.round(
@@ -522,7 +522,7 @@ export function InventoryManager({
                   return (
                     <div
                       key={idx}
-                      className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 p-2.5"
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 p-2.5"
                     >
                       <select
                         value={row.ingredientId}
@@ -534,7 +534,7 @@ export function InventoryManager({
                           };
                           setRecipeDraft(next);
                         }}
-                        className="h-9 min-w-52 rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium"
+                        className="h-9 min-w-52 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 text-sm font-medium text-slate-900 dark:text-slate-100"
                       >
                         {initialData.ingredients.map((i) => (
                           <option key={i.id} value={i.id}>
@@ -557,10 +557,10 @@ export function InventoryManager({
                         }}
                         className="w-28"
                       />
-                      <span className="text-xs font-semibold text-slate-600">
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                         {ing?.unit ?? "kg"} / porsi
                       </span>
-                      <span className="ml-auto text-xs font-bold text-slate-800">
+                      <span className="ml-auto text-xs font-bold text-slate-800 dark:text-slate-200">
                         Biaya: {formatRupiah(lineCost)}
                       </span>
                       <Button
@@ -604,14 +604,14 @@ export function InventoryManager({
       ) : null}
 
       {activeTab === "movements" ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
-          <h3 className="mb-3 text-base font-bold text-slate-900">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs">
+          <h3 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">
             Riwayat Kartu Stok (Auto-Deduct Penjualan, PO, Opname, &amp; Waste)
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs sm:text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-500 dark:text-slate-400">
                   <th className="px-3 py-2.5">Waktu</th>
                   <th className="px-3 py-2.5">Bahan</th>
                   <th className="px-3 py-2.5">Tipe Mutasi</th>
@@ -621,7 +621,7 @@ export function InventoryManager({
                   <th className="px-3 py-2.5">Keterangan</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {initialData.movements.length === 0 ? (
                   <tr>
                     <td
@@ -633,21 +633,21 @@ export function InventoryManager({
                   </tr>
                 ) : (
                   initialData.movements.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 text-xs text-slate-500">
+                    <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                      <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                         {formatDateTimeWIB(m.created_at)}
                       </td>
-                      <td className="px-3 py-2 font-bold text-slate-900">
+                      <td className="px-3 py-2 font-bold text-slate-900 dark:text-slate-100">
                         {m.ingredient_name}
                       </td>
                       <td className="px-3 py-2">
-                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-700">
+                        <span className="rounded-full bg-blue-50 dark:bg-blue-950/60 px-2.5 py-0.5 text-[11px] font-bold text-blue-700 dark:text-blue-300">
                           {m.movement_type}
                         </span>
                       </td>
                       <td
                         className={`px-3 py-2 text-right font-bold ${
-                          m.qty_delta < 0 ? "text-red-600" : "text-emerald-600"
+                          m.qty_delta < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
                         }`}
                       >
                         {m.qty_delta > 0 ? `+${m.qty_delta}` : m.qty_delta}{" "}
@@ -659,7 +659,7 @@ export function InventoryManager({
                       <td className="px-3 py-2 text-right font-semibold">
                         {formatRupiah(m.total_cost)}
                       </td>
-                      <td className="px-3 py-2 text-xs text-slate-600">
+                      <td className="px-3 py-2 text-xs text-slate-600 dark:text-slate-400">
                         {m.notes ?? m.reference_id ?? "—"}
                       </td>
                     </tr>

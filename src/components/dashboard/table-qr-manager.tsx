@@ -133,7 +133,7 @@ export function TableQrManager({
                       {origin}/m/{selectedTable.qr_token}
                     </Link>
                   </p>
-                  <p className="text-xs text-slate-500 max-w-md">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
                     Desain stiker meja resmi dilengkapi dengan identitas <strong>1621 Group</strong>, nama cabang, nomor meja, dan panduan pemesanan mandiri 3 langkah.
                   </p>
                   <div className="flex flex-wrap gap-2 pt-1">
@@ -220,7 +220,7 @@ export function TableQrManager({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#EBF5FF] text-xs font-extrabold text-[#1B5E86]">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#EBF5FF] dark:bg-sky-950/60 text-xs font-extrabold text-[#1B5E86] dark:text-sky-300">
                         {table.table_no}
                       </span>
                       <span className="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -234,7 +234,7 @@ export function TableQrManager({
                     </Badge>
                   </div>
                   <p
-                    className="truncate font-mono text-xs text-slate-500"
+                    className="truncate font-mono text-xs text-slate-500 dark:text-slate-400"
                     title={table.qr_token}
                   >
                     Token: {table.qr_token.slice(0, 16)}...

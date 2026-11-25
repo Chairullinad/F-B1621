@@ -126,58 +126,58 @@ export function SupplierPoManager({
     <div className="space-y-6">
       {/* 4 KPI Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Total Supplier
           </div>
-          <div className="mt-1 text-3xl font-extrabold text-slate-900">
+          <div className="mt-1 text-3xl font-extrabold text-slate-900 dark:text-slate-100">
             {initialData.suppliers.length}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {initialData.suppliers.filter((s) => s.is_active).length} supplier
             aktif
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Total Hutang Usaha
           </div>
-          <div className="mt-1 text-2xl font-extrabold text-amber-600">
+          <div className="mt-1 text-2xl font-extrabold text-amber-600 dark:text-amber-400">
             {formatRupiah(totalPayables)}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Tercatat di Neraca (Kewajiban)
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">PO Aktif</div>
-          <div className="mt-1 text-3xl font-extrabold text-blue-600">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">PO Aktif</div>
+          <div className="mt-1 text-3xl font-extrabold text-blue-600 dark:text-blue-400">
             {activePoCount}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Menunggu penerimaan gudang
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             Total PO Periode Ini
           </div>
-          <div className="mt-1 text-2xl font-extrabold text-slate-900">
+          <div className="mt-1 text-2xl font-extrabold text-slate-900 dark:text-slate-100">
             {formatRupiah(totalPoValue)}
           </div>
-          <div className="mt-1 text-xs text-emerald-700">
+          <div className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
             Terintegrasi ke Persediaan &amp; PPN Masukan
           </div>
         </div>
       </div>
 
       {/* Daftar Supplier */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-base font-bold text-slate-900">
+          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
             Daftar Supplier — 1621 Group
           </h3>
           <Button
@@ -193,7 +193,7 @@ export function SupplierPoManager({
         {showAddSupplier ? (
           <form
             onSubmit={handleCreateSupplier}
-            className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-blue-200 bg-blue-50/40 p-4 sm:grid-cols-5"
+            className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-950/30 p-4 sm:grid-cols-5"
           >
             <Input
               placeholder="Nama Perusahaan Supplier"
@@ -227,7 +227,7 @@ export function SupplierPoManager({
                     e.target.value as "COD" | "7 Hari" | "14 Hari" | "30 Hari"
                   )
                 }
-                className="h-9 flex-1 rounded-md border border-slate-200 bg-white px-2 text-xs"
+                className="h-9 flex-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs text-slate-900 dark:text-slate-100"
               >
                 <option value="COD">COD</option>
                 <option value="7 Hari">7 Hari</option>
@@ -244,7 +244,7 @@ export function SupplierPoManager({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-500 dark:text-slate-400">
                 <th className="px-3 py-2.5">Nama Supplier</th>
                 <th className="px-3 py-2.5">Kategori</th>
                 <th className="px-3 py-2.5">Kontak</th>
@@ -254,30 +254,30 @@ export function SupplierPoManager({
                 <th className="px-3 py-2.5">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {initialData.suppliers.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50">
+                <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
                   <td className="px-3 py-2.5">
-                    <div className="font-bold text-slate-900">{s.name}</div>
-                    <div className="text-xs text-slate-500">{s.address}</div>
+                    <div className="font-bold text-slate-900 dark:text-slate-100">{s.name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{s.address}</div>
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-800">
+                    <span className="inline-block rounded-full bg-blue-100 dark:bg-blue-950/60 px-2.5 py-0.5 text-[11px] font-bold text-blue-800 dark:text-blue-300">
                       {s.category}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 font-mono text-xs text-slate-700">
+                  <td className="px-3 py-2.5 font-mono text-xs text-slate-700 dark:text-slate-300">
                     {s.contact}
                   </td>
-                  <td className="px-3 py-2.5 font-semibold text-slate-700">
+                  <td className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
                     {s.payment_term}
                   </td>
-                  <td className="px-3 py-2.5 font-semibold text-slate-700">
+                  <td className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
                     {s.rating}/5
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     {s.payable_balance > 0 ? (
-                      <strong className="text-amber-600">
+                      <strong className="text-amber-600 dark:text-amber-400">
                         {formatRupiah(s.payable_balance)}
                       </strong>
                     ) : (
@@ -288,8 +288,8 @@ export function SupplierPoManager({
                     <span
                       className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                         s.is_active
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-red-100 text-red-800"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                          : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
                       }`}
                     >
                       {s.is_active ? "aktif" : "nonaktif"}
@@ -305,20 +305,20 @@ export function SupplierPoManager({
       {/* Buat PO Baru */}
       <form
         onSubmit={handleCreatePo}
-        className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
+        className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs"
       >
-        <h3 className="mb-3 text-base font-bold text-slate-900">
+        <h3 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">
           Buat Purchase Order (PO) Bahan Baku
         </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Pilih Supplier
             </label>
             <select
               value={poSupplierId}
               onChange={(e) => setPoSupplierId(e.target.value)}
-              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+              className="h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
             >
               {initialData.suppliers.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -328,7 +328,7 @@ export function SupplierPoManager({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Bahan Baku
             </label>
             <select
@@ -340,7 +340,7 @@ export function SupplierPoManager({
                 );
                 if (found) setPoUnitCost(String(found.unit_cost));
               }}
-              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+              className="h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-slate-900 dark:text-slate-100"
             >
               {initialData.ingredients.map((i) => (
                 <option key={i.id} value={i.id}>
@@ -350,7 +350,7 @@ export function SupplierPoManager({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Kuantitas Beli
             </label>
             <Input
@@ -363,7 +363,7 @@ export function SupplierPoManager({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Harga Beli / Satuan (Rp)
             </label>
             <Input
@@ -387,14 +387,14 @@ export function SupplierPoManager({
       </form>
 
       {/* Daftar Purchase Order */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <h3 className="mb-3 text-base font-bold text-slate-900">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+        <h3 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">
           Daftar Purchase Order (PO)
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-500 dark:text-slate-400">
                 <th className="px-3 py-2.5">No. PO</th>
                 <th className="px-3 py-2.5">Supplier</th>
                 <th className="px-3 py-2.5">Tanggal</th>
@@ -404,30 +404,30 @@ export function SupplierPoManager({
                 <th className="px-3 py-2.5">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {initialData.purchaseOrders.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2.5 font-extrabold text-slate-900">
+                <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                  <td className="px-3 py-2.5 font-extrabold text-slate-900 dark:text-slate-100">
                     {p.po_no}
                   </td>
-                  <td className="px-3 py-2.5 font-medium text-slate-800">
+                  <td className="px-3 py-2.5 font-medium text-slate-800 dark:text-slate-200">
                     {p.supplier_name_snapshot}
                   </td>
-                  <td className="px-3 py-2.5 text-slate-600">{p.order_date}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-700">
+                  <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">{p.order_date}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-700 dark:text-slate-300">
                     {p.items_summary}
                   </td>
-                  <td className="px-3 py-2.5 text-right font-bold text-slate-900">
+                  <td className="px-3 py-2.5 text-right font-bold text-slate-900 dark:text-slate-100">
                     {formatRupiah(Number(p.total_amount))}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
                       className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                         p.status === "lunas" || p.status === "diterima"
-                          ? "bg-emerald-100 text-emerald-800"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                           : p.status === "dikirim"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-amber-100 text-amber-800"
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
                       }`}
                     >
                       {p.status}
@@ -439,7 +439,7 @@ export function SupplierPoManager({
                         type="button"
                         disabled={isPending}
                         onClick={() => handleReceivePo(p.id)}
-                        className="rounded-lg bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-200"
+                        className="rounded-lg bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
                       >
                         ✓ Terima Barang (+Stok)
                       </button>
@@ -448,12 +448,12 @@ export function SupplierPoManager({
                         type="button"
                         disabled={isPending}
                         onClick={() => handlePayPo(p.id)}
-                        className="rounded-lg bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 hover:bg-blue-200"
+                        className="rounded-lg bg-blue-100 px-3 py-1 text-xs font-bold text-blue-800 hover:bg-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/70"
                       >
                         Lunasi Hutang
                       </button>
                     ) : (
-                      <span className="text-xs text-slate-400">Selesai</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">Selesai</span>
                     )}
                   </td>
                 </tr>

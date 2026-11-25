@@ -12,7 +12,7 @@ export default async function WastePage() {
         <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
           Barang Rusak (Waste &amp; Spoilage)
         </h1>
-        <p className="text-[13px] text-slate-500">
+        <p className="text-[13px] text-slate-500 dark:text-slate-400">
           Catat bahan baku rusak, kedaluwarsa, atau tumpah yang otomatis memotong stok dan menjurnal Beban Waste.
         </p>
       </div>

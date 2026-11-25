@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  canOwnerAccessWithoutOutlet,
   canRoleAccessPathname,
   getDefaultRouteForRole,
   isStaffProtectedPathname,
@@ -99,6 +100,21 @@ export async function middleware(request: NextRequest) {
     redirectUrl.pathname = getDefaultRouteForRole(role);
     redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Owner yang belum masuk ke salah satu kios hanya boleh membuka Dashboard Holding,
+  // Laporan Keuangan, dan Setting Kios.
+  if (
+    isProtected &&
+    role === "owner" &&
+    !canOwnerAccessWithoutOutlet(pathname) &&
+    !request.cookies.get("fnb1621_active_outlet")?.value
+  ) {
+    const holdingUrl = request.nextUrl.clone();
+    holdingUrl.pathname = "/dashboard";
+    holdingUrl.search = "";
+    holdingUrl.searchParams.set("pilih_kios", "1");
+    return NextResponse.redirect(holdingUrl);
   }
 
   return supabaseResponse;

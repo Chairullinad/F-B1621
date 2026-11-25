@@ -709,15 +709,15 @@ export function CashierWorkspace({
     <div className="space-y-4">
       {/* Banner Notifikasi Real-time Konfirmasi QRIS dari Meja */}
       {qrisClaimedPendingOrders.length > 0 && (
-        <div className="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 shadow-sm">
+        <div className="rounded-xl border-2 border-emerald-500 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="flex items-center gap-1.5 text-sm font-bold text-emerald-950">
-                <Bell className="h-4 w-4 text-emerald-700" />
+              <p className="flex items-center gap-1.5 text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                <Bell className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
                 Notifikasi Pembayaran QRIS Masuk (
                 {qrisClaimedPendingOrders.length} Meja Menunggu Verifikasi)
               </p>
-              <p className="text-xs text-emerald-800">
+              <p className="text-xs text-emerald-800 dark:text-emerald-300">
                 Pelanggan menekan tombol &ldquo;Saya Sudah Bayar&rdquo;. Cocokkan{" "}
                 <strong>Nomor Meja + Nominal Tagihan</strong> pada mutasi QRIS
                 toko, lalu klik <strong>Pembayaran Sesuai</strong>.
@@ -748,8 +748,8 @@ export function CashierWorkspace({
         <div
           className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3.5 text-sm font-medium ${
             feedback.type === "success"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-              : "border-red-300 bg-red-50 text-red-900"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+              : "border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
           }`}
         >
           <span>{feedback.text}</span>
@@ -782,7 +782,7 @@ export function CashierWorkspace({
       )}
 
       {/* Header Bar Kasir */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -843,7 +843,7 @@ export function CashierWorkspace({
         <div className="space-y-3 lg:col-span-5">
           {displayedOrders.length === 0 ? (
             <Card>
-              <CardContent className="py-10 text-center text-sm text-zinc-500">
+              <CardContent className="py-10 text-center text-sm text-zinc-500 dark:text-slate-400">
                 {activeTab === "pending"
                   ? "Belum ada order yang menunggu pembayaran saat ini."
                   : "Belum ada riwayat order yang cocok."}
@@ -863,16 +863,16 @@ export function CashierWorkspace({
                   onClick={() => selectOrder(ord)}
                   className={`w-full rounded-xl border p-4 text-left transition-all ${
                     isSelected
-                      ? "border-2 border-zinc-900 bg-zinc-50 shadow-sm"
+                      ? "border-2 border-zinc-900 bg-zinc-50 shadow-sm dark:border-sky-500 dark:bg-slate-800/80"
                       : isQrisClaimed
-                        ? "border-2 border-emerald-500 bg-emerald-50/60 hover:bg-emerald-50"
-                        : "border-zinc-200 bg-white hover:border-zinc-300"
+                        ? "border-2 border-emerald-500 bg-emerald-50/60 hover:bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60"
+                        : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-base font-bold text-zinc-900">
+                        <span className="text-base font-bold text-zinc-900 dark:text-slate-100">
                           {ord.tableName}
                         </span>
                         <Badge variant="outline" className="font-mono">
@@ -882,7 +882,7 @@ export function CashierWorkspace({
                           {STATUS_LABELS[ord.status]}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-xs text-zinc-500">
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-slate-400">
                         Masuk pukul {formatTimeWIB(ord.createdAt)} •{" "}
                         {ord.items.reduce((acc, i) => acc + i.qty, 0)} item •{" "}
                         {ord.source === "customer_qr"
@@ -891,10 +891,10 @@ export function CashierWorkspace({
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-base font-extrabold text-zinc-900">
+                      <p className="text-base font-extrabold text-zinc-900 dark:text-slate-100">
                         {formatRupiah(ord.total)}
                       </p>
-                      <span className="text-xs font-medium text-zinc-600">
+                      <span className="text-xs font-medium text-zinc-600 dark:text-slate-400">
                         {ord.status === "pending"
                           ? ord.paymentChoice === "qris"
                             ? "Metode: QRIS Meja"
@@ -908,8 +908,8 @@ export function CashierWorkspace({
 
                   {/* Badge Notifikasi Pelanggan Sudah Bayar QRIS */}
                   {isQrisClaimed && (
-                    <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-emerald-400 bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-950">
-                      <Bell className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                    <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-emerald-400 dark:border-emerald-700 bg-emerald-100 dark:bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-950 dark:text-emerald-200">
+                      <Bell className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
                       <span>
                         {ord.tableName} • Pelanggan Konfirmasi Sudah Bayar QRIS
                         • Cek Mutasi {formatRupiah(ord.total)}
@@ -919,8 +919,8 @@ export function CashierWorkspace({
 
                   {/* Indikator dibuka kasir lain (Presence) */}
                   {openedByOthers.length > 0 && (
-                    <div className="mt-2 flex items-center gap-1.5 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900">
-                      <Eye className="h-3.5 w-3.5 shrink-0 text-amber-700" />
+                    <div className="mt-2 flex items-center gap-1.5 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2.5 py-1 text-xs font-medium text-amber-900 dark:text-amber-200">
+                      <Eye className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
                       <span>Sedang dibuka oleh: {openedByOthers.join(", ")}</span>
                     </div>
                   )}
@@ -934,14 +934,14 @@ export function CashierWorkspace({
         <div className="lg:col-span-7">
           {!selectedOrder ? (
             <Card>
-              <CardContent className="py-16 text-center text-sm text-zinc-500">
+              <CardContent className="py-16 text-center text-sm text-zinc-500 dark:text-slate-400">
                 Pilih salah satu order di sebelah kiri untuk memproses
                 pembayaran, revisi item, diskon, atau cetak struk.
               </CardContent>
             </Card>
           ) : (
             <Card>
-              <CardHeader className="border-b border-zinc-100 pb-4">
+              <CardHeader className="border-b border-zinc-100 dark:border-slate-800 pb-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -1079,30 +1079,30 @@ export function CashierWorkspace({
               <CardContent className="space-y-5 pt-4">
                 {/* Daftar Item Pesanan Saat Ini */}
                 {actionMode !== "revision" && (
-                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3.5">
-                    <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  <div className="rounded-xl border border-zinc-200 dark:border-slate-800 bg-zinc-50/60 dark:bg-slate-800/50 p-3.5">
+                    <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">
                       Rincian Item Pesanan
                     </h3>
-                    <div className="divide-y divide-zinc-200/70">
+                    <div className="divide-y divide-zinc-200/70 dark:divide-slate-700/70">
                       {selectedOrder.items.map((item) => (
                         <div
                           key={item.id}
                           className="flex items-start justify-between gap-2 py-2 text-sm"
                         >
                           <div>
-                            <span className="font-semibold text-zinc-900">
+                            <span className="font-semibold text-zinc-900 dark:text-slate-100">
                               {item.qty}x {item.productName}
                             </span>
-                            <span className="ml-2 text-xs text-zinc-500">
+                            <span className="ml-2 text-xs text-zinc-500 dark:text-slate-400">
                               (@ {formatRupiah(item.unitPrice)})
                             </span>
                             {item.note && (
-                              <p className="text-xs italic text-zinc-600">
+                              <p className="text-xs italic text-zinc-600 dark:text-slate-400">
                                 Catatan: &ldquo;{item.note}&rdquo;
                               </p>
                             )}
                           </div>
-                          <span className="font-semibold text-zinc-900">
+                          <span className="font-semibold text-zinc-900 dark:text-slate-100">
                             {formatRupiah(item.lineTotal)}
                           </span>
                         </div>
@@ -1110,13 +1110,13 @@ export function CashierWorkspace({
                     </div>
 
                     {/* Ringkasan Angka Tagihan */}
-                    <div className="mt-3 space-y-1 border-t border-zinc-200 pt-3 text-sm">
-                      <div className="flex justify-between text-zinc-600">
+                    <div className="mt-3 space-y-1 border-t border-zinc-200 dark:border-slate-700 pt-3 text-sm">
+                      <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                         <span>Subtotal</span>
                         <span>{formatRupiah(selectedOrder.subtotal)}</span>
                       </div>
                       {selectedOrder.discount > 0 && (
-                        <div className="flex justify-between text-emerald-700">
+                        <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
                           <span>
                             Diskon{" "}
                             {selectedOrder.discountReason
@@ -1127,7 +1127,7 @@ export function CashierWorkspace({
                         </div>
                       )}
                       {selectedOrder.serviceAmount > 0 && (
-                        <div className="flex justify-between text-zinc-600">
+                        <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                           <span>
                             Service Charge ({selectedOrder.serviceRate ?? 0}%)
                           </span>
@@ -1137,7 +1137,7 @@ export function CashierWorkspace({
                         </div>
                       )}
                       {selectedOrder.taxAmount > 0 && (
-                        <div className="flex justify-between text-zinc-600">
+                        <div className="flex justify-between text-zinc-600 dark:text-slate-400">
                           <span>
                             Pajak Restoran ({selectedOrder.taxRate ?? 0}%
                             {selectedOrder.priceIncludesTax
@@ -1148,7 +1148,7 @@ export function CashierWorkspace({
                           <span>{formatRupiah(selectedOrder.taxAmount)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between border-t border-zinc-200 pt-2 text-base font-extrabold text-zinc-900">
+                      <div className="flex justify-between border-t border-zinc-200 dark:border-slate-700 pt-2 text-base font-extrabold text-zinc-900 dark:text-slate-100">
                         <span>Total Tagihan</span>
                         <span>{formatRupiah(selectedOrder.total)}</span>
                       </div>
@@ -1164,23 +1164,23 @@ export function CashierWorkspace({
                       <div
                         className={`rounded-xl border-2 p-4 ${
                           selectedOrder.customerClaimedPaidAt
-                            ? "border-emerald-500 bg-emerald-50/70"
-                            : "border-zinc-200 bg-white"
+                            ? "border-emerald-500 bg-emerald-50/70 dark:border-emerald-600 dark:bg-emerald-950/30"
+                            : "border-zinc-200 bg-white dark:border-slate-800 dark:bg-slate-900"
                         }`}
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <h4 className="text-sm font-bold text-zinc-900">
+                            <h4 className="text-sm font-bold text-zinc-900 dark:text-slate-100">
                               Opsi 1 — Verifikasi Pembayaran QRIS di Meja
                             </h4>
-                            <p className="mt-0.5 text-xs text-zinc-600">
+                            <p className="mt-0.5 text-xs text-zinc-600 dark:text-slate-400">
                               Cocokkan uang masuk pada aplikasi merchant QRIS
                               untuk{" "}
-                              <strong className="text-zinc-900">
+                              <strong className="text-zinc-900 dark:text-slate-100">
                                 {selectedOrder.tableName}
                               </strong>{" "}
                               sebesar{" "}
-                              <strong className="text-zinc-900">
+                              <strong className="text-zinc-900 dark:text-slate-100">
                                 {formatRupiah(selectedOrder.total)}
                               </strong>{" "}
                               (nominal murni tanpa tambahan angka unik).
@@ -1210,7 +1210,7 @@ export function CashierWorkspace({
                             variant="outline"
                             disabled={isSubmitting}
                             onClick={() => setShowQrisPopup(true)}
-                            className="border-sky-300 bg-sky-50 font-semibold text-sky-900 hover:bg-sky-100"
+                            className="border-sky-300 bg-sky-50 font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60"
                           >
                             <QrCode className="mr-1.5 h-4 w-4" />
                             Tampilkan Popup QRIS Tagihan
@@ -1230,11 +1230,11 @@ export function CashierWorkspace({
                       </div>
 
                       {/* Kotak Penerimaan Tunai di Kasir */}
-                      <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                        <h4 className="text-sm font-bold text-zinc-900">
+                      <div className="rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+                        <h4 className="text-sm font-bold text-zinc-900 dark:text-slate-100">
                           Opsi 2 — Pembayaran Tunai di Kasir
                         </h4>
-                        <p className="mt-0.5 text-xs text-zinc-600">
+                        <p className="mt-0.5 text-xs text-zinc-600 dark:text-slate-400">
                           Masukkan nominal uang tunai yang diterima dari
                           pelanggan. Sistem menghitung kembalian otomatis.
                         </p>
@@ -1268,7 +1268,7 @@ export function CashierWorkspace({
 
                         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-700">
+                            <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-slate-300">
                               Uang Diterima (Rp)
                             </label>
                             <Input
@@ -1281,8 +1281,8 @@ export function CashierWorkspace({
                               }
                             />
                           </div>
-                          <div className="flex flex-col justify-center rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-                            <span className="text-xs text-zinc-500">
+                          <div className="flex flex-col justify-center rounded-lg border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/70 px-3 py-2">
+                            <span className="text-xs text-zinc-500 dark:text-slate-400">
                               {cashShortfall > 0
                                 ? "Kurang Bayar"
                                 : "Uang Kembalian"}
@@ -1290,8 +1290,8 @@ export function CashierWorkspace({
                             <span
                               className={`text-lg font-extrabold ${
                                 cashShortfall > 0
-                                  ? "text-red-600"
-                                  : "text-emerald-700"
+                                  ? "text-red-600 dark:text-red-400"
+                                  : "text-emerald-700 dark:text-emerald-400"
                               }`}
                             >
                               {cashShortfall > 0
@@ -1319,19 +1319,19 @@ export function CashierWorkspace({
                 {/* PANEL 2: REVISI ITEM ORDER (Hanya saat PENDING) */}
                 {selectedOrder.status === "pending" &&
                   actionMode === "revision" && (
-                    <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-4">
+                    <div className="space-y-4 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
                       <div>
-                        <h4 className="text-sm font-bold text-zinc-900">
+                        <h4 className="text-sm font-bold text-zinc-900 dark:text-slate-100">
                           Revisi Item Pesanan (Sebelum Dibayar)
                         </h4>
-                        <p className="text-xs text-zinc-600">
+                        <p className="text-xs text-zinc-600 dark:text-slate-400">
                           Ubah jumlah, hapus item, atau tambah produk. Kondisi
                           sebelum &amp; sesudah revisi tercatat otomatis di
                           Jejak Audit.
                         </p>
                       </div>
 
-                      <div className="divide-y divide-zinc-200 rounded-lg border border-zinc-200">
+                      <div className="divide-y divide-zinc-200 dark:divide-slate-800 rounded-lg border border-zinc-200 dark:border-slate-800">
                         {draftItems.map((item, idx) => (
                           <div
                             key={`${item.productId}-${idx}`}
@@ -1339,10 +1339,10 @@ export function CashierWorkspace({
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div>
-                                <p className="text-sm font-semibold text-zinc-900">
+                                <p className="text-sm font-semibold text-zinc-900 dark:text-slate-100">
                                   {item.productName}
                                 </p>
-                                <p className="text-xs text-zinc-500">
+                                <p className="text-xs text-zinc-500 dark:text-slate-400">
                                   {formatRupiah(item.unitPrice)} / porsi
                                 </p>
                               </div>
@@ -1391,7 +1391,7 @@ export function CashierWorkspace({
                           aria-label="Pilih produk tambahan"
                           value={addProductId}
                           onChange={(e) => setAddProductId(e.target.value)}
-                          className="h-11 flex-1 rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+                          className="h-11 flex-1 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-zinc-900 dark:text-slate-100"
                         >
                           {initialData.products.map((p) => (
                             <option key={p.id} value={p.id}>
@@ -1409,7 +1409,7 @@ export function CashierWorkspace({
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-xs font-semibold text-zinc-700">
+                        <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-slate-300">
                           Alasan Revisi (Wajib)
                         </label>
                         <Input
@@ -1445,12 +1445,12 @@ export function CashierWorkspace({
 
                 {/* PANEL 2B: MEKANISME REBILLING / MENU HABIS */}
                 {actionMode === "rebill" && (
-                  <div className="space-y-4 rounded-xl border-2 border-sky-300 bg-sky-50/40 p-4">
+                  <div className="space-y-4 rounded-xl border-2 border-sky-300 dark:border-sky-800 bg-sky-50/40 dark:bg-sky-950/30 p-4">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                         Mekanisme Rebilling &amp; Penanganan Menu Habis
                       </h4>
-                      <p className="mt-0.5 text-xs text-slate-600">
+                      <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
                         Gunakan fitur ini ketika pelanggan sudah memesan
                         (termasuk sudah transfer QRIS), tetapi menu yang dipesan
                         ternyata <strong>Habis</strong>. Anda dapat langsung
@@ -1462,8 +1462,8 @@ export function CashierWorkspace({
                     </div>
 
                     {/* Langkah 1: Tandai Menu yang Habis */}
-                    <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 space-y-2">
-                      <p className="text-xs font-bold text-amber-950">
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 p-3 space-y-2">
+                      <p className="text-xs font-bold text-amber-950 dark:text-amber-200">
                         1. Centang Menu yang Habis (Otomatis Nonaktif di Buku
                         Menu Pelanggan):
                       </p>
@@ -1475,9 +1475,9 @@ export function CashierWorkspace({
                           return (
                             <label
                               key={item.id}
-                              className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs"
+                              className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs"
                             >
-                              <span className="flex items-center gap-2 font-semibold text-slate-900">
+                              <span className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100">
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
@@ -1498,7 +1498,7 @@ export function CashierWorkspace({
                                       );
                                     }
                                   }}
-                                  className="h-4 w-4 rounded border-slate-300"
+                                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-600"
                                 />
                                 {item.qty}x {item.productName} (
                                 {formatRupiah(item.unitPrice)})
@@ -1517,30 +1517,30 @@ export function CashierWorkspace({
                     </div>
 
                     {/* Langkah 2: Daftar Item Pengganti untuk Rebilling */}
-                    <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
-                      <p className="text-xs font-bold text-slate-900">
+                    <div className="space-y-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
+                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
                         2. Daftar Menu Pengganti (Jika Pelanggan Ingin Tukar
                         Pesanan):
                       </p>
                       {draftItems.length === 0 ? (
-                        <p className="py-2 text-xs text-slate-500">
+                        <p className="py-2 text-xs text-slate-500 dark:text-slate-400">
                           Semua item dihapus. Tambahkan menu pengganti di bawah,
                           atau klik{" "}
                           <strong>Batal Penuh (Info Menu Habis)</strong> jika
                           pelanggan tidak jadi memesan.
                         </p>
                       ) : (
-                        <div className="divide-y divide-slate-200 rounded-lg border border-slate-200">
+                        <div className="divide-y divide-slate-200 dark:divide-slate-800 rounded-lg border border-slate-200 dark:border-slate-800">
                           {draftItems.map((item, idx) => (
                             <div
                               key={`${item.productId}-${idx}`}
                               className="flex items-center justify-between gap-2 p-2.5"
                             >
                               <div>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                                   {item.productName}
                                 </p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
                                   {formatRupiah(item.unitPrice)} / porsi
                                 </p>
                               </div>
@@ -1575,7 +1575,7 @@ export function CashierWorkspace({
                           aria-label="Pilih menu pengganti"
                           value={addProductId}
                           onChange={(e) => setAddProductId(e.target.value)}
-                          className="h-10 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-xs"
+                          className="h-10 flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-slate-100"
                         >
                           {initialData.products
                             .filter(
@@ -1613,20 +1613,20 @@ export function CashierWorkspace({
                       const diff = newDraftSubtotal - initialPaidAmt;
 
                       return (
-                        <div className="rounded-lg border border-sky-200 bg-white p-3 space-y-2">
+                        <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-white dark:bg-slate-900 p-3 space-y-2">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-900">
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
                               3. Perhitungan Uang &amp; Selisih Rebilling:
                             </span>
                             {selectedOrder.status === "pending" && (
-                              <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-slate-700">
+                              <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
                                 <input
                                   type="checkbox"
                                   checked={rebillAlreadyPaid}
                                   onChange={(e) =>
                                     setRebillAlreadyPaid(e.target.checked)
                                   }
-                                  className="h-4 w-4 rounded border-slate-300"
+                                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-600"
                                 />
                                 Pelanggan Sudah Transfer QRIS Awal (
                                 {formatRupiah(selectedOrder.total)})
@@ -1635,29 +1635,29 @@ export function CashierWorkspace({
                           </div>
 
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 text-xs">
-                            <div className="rounded-md bg-slate-50 p-2.5">
-                              <span className="block text-slate-500">
+                            <div className="rounded-md bg-slate-50 dark:bg-slate-800/70 p-2.5">
+                              <span className="block text-slate-500 dark:text-slate-400">
                                 Uang Sudah Masuk
                               </span>
-                              <span className="text-sm font-bold text-slate-900">
+                              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                                 {formatRupiah(initialPaidAmt)}
                               </span>
                             </div>
-                            <div className="rounded-md bg-slate-50 p-2.5">
-                              <span className="block text-slate-500">
+                            <div className="rounded-md bg-slate-50 dark:bg-slate-800/70 p-2.5">
+                              <span className="block text-slate-500 dark:text-slate-400">
                                 Total Menu Pengganti
                               </span>
-                              <span className="text-sm font-bold text-slate-900">
+                              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                                 {formatRupiah(newDraftSubtotal)}
                               </span>
                             </div>
                             <div
                               className={`rounded-md p-2.5 ${
                                 diff === 0
-                                  ? "bg-emerald-50 text-emerald-900"
+                                  ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200"
                                   : diff < 0
-                                    ? "bg-amber-50 text-amber-950"
-                                    : "bg-sky-50 text-sky-950"
+                                    ? "bg-amber-50 text-amber-950 dark:bg-amber-950/50 dark:text-amber-200"
+                                    : "bg-sky-50 text-sky-950 dark:bg-sky-950/50 dark:text-sky-200"
                               }`}
                             >
                               <span className="block font-medium">
@@ -1679,7 +1679,7 @@ export function CashierWorkspace({
                     })()}
 
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-700">
+                      <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         Catatan / Alasan Rebilling
                       </label>
                       <Input
@@ -1731,12 +1731,12 @@ export function CashierWorkspace({
                 {/* PANEL 3: DISKON ORDER (Hanya saat PENDING) */}
                 {selectedOrder.status === "pending" &&
                   actionMode === "discount" && (
-                    <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-4">
+                    <div className="space-y-4 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
                       <div>
-                        <h4 className="text-sm font-bold text-zinc-900">
+                        <h4 className="text-sm font-bold text-zinc-900 dark:text-slate-100">
                           Pengaturan Diskon Order
                         </h4>
-                        <p className="text-xs text-zinc-600">
+                        <p className="text-xs text-zinc-600 dark:text-slate-400">
                           Setiap pemberian diskon wajib disertai alasan dan
                           dicatat di Jejak Audit.
                           {initialData.outlet.maxCashierDiscountPercent !==
@@ -1773,7 +1773,7 @@ export function CashierWorkspace({
 
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-zinc-700">
+                          <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-slate-300">
                             {discountType === "amount"
                               ? "Nominal Diskon (Rp)"
                               : "Persentase Diskon (%)"}
@@ -1791,7 +1791,7 @@ export function CashierWorkspace({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-xs font-semibold text-zinc-700">
+                          <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-slate-300">
                             Alasan Diskon (Wajib)
                           </label>
                           <Input
@@ -1840,12 +1840,12 @@ export function CashierWorkspace({
 
                 {/* PANEL 4: PEMBATALAN ORDER & REFUND */}
                 {actionMode === "cancel" && (
-                  <div className="space-y-4 rounded-xl border-2 border-red-200 bg-red-50/40 p-4">
+                  <div className="space-y-4 rounded-xl border-2 border-red-200 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/30 p-4">
                     <div>
-                      <h4 className="text-sm font-bold text-red-950">
+                      <h4 className="text-sm font-bold text-red-950 dark:text-red-200">
                         Pembatalan Order &amp; Pencatatan Refund
                       </h4>
-                      <p className="mt-0.5 text-xs text-red-800">
+                      <p className="mt-0.5 text-xs text-red-800 dark:text-red-300">
                         {selectedOrder.status === "pending"
                           ? "Order masih PENDING (belum dibayar). Pembatalan akan menghentikan pesanan tanpa catatan refund uang."
                           : selectedOrder.status === "served"
@@ -1855,7 +1855,7 @@ export function CashierWorkspace({
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-zinc-800">
+                      <label className="mb-1 block text-xs font-semibold text-zinc-800 dark:text-slate-200">
                         Kategori Alasan Pembatalan
                       </label>
                       <select
@@ -1866,7 +1866,7 @@ export function CashierWorkspace({
                             e.target.value as RefundReasonCategory
                           )
                         }
-                        className="h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm"
+                        className="h-11 w-full rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-zinc-900 dark:text-slate-100"
                       >
                         <option value="outlet_fault">
                           Kesalahan Outlet (Bahan habis / salah masak / kualitas)
@@ -1879,7 +1879,7 @@ export function CashierWorkspace({
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-zinc-800">
+                      <label className="mb-1 block text-xs font-semibold text-zinc-800 dark:text-slate-200">
                         Keterangan Alasan Lengkap (Wajib)
                       </label>
                       <Input
@@ -1916,7 +1916,7 @@ export function CashierWorkspace({
 
                 {/* RINGKASAN PEMBAYARAN & REFUND UNTUK ORDER YANG SUDAH SELESAI / DIBATALKAN */}
                 {selectedOrder.payment && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 text-xs text-emerald-950">
+                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3.5 text-xs text-emerald-950 dark:text-emerald-200">
                     <p className="font-bold">
                       Informasi Pembayaran Sah (
                       {selectedOrder.payment.method === "qris"
@@ -1939,7 +1939,7 @@ export function CashierWorkspace({
                 )}
 
                 {selectedOrder.refund && (
-                  <div className="rounded-xl border border-red-300 bg-red-50 p-3.5 text-xs text-red-950">
+                  <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-3.5 text-xs text-red-950 dark:text-red-200">
                     <p className="font-bold">
                       Catatan Refund Tunai:{" "}
                       {formatRupiah(selectedOrder.refund.amount)}
@@ -1970,19 +1970,19 @@ export function CashierWorkspace({
           }}
         >
           <div
-            className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className="relative w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <Badge className="mb-1 bg-[#1E88E5] text-white">
                   QRIS TAGIHAN ORDER #{selectedOrder.orderNo}
                 </Badge>
-                <h3 className="text-lg font-extrabold text-slate-900">
+                <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
                   {initialData.outlet.qrisMerchantName ||
                     initialData.outlet.name}
                 </h3>
-                <p className="text-xs font-medium text-slate-500">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   {selectedOrder.tableName}
                 </p>
               </div>
@@ -1990,7 +1990,7 @@ export function CashierWorkspace({
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setShowQrisPopup(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                 aria-label="Tutup Popup QRIS"
               >
                 <X className="h-4 w-4" />
@@ -1998,11 +1998,11 @@ export function CashierWorkspace({
             </div>
 
             <div className="my-4 space-y-3 text-center">
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 py-2.5 px-4">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 py-2.5 px-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                   Nominal Tagihan QRIS
                 </p>
-                <p className="text-2xl font-black text-emerald-950">
+                <p className="text-2xl font-black text-emerald-950 dark:text-emerald-200">
                   {formatRupiah(selectedOrder.total)}
                 </p>
               </div>
@@ -2042,11 +2042,11 @@ export function CashierWorkspace({
                 )}
               </div>
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-center text-xs text-emerald-950">
-                <p className="font-bold text-emerald-800">
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 p-3 text-center text-xs text-emerald-950 dark:text-emerald-200">
+                <p className="font-bold text-emerald-800 dark:text-emerald-300">
                   Ketik / Pastikan Nominal Tagihan: {formatRupiah(selectedOrder.total)}
                 </p>
-                <p className="mt-0.5 text-[11px] text-emerald-700">
+                <p className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-400">
                   Arahkan pelanggan scan QRIS di atas dengan m-Banking / e-Wallet (BCA, Mandiri, BRI, BNI, GoPay, OVO, ShopeePay, Dana, dll) dan ketik nominal tagihan di atas.
                 </p>
               </div>
@@ -2084,19 +2084,19 @@ export function CashierWorkspace({
       {/* POPUP MODAL PESANAN BARU / KLAIM QRIS MASUK DARI MEJA */}
       {incomingOrderAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border-2 border-emerald-500 bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="w-full max-w-lg rounded-2xl border-2 border-emerald-500 dark:border-emerald-700 bg-white dark:bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800 animate-pulse">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 animate-pulse">
                   <Bell className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
                     {incomingOrderAlert.customerClaimedPaidAt
                       ? "Konfirmasi Pembayaran QRIS Masuk!"
                       : "Pesanan Baru Masuk dari Meja!"}
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {incomingOrderAlert.customerClaimedPaidAt
                       ? "Pelanggan telah menekan tombol 'Saya Sudah Bayar' pada layar meja."
                       : "Pelanggan baru saja mengirim pesanan dari layar meja."}
@@ -2106,7 +2106,7 @@ export function CashierWorkspace({
               <button
                 type="button"
                 onClick={handleDismissOrderAlert}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200"
                 aria-label="Tutup Notifikasi"
               >
                 <X className="h-5 w-5" />
@@ -2114,23 +2114,23 @@ export function CashierWorkspace({
             </div>
 
             <div className="my-4 space-y-3">
-              <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3.5 text-sm border border-slate-200">
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3.5 text-sm border border-slate-200 dark:border-slate-800">
                 <div>
-                  <p className="text-xs font-medium text-slate-500">Nomor Meja</p>
-                  <p className="text-base font-black text-slate-900">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Nomor Meja</p>
+                  <p className="text-base font-black text-slate-900 dark:text-slate-100">
                     {incomingOrderAlert.tableNo
                       ? `Meja ${incomingOrderAlert.tableNo}`
                       : "Takeaway / Manual"}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-slate-500">Nomor Order</p>
-                  <p className="font-mono text-sm font-bold text-slate-900">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Nomor Order</p>
+                  <p className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100">
                     #{incomingOrderAlert.orderNo}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500">Metode</p>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Metode</p>
                   <Badge variant="outline" className="mt-0.5 font-bold uppercase text-[11px]">
                     {incomingOrderAlert.paymentChoice === "qris"
                       ? "QRIS di Meja"
@@ -2138,24 +2138,24 @@ export function CashierWorkspace({
                   </Badge>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-slate-500">Total Tagihan</p>
-                  <p className="text-base font-black text-emerald-700">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Tagihan</p>
+                  <p className="text-base font-black text-emerald-700 dark:text-emerald-400">
                     {formatRupiah(incomingOrderAlert.total)}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="mb-1 text-xs font-bold text-slate-700">
+                <p className="mb-1 text-xs font-bold text-slate-700 dark:text-slate-300">
                   Rincian Item ({incomingOrderAlert.items.reduce((acc, it) => acc + it.qty, 0)} item):
                 </p>
-                <div className="max-h-36 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2.5 divide-y divide-slate-100 text-xs">
+                <div className="max-h-36 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/60 p-2.5 divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                   {incomingOrderAlert.items.map((item, idx) => (
                     <div key={idx} className="flex justify-between py-1.5 first:pt-0 last:pb-0">
-                      <span className="font-medium text-slate-800">
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
                         {item.qty}x {item.productName}
                       </span>
-                      <span className="font-mono text-slate-600">
+                      <span className="font-mono text-slate-600 dark:text-slate-400">
                         {formatRupiah(item.lineTotal)}
                       </span>
                     </div>
@@ -2169,7 +2169,7 @@ export function CashierWorkspace({
                 type="button"
                 variant="outline"
                 onClick={dismissAlarmOnly}
-                className="min-h-11 sm:w-1/3 border-slate-300 font-semibold text-slate-700 hover:bg-slate-100"
+                className="min-h-11 sm:w-1/3 border-slate-300 font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 <VolumeX className="mr-1.5 h-4 w-4" />
                 Matikan Alarm

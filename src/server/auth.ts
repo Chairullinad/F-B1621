@@ -65,6 +65,7 @@ export interface AuthenticatedStaff {
   userId: string;
   email: string;
   outletId: string;
+  selectedOutletId: string | null;
   fullName: string;
   role: UserRole;
   isActive: boolean;
@@ -152,31 +153,40 @@ export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | nul
       return null;
     }
 
-    let activeOutletId = String(profile.outlet_id);
-    try {
-      const cookieStore = await cookies();
-      const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
-      if (cookieOutletId) {
-        const { data: out } = await admin
-          .from("outlets")
-          .select("id")
-          .eq("id", cookieOutletId)
-          .is("deleted_at", null)
-          .maybeSingle();
-        if (out) {
-          activeOutletId = String(out.id);
+    const role = profile.role as UserRole;
+    const activeOutletId = String(profile.outlet_id);
+    let resolvedOutletId = activeOutletId;
+    let selectedOutletId: string | null =
+      role === "owner" ? null : activeOutletId;
+
+    if (role === "owner") {
+      try {
+        const cookieStore = await cookies();
+        const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
+        if (cookieOutletId) {
+          const { data: out } = await admin
+            .from("outlets")
+            .select("id")
+            .eq("id", cookieOutletId)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (out) {
+            resolvedOutletId = String(out.id);
+            selectedOutletId = String(out.id);
+          }
         }
+      } catch {
+        // Abaikan jika pemanggilan cookies di context non-request
       }
-    } catch {
-      // Abaikan jika pemanggilan cookies di context non-request
     }
 
     return {
       userId: profile.id,
       email: user.email ?? "",
-      outletId: activeOutletId,
+      outletId: resolvedOutletId,
+      selectedOutletId,
       fullName: profile.full_name,
-      role: profile.role as UserRole,
+      role,
       isActive: profile.is_active,
     };
   } catch {
@@ -287,6 +297,15 @@ export async function loginStaffAction(
   const role = profile.role as UserRole;
   const targetRoute = getDefaultRouteForRole(role);
 
+  if (role === "owner") {
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete("fnb1621_active_outlet");
+    } catch {
+      // Abaikan bila cookies tidak tersedia pada context pemanggilan
+    }
+  }
+
   await recordAuthAuditLog({
     outletId: profile.outlet_id,
     userId: profile.id,
@@ -323,6 +342,13 @@ export async function logoutStaffAction(): Promise<void> {
       entityId: staff.userId,
       after: { email: staff.email, full_name: staff.fullName },
     });
+  }
+
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete("fnb1621_active_outlet");
+  } catch {
+    // Abaikan jika gagal menghapus cookie
   }
 
   await supabase.auth.signOut();

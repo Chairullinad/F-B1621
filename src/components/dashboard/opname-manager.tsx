@@ -117,11 +117,11 @@ export function OpnameManager({
       </div>
 
       {/* Tabel Input Blind Count */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-500 dark:text-slate-400">
                 <th className="px-3 py-2.5">Bahan Baku</th>
                 <th className="px-3 py-2.5">Kategori</th>
                 <th className="px-3 py-2.5">Satuan</th>
@@ -130,7 +130,7 @@ export function OpnameManager({
                 <th className="px-3 py-2.5 text-right">Nilai Rupiah Selisih</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {initialData.ingredients.map((ing) => {
                 const rawVal = counts[ing.id];
                 const hasVal = rawVal !== undefined && rawVal.trim() !== "";
@@ -145,14 +145,14 @@ export function OpnameManager({
                     : null;
 
                 return (
-                  <tr key={ing.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2.5 font-bold text-slate-900">
+                  <tr key={ing.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                    <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-slate-100">
                       {ing.name}
                     </td>
-                    <td className="px-3 py-2.5 text-slate-600">
+                    <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">
                       {ing.category}
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-xs text-slate-600">
+                    <td className="px-3 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400">
                       {ing.unit}
                     </td>
                     <td className="px-3 py-2.5">
@@ -165,22 +165,22 @@ export function OpnameManager({
                           handleCountChange(ing.id, e.target.value)
                         }
                         placeholder="?"
-                        className="w-28 rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-1.5 text-center text-sm font-extrabold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        className="w-28 rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 text-center text-sm font-extrabold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
                       />
                     </td>
                     <td className="px-3 py-2.5">
                       {selisih === null ? (
                         <span className="text-slate-400">—</span>
                       ) : Math.abs(selisih) < 0.05 ? (
-                        <span className="inline-block rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                        <span className="inline-block rounded-lg bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                           Sesuai
                         </span>
                       ) : selisih < 0 ? (
-                        <span className="inline-block rounded-lg bg-red-100 px-2.5 py-1 text-xs font-bold text-red-800">
+                        <span className="inline-block rounded-lg bg-red-100 dark:bg-red-950/60 px-2.5 py-1 text-xs font-bold text-red-800 dark:text-red-300">
                           {selisih} {ing.unit} (kurang)
                         </span>
                       ) : (
-                        <span className="inline-block rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">
+                        <span className="inline-block rounded-lg bg-amber-100 dark:bg-amber-950/60 px-2.5 py-1 text-xs font-bold text-amber-800 dark:text-amber-300">
                           +{selisih} {ing.unit} (lebih)
                         </span>
                       )}
@@ -189,15 +189,15 @@ export function OpnameManager({
                       {nilai === null ? (
                         "—"
                       ) : nilai < 0 ? (
-                        <span className="text-red-600">
+                        <span className="text-red-600 dark:text-red-400">
                           - {formatRupiah(Math.abs(nilai))}
                         </span>
                       ) : nilai > 0 ? (
-                        <span className="text-amber-600">
+                        <span className="text-amber-600 dark:text-amber-400">
                           + {formatRupiah(nilai)}
                         </span>
                       ) : (
-                        <span className="text-emerald-700">Rp 0</span>
+                        <span className="text-emerald-700 dark:text-emerald-400">Rp 0</span>
                       )}
                     </td>
                   </tr>
@@ -209,10 +209,10 @@ export function OpnameManager({
       </div>
 
       {/* Footer Submit Opname */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
         <div className="flex flex-wrap items-center gap-3">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               TTD Digital / Nama Pemeriksa
             </label>
             <Input
@@ -223,7 +223,7 @@ export function OpnameManager({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600">
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
               Catatan Opname (Opsional)
             </label>
             <Input
@@ -256,8 +256,8 @@ export function OpnameManager({
       </div>
 
       {/* Daftar Riwayat & Approval Opname (Owner) */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <h3 className="mb-3 text-base font-bold text-slate-900">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs">
+        <h3 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">
           Riwayat &amp; Approval Stock Opname
         </h3>
         {initialData.opnames.length === 0 ? (
@@ -271,25 +271,25 @@ export function OpnameManager({
                 key={opn.id}
                 className={`rounded-xl border p-4 ${
                   opn.status === "waiting_approval"
-                    ? "border-amber-300 bg-amber-50/50"
+                    ? "border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30"
                     : opn.status === "approved"
-                      ? "border-emerald-200 bg-emerald-50/30"
-                      : "border-slate-200 bg-slate-50"
+                      ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/30"
+                      : "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/60"
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-extrabold text-slate-900">
+                      <span className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
                         {opn.opname_no}
                       </span>
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                           opn.status === "waiting_approval"
-                            ? "bg-amber-100 text-amber-800"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300"
                             : opn.status === "approved"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-red-100 text-red-800"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300"
+                              : "bg-red-100 text-red-800 dark:bg-red-950/70 dark:text-red-300"
                         }`}
                       >
                         {opn.status === "waiting_approval"
@@ -299,7 +299,7 @@ export function OpnameManager({
                             : "Ditolak"}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Tanggal: {opn.opname_date} • Pemeriksa:{" "}
                       <strong>{opn.submitted_by_name}</strong> (TTD:{" "}
                       {opn.digital_signature})
@@ -307,16 +307,16 @@ export function OpnameManager({
                   </div>
 
                   <div className="text-right">
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
                       Total Selisih Nilai
                     </div>
                     <div
                       className={`text-base font-extrabold ${
                         opn.total_variance_amount < 0
-                          ? "text-red-600"
+                          ? "text-red-600 dark:text-red-400"
                           : opn.total_variance_amount > 0
-                            ? "text-amber-600"
-                            : "text-emerald-700"
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-emerald-700 dark:text-emerald-400"
                       }`}
                     >
                       {opn.total_variance_amount < 0

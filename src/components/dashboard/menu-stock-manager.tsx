@@ -121,7 +121,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
     (appliedFilters.stockRange !== "all" ? 1 : 0);
 
   return (
-    <div className="space-y-4 bg-[#F4F6F9] -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800">
+    <div className="space-y-4 bg-[#F4F6F9] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100 transition-colors">
       {/* 1. Breadcrumb & Header with Outlet Switcher (Persis Screenshot 2) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -129,9 +129,9 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
             <Link href="/dashboard" className="hover:text-sky-600">
               Dashboard
             </Link>{" "}
-            &gt; <span className="text-slate-600">Stok Menu</span>
+            &gt; <span className="text-slate-600 dark:text-slate-300">Stok Menu</span>
           </div>
-          <h1 className="text-base font-bold text-slate-800 mt-1 tracking-tight">
+          <h1 className="text-base font-bold text-slate-800 dark:text-slate-100 mt-1 tracking-tight">
             Stok Menu
           </h1>
         </div>
@@ -142,7 +142,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
             value={selectedOutletId}
             disabled={isPending}
             onChange={(e) => handleOutletChange(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:border-[#0284C7] focus:outline-hidden cursor-pointer"
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs focus:border-[#0284C7] dark:focus:border-sky-400 focus:outline-hidden cursor-pointer"
           >
             {initialData.availableOutlets.map((out) => (
               <option key={out.id} value={out.id}>
@@ -154,7 +154,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
       </div>
 
       {/* 2. Filter Bar & Controls (Persis Screenshot 2) */}
-      <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
+      <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           {/* Tombol Filter (Persis ESB POSLite) */}
           <button
@@ -162,8 +162,8 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
             onClick={() => setIsFilterModalOpen(true)}
             className={`inline-flex items-center justify-center gap-2 rounded-lg border px-6 py-2 text-xs font-semibold transition shadow-2xs cursor-pointer ${
               activeFiltersCount > 0
-                ? "border-[#1E88E5] bg-sky-50 text-[#1E88E5]"
-                : "border-[#1E88E5] bg-white text-[#1E88E5] hover:bg-sky-50/50"
+                ? "border-[#1E88E5] bg-sky-50 text-[#1E88E5] dark:bg-sky-950/60 dark:text-sky-300"
+                : "border-[#1E88E5] bg-white text-[#1E88E5] hover:bg-sky-50/50 dark:border-sky-700 dark:bg-slate-900 dark:text-sky-400 dark:hover:bg-slate-800"
             }`}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -185,7 +185,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                 setSearchTerm(e.target.value);
                 setPage(1);
               }}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-3.5 pr-9 text-xs text-slate-700 placeholder:text-slate-400 focus:border-[#1E88E5] focus:outline-hidden"
+              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 pl-3.5 pr-9 text-xs text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-[#1E88E5] dark:focus:border-sky-400 focus:outline-hidden"
             />
             <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 pointer-events-none">
               <Search className="h-3.5 w-3.5" />
@@ -194,18 +194,18 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
         </div>
 
         {/* Notice Callout (Persis Screenshot 2) */}
-        <div className="flex items-center gap-2.5 rounded-lg bg-[#FFF8F6] border border-orange-100/80 p-3 text-xs text-slate-700">
+        <div className="flex items-center gap-2.5 rounded-lg bg-[#FFF8F6] dark:bg-rose-950/30 border border-orange-100/80 dark:border-rose-900/50 p-3 text-xs text-slate-700 dark:text-slate-300">
           <Megaphone className="h-4 w-4 text-rose-500 shrink-0" />
           <span>
-            <strong className="font-semibold text-slate-900">Stok Menu</strong>{" "}
+            <strong className="font-semibold text-slate-900 dark:text-slate-100">Stok Menu</strong>{" "}
             terintegrasi langsung dengan Aplikasi POS 1621F&amp;B &amp; Pengurangan Otomatis Bahan Baku (BOM).
           </span>
         </div>
 
         {/* 3. Tabel Stok Menu (Persis Screenshot 2) */}
-        <div className="overflow-x-auto rounded-lg border border-slate-100">
+        <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#EBF5FF]/70 text-slate-700 font-semibold border-b border-slate-200/70">
+            <thead className="bg-[#EBF5FF]/70 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200/70 dark:border-slate-800">
               <tr>
                 <th className="py-3 px-3.5 w-12">No.</th>
                 <th className="py-3 px-3.5">
@@ -240,7 +240,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
               {displayedItems.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400 italic">
@@ -251,18 +251,18 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                 displayedItems.map((item, idx) => {
                   const rowNum = (page - 1) * itemsPerPage + idx + 1;
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                      <td className="py-2.5 px-3 text-slate-500 font-medium">
+                    <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
+                      <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400 font-medium">
                         {rowNum}
                       </td>
-                      <td className="py-2.5 px-3 font-semibold text-slate-800">
+                      <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-100">
                         {item.name}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-600 font-medium">
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-medium">
                         {item.categoryName}
                       </td>
                       <td className="py-2.5 px-3">
-                        <span className="text-2xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded">
+                        <span className="text-2xs font-bold text-sky-700 bg-sky-50 dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 rounded">
                           {item.isActive ? "Aktif" : "Tidak Aktif"}
                         </span>
                       </td>
@@ -270,16 +270,16 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                         <span
                           className={`text-2xs font-medium px-2 py-0.5 rounded ${
                             item.availability === "Stok Habis"
-                              ? "bg-rose-50 text-rose-700 font-bold"
+                              ? "bg-rose-50 text-rose-700 font-bold dark:bg-rose-950/60 dark:text-rose-300"
                               : item.availability === "Stok Terbatas"
-                              ? "bg-amber-50 text-amber-700 font-bold"
-                              : "bg-slate-50 text-slate-600"
+                              ? "bg-amber-50 text-amber-700 font-bold dark:bg-amber-950/60 dark:text-amber-300"
+                              : "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                           }`}
                         >
                           {item.availability}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-right font-medium text-slate-700">
+                      <td className="py-2.5 px-3 text-right font-medium text-slate-700 dark:text-slate-200">
                         {item.stockCount}
                       </td>
                     </tr>
@@ -291,13 +291,13 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
         </div>
 
         {/* 4. Pagination (Persis Screenshot 2) */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-2xs text-slate-500 pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-2xs text-slate-500 dark:text-slate-400 pt-2">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40 cursor-pointer"
+              className="rounded border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 px-2 py-1 disabled:opacity-40 cursor-pointer"
             >
               &lt;
             </button>
@@ -310,7 +310,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                   className={`rounded px-2.5 py-1 font-semibold cursor-pointer ${
                     page === p
                       ? "bg-[#0284C7] text-white"
-                      : "border border-slate-200 hover:bg-slate-100"
+                      : "border border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   }`}
                 >
                   {p}
@@ -322,7 +322,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40 cursor-pointer"
+              className="rounded border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 px-2 py-1 disabled:opacity-40 cursor-pointer"
             >
               &gt;
             </button>
@@ -335,15 +335,15 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
 
       {/* 5. Modal Filter Pop-up Interaktif (Persis Screenshot 3) */}
       {isFilterModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-slate-950/75 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-800">Filters</h3>
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Filters</h3>
               <button
                 type="button"
                 onClick={() => setIsFilterModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -351,7 +351,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
 
             {/* Filter Section 1: Status Menu */}
             <div className="space-y-2">
-              <label className="block text-2xs font-semibold text-slate-500">
+              <label className="block text-2xs font-semibold text-slate-500 dark:text-slate-400">
                 Status Menu
               </label>
               <div className="flex gap-2">
@@ -362,8 +362,8 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                   }
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition cursor-pointer ${
                     filterStatus === "active"
-                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7]"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7] dark:bg-sky-950/60 dark:text-sky-300"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
                   Aktif
@@ -375,8 +375,8 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                   }
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition cursor-pointer ${
                     filterStatus === "inactive"
-                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7]"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7] dark:bg-sky-950/60 dark:text-sky-300"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
                   Tidak Aktif
@@ -386,7 +386,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
 
             {/* Filter Section 2: Ketersediaan */}
             <div className="space-y-2">
-              <label className="block text-2xs font-semibold text-slate-500">
+              <label className="block text-2xs font-semibold text-slate-500 dark:text-slate-400">
                 Ketersediaan
               </label>
               <div className="flex flex-wrap gap-2">
@@ -399,8 +399,8 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                   }
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition cursor-pointer ${
                     filterAvailability === "Stok Terbatas"
-                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7]"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7] dark:bg-sky-950/60 dark:text-sky-300"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
                   Stok Terbatas
@@ -416,8 +416,8 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                   }
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition cursor-pointer ${
                     filterAvailability === "Stok Tidak Terbatas"
-                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7]"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7] dark:bg-sky-950/60 dark:text-sky-300"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
                   Stok Tidak Terbatas
@@ -431,8 +431,8 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                   }
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition cursor-pointer ${
                     filterAvailability === "Stok Habis"
-                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7]"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-[#0284C7] bg-sky-50 text-[#0284C7] dark:bg-sky-950/60 dark:text-sky-300"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
                   Stok Habis
@@ -442,7 +442,7 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
 
             {/* Filter Section 3: Jumlah Stok */}
             <div className="space-y-2">
-              <label className="block text-2xs font-semibold text-slate-500">
+              <label className="block text-2xs font-semibold text-slate-500 dark:text-slate-400">
                 Jumlah Stok
               </label>
               <div className="flex flex-wrap gap-2">
@@ -455,8 +455,8 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
                     }
                     className={`rounded-full px-4 py-1.5 text-xs font-semibold border transition cursor-pointer ${
                       filterStockRange === rng
-                        ? "border-[#0284C7] bg-sky-50 text-[#0284C7]"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        ? "border-[#0284C7] bg-sky-50 text-[#0284C7] dark:bg-sky-950/60 dark:text-sky-300"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                     }`}
                   >
                     {rng}
@@ -466,11 +466,11 @@ export function MenuStockManager({ initialData }: MenuStockManagerProps) {
             </div>
 
             {/* Modal Actions (Reset & Terapkan Oranye Khas ESB) */}
-            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="w-full rounded-lg border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
               >
                 Reset
               </button>

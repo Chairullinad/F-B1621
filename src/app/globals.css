@@ -20,11 +20,13 @@
 }
 
 :root {
+  color-scheme: light;
   --background: #f8fafc;
   --foreground: #0f172a;
 }
 
 .dark {
+  color-scheme: dark;
   --background: #090d16;
   --foreground: #f8fafc;
 }

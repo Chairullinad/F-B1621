@@ -1,0 +1,790 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  BarChart3,
+  Building2,
+  Calendar,
+  FileText,
+  LineChart,
+  Plus,
+  Settings,
+  Store,
+  TrendingUp,
+} from "lucide-react";
+import { toast } from "sonner";
+import { formatRupiah } from "@/lib/money";
+import type { OwnerHoldingAnalyticsData } from "@/server/owner-holding-analytics";
+import { switchActiveOutletAction } from "@/server/outlets";
+
+interface OwnerHoldingDashboardViewProps {
+  initialData: OwnerHoldingAnalyticsData;
+  promptSelectKios?: boolean;
+}
+
+const MONTH_FULL_NAMES_ID = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+] as const;
+
+function formatCompactRupiahAxis(value: number): string {
+  if (value <= 0) return "Rp 0";
+  if (value >= 1_000_000_000) {
+    return `Rp ${(value / 1_000_000_000).toFixed(1).replace(".0", "")} M`;
+  }
+  if (value >= 1_000_000) {
+    return `Rp ${(value / 1_000_000).toFixed(1).replace(".0", "")} jt`;
+  }
+  if (value >= 1_000) {
+    return `Rp ${Math.round(value / 1_000)} rb`;
+  }
+  return `Rp ${value}`;
+}
+
+export function OwnerHoldingDashboardView({
+  initialData,
+  promptSelectKios = false,
+}: OwnerHoldingDashboardViewProps) {
+  const router = useRouter();
+  const [enteringOutletId, setEnteringOutletId] = React.useState<string | null>(
+    null
+  );
+  const [isPending, startTransition] = React.useTransition();
+  const [chartMode, setChartMode] = React.useState<"line" | "bar">("line");
+  const [hoveredMonthIdx, setHoveredMonthIdx] = React.useState<number | null>(
+    null
+  );
+
+  // State toggle legend per kios (semua aktif secara default)
+  const [hiddenOutletIds, setHiddenOutletIds] = React.useState<Set<string>>(
+    () => new Set()
+  );
+
+  const visibleOutlets = React.useMemo(() => {
+    return initialData.outlets.filter(
+      (item) => !hiddenOutletIds.has(item.outlet.id)
+    );
+  }, [initialData.outlets, hiddenOutletIds]);
+
+  const toggleOutletSeries = (outletId: string) => {
+    setHiddenOutletIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(outletId)) {
+        next.delete(outletId);
+      } else {
+        // Sisakan minimal 1 garis agar grafik tidak kosong bila masih ada > 1 kios
+        if (next.size < Math.max(0, initialData.outlets.length - 1)) {
+          next.add(outletId);
+        } else {
+          toast.info("Minimal 1 usaha ditampilkan pada grafik.");
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleEnterOutlet = (outletId: string) => {
+    setEnteringOutletId(outletId);
+    startTransition(async () => {
+      const res = await switchActiveOutletAction(outletId);
+      if (res.ok) {
+        toast.success(res.message);
+        router.replace("/dashboard");
+        router.refresh();
+      } else {
+        setEnteringOutletId(null);
+        toast.error(res.message);
+      }
+    });
+  };
+
+  const handleYearChange = (yearValue: string) => {
+    router.push(`/dashboard?year=${encodeURIComponent(yearValue)}`);
+  };
+
+  // Skala sumbu Y untuk grafik bulanan
+  const maxMonthlyValue = React.useMemo(() => {
+    let maxVal = 0;
+    for (const summary of visibleOutlets) {
+      for (const val of summary.monthlySeries) {
+        if (val > maxVal) maxVal = val;
+      }
+    }
+    if (maxVal <= 0) return 1_000_000;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(maxVal)));
+    const niceUnit = magnitude / 2;
+    return Math.ceil(maxVal / niceUnit) * niceUnit;
+  }, [visibleOutlets]);
+
+  // Koordinat SVG responsif
+  const svgW = 920;
+  const svgH = 340;
+  const padL = 74;
+  const padR = 24;
+  const padT = 24;
+  const padB = 40;
+  const plotW = svgW - padL - padR;
+  const plotH = svgH - padT - padB;
+
+  const getMonthCenterX = (monthIdx: number): number => {
+    if (chartMode === "line") {
+      return padL + (monthIdx / 11) * plotW;
+    }
+    const bandW = plotW / 12;
+    return padL + monthIdx * bandW + bandW / 2;
+  };
+
+  const getY = (val: number): number => {
+    const ratio = Math.min(1, Math.max(0, val / maxMonthlyValue));
+    return padT + plotH - ratio * plotH;
+  };
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((r) => ({
+    ratio: r,
+    value: Math.round(maxMonthlyValue * r),
+    y: padT + plotH - r * plotH,
+  }));
+
+  const currentMonthLabel =
+    initialData.selectedYear === initialData.currentWibYear
+      ? MONTH_FULL_NAMES_ID[initialData.currentWibMonth]
+      : "Desember";
+
+  const activeTooltipMonth =
+    hoveredMonthIdx !== null
+      ? initialData.monthlyChart[hoveredMonthIdx] ?? null
+      : null;
+
+  return (
+    <div className="space-y-6 bg-[#F4F7FA] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100">
+      {/* Banner Prompt apabila Owner diarahkan dari route operasional sebelum memilih kios */}
+      {promptSelectKios && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 flex items-center justify-between gap-3">
+          <span>
+            Silakan pilih dan masuk ke salah satu usaha / kios di bawah terlebih
+            dahulu untuk membuka menu operasional kasir, menu, dapur, atau stok.
+          </span>
+        </div>
+      )}
+
+      {/* Header Portal Owner */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200/80 dark:border-sky-800 px-3 py-1 text-xs font-semibold text-[#1E88E5] dark:text-sky-300">
+            <Building2 className="h-3.5 w-3.5" />
+            <span>Portal Holding Owner &bull; Semua Usaha / Kios</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">
+            Ringkasan Usaha &amp; Pilih Kios
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            Pantau grafik penjualan bulanan seluruh usaha Anda, atau masuk ke
+            kios tertentu untuk mengelola operasional harian.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 h-11 shadow-2xs">
+            <Calendar className="h-4 w-4 text-slate-400" />
+            <label
+              htmlFor="holding-year-select"
+              className="text-xs font-semibold text-slate-500 dark:text-slate-400"
+            >
+              Tahun:
+            </label>
+            <select
+              id="holding-year-select"
+              value={initialData.selectedYear}
+              onChange={(e) => handleYearChange(e.target.value)}
+              className="bg-transparent text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+            >
+              {initialData.availableYears.map((yr) => (
+                <option
+                  key={yr}
+                  value={yr}
+                  className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                >
+                  {yr}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Link
+            href="/dashboard/keuangan?tab=labarugi"
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-2xs"
+          >
+            <FileText className="h-4 w-4 text-[#1E88E5]" />
+            <span>Laporan Laba Rugi &amp; Pajak</span>
+          </Link>
+
+          <Link
+            href="/dashboard/cabang"
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1E88E5] hover:bg-[#1976D2] px-4 text-sm font-semibold text-white transition shadow-2xs"
+          >
+            <Settings className="h-4 w-4" />
+            <span>Setting Kios</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* 4 KPI Gabungan Seluruh Kios */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Total Penjualan {initialData.selectedYear}
+          </div>
+          <div className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {formatRupiah(initialData.totalAnnualSales)}
+          </div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Dari {initialData.totalAnnualBills.toLocaleString("id-ID")} transaksi lunas gabungan
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Omset {currentMonthLabel} {initialData.selectedYear}
+          </div>
+          <div className="mt-1.5 text-2xl font-bold text-[#1E88E5] dark:text-sky-400">
+            {formatRupiah(initialData.totalCurrentMonthSales)}
+          </div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {initialData.totalCurrentMonthBills.toLocaleString("id-ID")} bill pada bulan ini
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Total Usaha / Kios
+          </div>
+          <div className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {initialData.totalOutlets} Kios
+          </div>
+          <div className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+            {initialData.activeOutletsCount} kios berstatus aktif
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Kios Performa Tertinggi
+          </div>
+          <div className="mt-1.5 text-xl font-bold text-slate-900 dark:text-slate-100 truncate">
+            {initialData.bestOutletName ?? "Belum Ada Data"}
+          </div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            <span>
+              {initialData.bestOutletName
+                ? `${formatRupiah(initialData.bestOutletSales)} di ${initialData.selectedYear}`
+                : "Menunggu transaksi pertama"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Pilihan Kios untuk Masuk */}
+      <section className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+              Pilih Usaha / Kios untuk Masuk
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              Setiap usaha memiliki menu kasir, meja QR, dapur KDS, dan stok bahan bakunya masing-masing.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/cabang?tambah=1"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition self-start sm:self-auto"
+          >
+            <Plus className="h-4 w-4 text-[#1E88E5]" />
+            <span>Tambah Usaha / Kios Baru</span>
+          </Link>
+        </div>
+
+        {initialData.outlets.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center">
+            <Store className="mx-auto h-10 w-10 text-slate-400" />
+            <h3 className="mt-3 text-base font-bold text-slate-900 dark:text-slate-100">
+              Belum ada usaha atau kios terdaftar
+            </h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Tambahkan usaha / kios pertama Anda melalui menu Setting Kios.
+            </p>
+            <Link
+              href="/dashboard/cabang?tambah=1"
+              className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-[#1E88E5] px-5 text-sm font-semibold text-white hover:bg-[#1976D2]"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Buat Kios Baru</span>
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {initialData.outlets.map((summary) => {
+              const { outlet, chartColor } = summary;
+              const isEntering = isPending && enteringOutletId === outlet.id;
+
+              return (
+                <div
+                  key={outlet.id}
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs transition hover:shadow-md dark:hover:border-slate-700"
+                >
+                  {/* Garis Warna Identitas Usaha di Bagian Atas Kartu */}
+                  <div
+                    className="h-1.5 w-full"
+                    style={{ backgroundColor: chartColor }}
+                  />
+
+                  <div className="p-5 flex-1 space-y-4">
+                    <div className="flex items-start gap-3.5">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 overflow-hidden shadow-2xs">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={outlet.logoUrl}
+                          alt={outlet.name}
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="truncate text-base font-bold text-slate-900 dark:text-slate-100">
+                            {outlet.name}
+                          </h3>
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0"
+                          >
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: chartColor }}
+                            />
+                            {outlet.isActive ? "Aktif" : "Nonaktif"}
+                          </span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+                          {outlet.description || "Usaha Kuliner & F&B"}
+                        </p>
+                        {outlet.address && (
+                          <p className="mt-1 truncate text-[11px] text-slate-400 dark:text-slate-500">
+                            {outlet.address}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 p-3 border border-slate-100 dark:border-slate-800">
+                      <div>
+                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          Omset {currentMonthLabel}
+                        </div>
+                        <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+                          {formatRupiah(summary.currentMonthSales)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          Total {initialData.selectedYear}
+                        </div>
+                        <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+                          {formatRupiah(summary.annualSales)}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {summary.annualBills.toLocaleString("id-ID")} transaksi
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 px-5 py-3.5">
+                    <button
+                      type="button"
+                      onClick={() => handleEnterOutlet(outlet.id)}
+                      disabled={isPending}
+                      className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#1E88E5] hover:bg-[#1976D2] disabled:opacity-60 px-4 text-sm font-semibold text-white transition cursor-pointer"
+                    >
+                      <span>
+                        {isEntering ? "Membuka Kios..." : "Masuk ke Kios"}
+                      </span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+
+                    <Link
+                      href={`/dashboard/cabang?edit=${encodeURIComponent(outlet.id)}`}
+                      className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition"
+                      title="Setting nama, logo, dan detail usaha ini"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span>Setting</span>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Grafik Penjualan Per Bulan Tiap Usaha (Warna Berbeda Per Usaha) */}
+      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+              Grafik Penjualan Per Bulan Tiap Usaha ({initialData.selectedYear})
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              Setiap warna mewakili satu usaha / kios (waktu WIB). Klik nama usaha di legenda untuk menyaring tampilan grafik.
+            </p>
+          </div>
+
+          <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-1 self-start md:self-auto">
+            <button
+              type="button"
+              onClick={() => setChartMode("line")}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition cursor-pointer ${
+                chartMode === "line"
+                  ? "bg-white dark:bg-slate-900 text-[#1E88E5] shadow-2xs"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+              }`}
+            >
+              <LineChart className="h-3.5 w-3.5" />
+              <span>Garis</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartMode("bar")}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition cursor-pointer ${
+                chartMode === "bar"
+                  ? "bg-white dark:bg-slate-900 text-[#1E88E5] shadow-2xs"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+              }`}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              <span>Batang</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Legenda Warna Unik Tiap Kios */}
+        {initialData.outlets.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {initialData.outlets.map((summary) => {
+              const isHidden = hiddenOutletIds.has(summary.outlet.id);
+              return (
+                <button
+                  key={summary.outlet.id}
+                  type="button"
+                  onClick={() => toggleOutletSeries(summary.outlet.id)}
+                  className={`inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition cursor-pointer ${
+                    isHidden
+                      ? "border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-800/40 text-slate-400 line-through"
+                      : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full shrink-0"
+                    style={{
+                      backgroundColor: summary.chartColor,
+                      opacity: isHidden ? 0.35 : 1,
+                    }}
+                  />
+                  <span>{summary.outlet.name}</span>
+                  <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                    ({formatCompactRupiahAxis(summary.annualSales)})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Kanvas SVG Grafik Multi-Kios */}
+        <div className="relative overflow-x-auto">
+          <div className="min-w-[640px] relative">
+            <svg
+              viewBox={`0 0 ${svgW} ${svgH}`}
+              className="w-full h-auto select-none"
+              role="img"
+              aria-label={`Grafik penjualan per bulan tahun ${initialData.selectedYear} untuk setiap kios`}
+              onMouseLeave={() => setHoveredMonthIdx(null)}
+            >
+              {/* Grid Horizontal & Label Sumbu Y */}
+              {yTicks.map((tick) => (
+                <g key={tick.ratio}>
+                  <line
+                    x1={padL}
+                    x2={svgW - padR}
+                    y1={tick.y}
+                    y2={tick.y}
+                    stroke="currentColor"
+                    strokeDasharray={tick.ratio === 0 ? undefined : "4 4"}
+                    className={
+                      tick.ratio === 0
+                        ? "text-slate-300 dark:text-slate-700"
+                        : "text-slate-200 dark:text-slate-800"
+                    }
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={padL - 10}
+                    y={tick.y + 4}
+                    textAnchor="end"
+                    className="fill-slate-500 dark:fill-slate-400 text-[11px] font-medium"
+                  >
+                    {formatCompactRupiahAxis(tick.value)}
+                  </text>
+                </g>
+              ))}
+
+              {/* Sorotan Kolom Bulan Saat Hover */}
+              {hoveredMonthIdx !== null && (
+                <line
+                  x1={getMonthCenterX(hoveredMonthIdx)}
+                  x2={getMonthCenterX(hoveredMonthIdx)}
+                  y1={padT}
+                  y2={padT + plotH}
+                  stroke="currentColor"
+                  strokeDasharray="3 3"
+                  className="text-slate-400 dark:text-slate-500"
+                  strokeWidth={1.5}
+                />
+              )}
+
+              {/* Mode Grafik Garis */}
+              {chartMode === "line" &&
+                visibleOutlets.map((summary) => {
+                  const points = summary.monthlySeries
+                    .map((val, mIdx) => `${getMonthCenterX(mIdx)},${getY(val)}`)
+                    .join(" ");
+
+                  return (
+                    <g key={summary.outlet.id}>
+                      <polyline
+                        fill="none"
+                        stroke={summary.chartColor}
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        points={points}
+                      />
+                      {summary.monthlySeries.map((val, mIdx) => {
+                        const isHighlighted = hoveredMonthIdx === mIdx;
+                        return (
+                          <circle
+                            key={`${summary.outlet.id}-${mIdx}`}
+                            cx={getMonthCenterX(mIdx)}
+                            cy={getY(val)}
+                            r={isHighlighted ? 6 : 4}
+                            fill={summary.chartColor}
+                            stroke="#FFFFFF"
+                            strokeWidth={isHighlighted ? 2.5 : 1.5}
+                          />
+                        );
+                      })}
+                    </g>
+                  );
+                })}
+
+              {/* Mode Grafik Batang Berkelompok */}
+              {chartMode === "bar" &&
+                initialData.monthlyChart.map((bucket) => {
+                  const bandW = plotW / 12;
+                  const innerPad = 6;
+                  const groupW = Math.max(12, bandW - innerPad * 2);
+                  const count = Math.max(1, visibleOutlets.length);
+                  const barW = Math.max(4, Math.min(24, (groupW - (count - 1) * 3) / count));
+                  const totalGroupBarsW = count * barW + (count - 1) * 3;
+                  const startX = padL + bucket.monthIndex * bandW + (bandW - totalGroupBarsW) / 2;
+
+                  return (
+                    <g key={`bars-${bucket.monthIndex}`}>
+                      {visibleOutlets.map((summary, sIdx) => {
+                        const val = summary.monthlySeries[bucket.monthIndex] ?? 0;
+                        const y = getY(val);
+                        const h = Math.max(val > 0 ? 3 : 0, padT + plotH - y);
+                        const x = startX + sIdx * (barW + 3);
+                        return (
+                          <rect
+                            key={`${summary.outlet.id}-bar-${bucket.monthIndex}`}
+                            x={x}
+                            y={y}
+                            width={barW}
+                            height={h}
+                            rx={3}
+                            fill={summary.chartColor}
+                            opacity={
+                              hoveredMonthIdx === null ||
+                              hoveredMonthIdx === bucket.monthIndex
+                                ? 0.92
+                                : 0.45
+                            }
+                          />
+                        );
+                      })}
+                    </g>
+                  );
+                })}
+
+              {/* Label Bulan X-Axis & Zona Interaktif Hover/Klik per Bulan */}
+              {initialData.monthlyChart.map((bucket) => {
+                const cx = getMonthCenterX(bucket.monthIndex);
+                const bandW = plotW / 12;
+                const hitX =
+                  chartMode === "line"
+                    ? bucket.monthIndex === 0
+                      ? padL
+                      : cx - bandW / 2
+                    : padL + bucket.monthIndex * bandW;
+
+                return (
+                  <g key={`axis-${bucket.monthIndex}`}>
+                    <text
+                      x={cx}
+                      y={svgH - 12}
+                      textAnchor="middle"
+                      className={`text-[12px] font-semibold ${
+                        hoveredMonthIdx === bucket.monthIndex
+                          ? "fill-[#1E88E5] dark:fill-sky-400"
+                          : "fill-slate-500 dark:fill-slate-400"
+                      }`}
+                    >
+                      {bucket.monthLabel}
+                    </text>
+                    <rect
+                      x={hitX}
+                      y={padT}
+                      width={bandW}
+                      height={plotH + padB - 10}
+                      fill="transparent"
+                      className="cursor-crosshair"
+                      onMouseEnter={() => setHoveredMonthIdx(bucket.monthIndex)}
+                      onClick={() =>
+                        setHoveredMonthIdx((prev) =>
+                          prev === bucket.monthIndex ? null : bucket.monthIndex
+                        )
+                      }
+                    />
+                  </g>
+                );
+              })}
+            </svg>
+
+            {/* Tooltip Detail Bulan Aktif */}
+            {activeTooltipMonth && (
+              <div className="mt-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/90 px-4 py-3 text-xs shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
+                  <span className="font-bold text-slate-900 dark:text-slate-100">
+                    Rincian Bulan {MONTH_FULL_NAMES_ID[activeTooltipMonth.monthIndex]}{" "}
+                    {initialData.selectedYear}
+                  </span>
+                  <span className="font-semibold text-[#1E88E5] dark:text-sky-400">
+                    Total Gabungan: {formatRupiah(activeTooltipMonth.totalSales)} (
+                    {activeTooltipMonth.totalBills} transaksi)
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {visibleOutlets.map((summary) => {
+                    const pt = activeTooltipMonth.byOutlet[summary.outlet.id];
+                    return (
+                      <div
+                        key={summary.outlet.id}
+                        className="flex items-center justify-between gap-2 rounded-lg bg-white dark:bg-slate-900 px-3 py-1.5 border border-slate-200/70 dark:border-slate-700"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: summary.chartColor }}
+                          />
+                          <span className="truncate font-semibold text-slate-800 dark:text-slate-100">
+                            {summary.outlet.name}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-bold text-slate-900 dark:text-slate-100">
+                            {formatRupiah(pt?.sales ?? 0)}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {pt?.bills ?? 0} bill
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Matriks Ringkas Penjualan Bulanan Tiap Usaha */}
+        {initialData.outlets.length > 0 && (
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                  <th className="py-2 pr-3 font-semibold">Usaha / Kios</th>
+                  {initialData.monthlyChart.map((m) => (
+                    <th key={m.monthIndex} className="py-2 px-1.5 font-semibold text-right">
+                      {m.monthLabel}
+                    </th>
+                  ))}
+                  <th className="py-2 pl-3 font-bold text-right text-slate-700 dark:text-slate-200">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
+                {initialData.outlets.map((summary) => (
+                  <tr
+                    key={summary.outlet.id}
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                  >
+                    <td className="py-2.5 pr-3 font-semibold text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: summary.chartColor }}
+                        />
+                        <span>{summary.outlet.name}</span>
+                      </div>
+                    </td>
+                    {summary.monthlySeries.map((val, idx) => (
+                      <td
+                        key={idx}
+                        className={`py-2.5 px-1.5 text-right tabular-nums ${
+                          val > 0
+                            ? "font-medium text-slate-800 dark:text-slate-200"
+                            : "text-slate-400 dark:text-slate-600"
+                        }`}
+                      >
+                        {val > 0 ? formatCompactRupiahAxis(val).replace("Rp ", "") : "-"}
+                      </td>
+                    ))}
+                    <td className="py-2.5 pl-3 text-right font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                      {formatRupiah(summary.annualSales)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

@@ -3,9 +3,17 @@ import { getFinancialReportData } from "@/server/accounting";
 
 export const dynamic = "force-dynamic";
 
-export default async function KeuanganPage() {
-  const data = await getFinancialReportData();
+interface KeuanganPageProps {
+  searchParams: Promise<{
+    outletId?: string;
+    tab?: string;
+  }>;
+}
 
-  return <FinancialReportTabs initialData={data} />;
+export default async function KeuanganPage({ searchParams }: KeuanganPageProps) {
+  const sp = await searchParams;
+  const data = await getFinancialReportData({ outletId: sp.outletId });
+
+  return <FinancialReportTabs initialData={data} initialTab={sp.tab} />;
 }
 

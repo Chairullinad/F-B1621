@@ -2,8 +2,16 @@
 
 import { headers } from "next/headers";
 import { z } from "zod";
+import {
+  CUSTOMER_QRIS_UNDER_MAINTENANCE,
+  resolveCustomerPaymentChoice,
+} from "@/lib/customer-order";
 import { getTodayPrefixWIB } from "@/lib/datetime";
 import { calculateOrderTotals, type TaxAndServiceConfig } from "@/lib/money";
+import {
+  mapOutletRowToView,
+  type LandingBannerItem,
+} from "@/lib/outlets";
 import { generateQrSvgString } from "@/lib/qrcode";
 import { generateDynamicQrisPayload } from "@/lib/qris";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -74,9 +82,21 @@ export interface CustomerTablePublicData {
     id: string;
     name: string;
     address: string | null;
+    description: string | null;
+    logoUrl: string;
+    themeColor: string;
     orderExpiryMinutes: number;
     taxConfig: TaxAndServiceConfig;
     qrisMerchantName: string;
+    isQrisUnderMaintenance: boolean;
+    landingBanners: LandingBannerItem[];
+    landingNewsTitle: string;
+    landingNewsBannerUrl: string | null;
+    operatingHours: string;
+    landingTagline: string | null;
+    partnershipUrl: string | null;
+    reservationUrl: string | null;
+    feedbackUrl: string | null;
   };
   categories: CategoryRow[];
   products: ProductRow[];
@@ -188,6 +208,7 @@ export async function getCustomerTableMenuByToken(
   }
 
   const rawOutlet = outletRes.data as Record<string, unknown>;
+  const outletView = mapOutletRowToView(rawOutlet);
 
   return {
     table: {
@@ -198,8 +219,11 @@ export async function getCustomerTableMenuByToken(
     },
     outlet: {
       id: String(rawOutlet.id),
-      name: String(rawOutlet.name ?? "Outlet"),
-      address: (rawOutlet.address as string | null) ?? null,
+      name: outletView.name,
+      address: outletView.address,
+      description: outletView.description,
+      logoUrl: outletView.logoUrl,
+      themeColor: outletView.themeColor,
       orderExpiryMinutes: Number(rawOutlet.order_expiry_minutes ?? 15),
       taxConfig: {
         taxEnabled: Boolean(rawOutlet.tax_enabled),
@@ -220,6 +244,15 @@ export async function getCustomerTableMenuByToken(
           rawOutlet.name ??
           "1621 GROUP"
       ),
+      isQrisUnderMaintenance: CUSTOMER_QRIS_UNDER_MAINTENANCE,
+      landingBanners: outletView.landingBanners,
+      landingNewsTitle: outletView.landingNewsTitle,
+      landingNewsBannerUrl: outletView.landingNewsBannerUrl,
+      operatingHours: outletView.operatingHours,
+      landingTagline: outletView.landingTagline,
+      partnershipUrl: outletView.partnershipUrl,
+      reservationUrl: outletView.reservationUrl,
+      feedbackUrl: outletView.feedbackUrl,
     },
     categories: (catRes.data ?? []) as CategoryRow[],
     products: (prodRes.data ?? []) as ProductRow[],
@@ -430,6 +463,14 @@ export async function createCustomerOrderAction(rawInput: {
 
   const admin = createSupabaseAdminClient();
   const { qrToken, paymentChoice, idempotencyKey, items } = parsed.data;
+
+  const paymentValidation = resolveCustomerPaymentChoice(paymentChoice);
+  if (!paymentValidation.ok) {
+    return {
+      ok: false,
+      message: paymentValidation.message,
+    };
+  }
 
   // 1. Validasi Meja dari qr_token
   const { data: tableRow, error: tableErr } = await admin

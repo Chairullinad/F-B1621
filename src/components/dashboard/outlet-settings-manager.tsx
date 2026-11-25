@@ -505,7 +505,7 @@ export function OutletSettingsManager({
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-700">
+                <label className="block text-xs font-medium text-zinc-700 dark:text-slate-300">
                   Kedaluwarsa Order (Menit)
                 </label>
                 <Input
@@ -520,7 +520,7 @@ export function OutletSettingsManager({
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-700">
+                <label className="block text-xs font-medium text-zinc-700 dark:text-slate-300">
                   Batas Diskon Kasir (%)
                 </label>
                 <Input
@@ -536,7 +536,7 @@ export function OutletSettingsManager({
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-zinc-700">
+                <label className="block text-xs font-medium text-zinc-700 dark:text-slate-300">
                   Batas Diskon Kasir (Rp)
                 </label>
                 <Input
@@ -550,7 +550,7 @@ export function OutletSettingsManager({
                 />
                 {maxDiscountAmount &&
                 Number.isInteger(Number(maxDiscountAmount)) ? (
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-[11px] text-zinc-500 dark:text-slate-400">
                     {formatRupiah(Number(maxDiscountAmount))}
                   </p>
                 ) : null}
@@ -587,7 +587,7 @@ export function OutletSettingsManager({
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSaveTaxAndService} className="space-y-4">
-            <div className="rounded-xl border border-zinc-200 p-4 space-y-3">
+            <div className="rounded-xl border border-zinc-200 dark:border-slate-800 p-4 space-y-3">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium">
                   Persentase Pajak / PB1 (%)
@@ -616,12 +616,12 @@ export function OutletSettingsManager({
                   checked={taxEnabled && canEnableTax}
                   disabled={!canEnableTax || isPending}
                   onChange={(e) => setTaxEnabled(e.target.checked)}
-                  className="h-5 w-5 rounded border-zinc-300 disabled:opacity-40"
+                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600 disabled:opacity-40"
                 />
                 <span>
                   Aktifkan Pajak{" "}
                   {!canEnableTax ? (
-                    <span className="text-xs font-normal text-amber-700">
+                    <span className="text-xs font-normal text-amber-700 dark:text-amber-400">
                       (Isi persentase pajak terlebih dahulu)
                     </span>
                   ) : null}
@@ -629,7 +629,7 @@ export function OutletSettingsManager({
               </label>
             </div>
 
-            <div className="rounded-xl border border-zinc-200 p-4 space-y-3">
+            <div className="rounded-xl border border-zinc-200 dark:border-slate-800 p-4 space-y-3">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium">
                   Persentase Service Charge (%)
@@ -658,12 +658,12 @@ export function OutletSettingsManager({
                   checked={serviceEnabled && canEnableService}
                   disabled={!canEnableService || isPending}
                   onChange={(e) => setServiceEnabled(e.target.checked)}
-                  className="h-5 w-5 rounded border-zinc-300 disabled:opacity-40"
+                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600 disabled:opacity-40"
                 />
                 <span>
                   Aktifkan Service Charge{" "}
                   {!canEnableService ? (
-                    <span className="text-xs font-normal text-amber-700">
+                    <span className="text-xs font-normal text-amber-700 dark:text-amber-400">
                       (Isi persentase service terlebih dahulu)
                     </span>
                   ) : null}
@@ -681,7 +681,7 @@ export function OutletSettingsManager({
                   setPriceIncludesTax(e.target.value === "INCLUSIVE")
                 }
                 disabled={isPending}
-                className="flex min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                className="flex min-h-11 w-full rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-zinc-900 dark:text-slate-100"
               >
                 <option value="EXCLUSIVE">
                   Harga belum termasuk pajak (pajak ditambahkan ke total)
@@ -728,7 +728,7 @@ export function OutletSettingsManager({
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                     Upload Gambar / Foto QRIS Toko
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Pilih file foto QRIS (PNG/JPG). Sistem akan otomatis
                     membaca kode QRIS &amp; Nama Merchant Anda.
                   </p>
@@ -763,15 +763,15 @@ export function OutletSettingsManager({
               </div>
 
               {qrisImagePreview ? (
-                <div className="mt-3 flex items-center gap-3 rounded-lg border border-sky-200 bg-white p-2.5">
+                <div className="mt-3 flex items-center gap-3 rounded-lg border border-sky-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={qrisImagePreview}
                     alt="Poster QRIS"
-                    className="h-16 w-16 rounded border border-slate-200 object-contain"
+                    className="h-16 w-16 rounded border border-slate-200 bg-white object-contain"
                   />
-                  <div className="text-xs text-slate-600">
-                    <p className="font-semibold text-emerald-700">
+                  <div className="text-xs text-slate-600 dark:text-slate-400">
+                    <p className="font-semibold text-emerald-700 dark:text-emerald-400">
                       Gambar QRIS Toko Aktif &amp; Tersimpan
                     </p>
                     <p>
@@ -827,23 +827,23 @@ export function OutletSettingsManager({
                     : "00020101021126..."
                 }
                 disabled={isPending}
-                className="w-full rounded-lg border border-zinc-300 bg-white p-3 font-mono text-xs text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950"
+                className="w-full rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 font-mono text-xs text-zinc-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-sky-500"
               />
             </div>
 
             {/* Pratinjau Visual QRIS Dinamis / Gambar Aktif */}
             {canEnableQris ? (
-              <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 sm:flex-row">
+              <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3.5 sm:flex-row">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Pratinjau QRIS Kasir &amp; Meja Siap Pakai</span>
                   </div>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
                     Merchant:{" "}
                     <strong>{qrisMerchantName || initialOutlet.name}</strong>
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Contoh tampilan tagihan <strong>Rp 25.000</strong> untuk{" "}
                     <strong>MEJA-01</strong>.
                   </p>
@@ -872,12 +872,12 @@ export function OutletSettingsManager({
                 checked={qrisEnabled && canEnableQris}
                 disabled={!canEnableQris || isPending}
                 onChange={(e) => setQrisEnabled(e.target.checked)}
-                className="h-5 w-5 rounded border-zinc-300 disabled:opacity-40"
+                className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600 disabled:opacity-40"
               />
               <span>
                 Aktifkan Pembayaran QRIS di Meja{" "}
                 {!canEnableQris ? (
-                  <span className="text-xs font-normal text-amber-700">
+                  <span className="text-xs font-normal text-amber-700 dark:text-amber-400">
                     (Upload gambar QRIS atau klik &apos;Isi Contoh QRIS&apos; terlebih dahulu)
                   </span>
                 ) : null}
@@ -924,13 +924,13 @@ export function OutletSettingsManager({
                 checked={monthlyReportEnabled}
                 onChange={(e) => setMonthlyReportEnabled(e.target.checked)}
                 disabled={isPending}
-                className="h-5 w-5 rounded border-zinc-300"
+                className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
               />
               Kirim Laporan Bulanan Otomatis (Penjualan Kotor, Refund, Bersih,
               Diskon)
             </label>
 
-            <div className="rounded-xl border border-zinc-200 p-4 space-y-2">
+            <div className="rounded-xl border border-zinc-200 dark:border-slate-800 p-4 space-y-2">
               <p className="text-sm font-semibold">
                 Kejadian Sensitif (Kirim Email Langsung):
               </p>
@@ -946,7 +946,7 @@ export function OutletSettingsManager({
                     }))
                   }
                   disabled={isPending}
-                  className="h-5 w-5 rounded border-zinc-300"
+                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
                 />
                 Saat terjadi Refund Tunai
               </label>
@@ -962,7 +962,7 @@ export function OutletSettingsManager({
                     }))
                   }
                   disabled={isPending}
-                  className="h-5 w-5 rounded border-zinc-300"
+                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
                 />
                 Saat Pembatalan Order yang Sudah Dibayar (PAID / READY / SERVED)
               </label>
@@ -978,7 +978,7 @@ export function OutletSettingsManager({
                     }))
                   }
                   disabled={isPending}
-                  className="h-5 w-5 rounded border-zinc-300"
+                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
                 />
                 Saat Kasir Memberikan Diskon Order
               </label>
@@ -994,7 +994,7 @@ export function OutletSettingsManager({
                     }))
                   }
                   disabled={isPending}
-                  className="h-5 w-5 rounded border-zinc-300"
+                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
                 />
                 Saat Ada Perubahan Harga Menu atau Pengaturan Pajak/Outlet
               </label>

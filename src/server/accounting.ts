@@ -18,6 +18,10 @@ function makeJournalNo(prefix = "JV"): string {
 
 export interface FinancialReportData {
   periodLabel: string;
+  scopeLabel: string;
+  selectedOutletId: string;
+  isHoldingMode: boolean;
+  outlets: Array<{ id: string; name: string }>;
   kpi: {
     totalRevenue: number;
     totalCogs: number;
@@ -90,9 +94,95 @@ export interface FinancialReportData {
   };
 }
 
-export async function getFinancialReportData(): Promise<FinancialReportData> {
+export async function getFinancialReportData(params?: {
+  outletId?: string;
+}): Promise<FinancialReportData> {
   const staff = await requireStaffRole(["owner"]);
   const admin = createSupabaseAdminClient();
+
+  const outletsRes = await admin
+    .from("outlets")
+    .select("id, name")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
+
+  const outlets = (outletsRes.data ?? []).map((o) => ({
+    id: String(o.id),
+    name: String(o.name),
+  }));
+
+  const isHoldingMode = !staff.selectedOutletId;
+  const requestedOutlet = params?.outletId?.trim();
+  const isValidOutletParam = Boolean(
+    requestedOutlet && outlets.some((o) => o.id === requestedOutlet)
+  );
+
+  const selectedOutletId =
+    requestedOutlet === "ALL"
+      ? "ALL"
+      : isValidOutletParam
+        ? (requestedOutlet as string)
+        : (staff.selectedOutletId ?? "ALL");
+
+  const scopeLabel =
+    selectedOutletId === "ALL"
+      ? "Semua Usaha / Kios (Konsolidasi)"
+      : outlets.find((o) => o.id === selectedOutletId)?.name ?? "Kios Aktif";
+
+  let journalsQuery = admin
+    .from("accounting_journals")
+    .select("*")
+    .order("entry_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(150);
+  if (selectedOutletId !== "ALL") {
+    journalsQuery = journalsQuery.eq("outlet_id", selectedOutletId);
+  }
+
+  let ordersQuery = admin
+    .from("orders")
+    .select("id, source, order_type, status, total, cogs_amount, tax_amount")
+    .in("status", ["paid", "ready", "served"])
+    .is("deleted_at", null);
+  if (selectedOutletId !== "ALL") {
+    ordersQuery = ordersQuery.eq("outlet_id", selectedOutletId);
+  }
+
+  let refundsQuery = admin
+    .from("refunds")
+    .select("amount, orders!inner(outlet_id, deleted_at)")
+    .is("orders.deleted_at", null);
+  if (selectedOutletId !== "ALL") {
+    refundsQuery = refundsQuery.eq("orders.outlet_id", selectedOutletId);
+  }
+
+  let ingredientsQuery = admin
+    .from("ingredients")
+    .select("current_stock, unit_cost")
+    .is("deleted_at", null);
+  if (selectedOutletId !== "ALL") {
+    ingredientsQuery = ingredientsQuery.eq("outlet_id", selectedOutletId);
+  }
+
+  let suppliersQuery = admin
+    .from("suppliers")
+    .select("payable_balance")
+    .is("deleted_at", null);
+  if (selectedOutletId !== "ALL") {
+    suppliersQuery = suppliersQuery.eq("outlet_id", selectedOutletId);
+  }
+
+  let posQuery = admin
+    .from("purchase_orders")
+    .select("total_amount, paid_amount, status");
+  if (selectedOutletId !== "ALL") {
+    posQuery = posQuery.eq("outlet_id", selectedOutletId);
+  }
+
+  let wasteQuery = admin.from("waste_logs").select("cost_amount");
+  if (selectedOutletId !== "ALL") {
+    wasteQuery = wasteQuery.eq("outlet_id", selectedOutletId);
+  }
 
   const [
     journalsRes,
@@ -103,41 +193,13 @@ export async function getFinancialReportData(): Promise<FinancialReportData> {
     posRes,
     wasteRes,
   ] = await Promise.all([
-    admin
-      .from("accounting_journals")
-      .select("*")
-      .eq("outlet_id", staff.outletId)
-      .order("entry_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(150),
-    admin
-      .from("orders")
-      .select("id, source, order_type, status, total, cogs_amount, tax_amount")
-      .eq("outlet_id", staff.outletId)
-      .in("status", ["paid", "ready", "served"])
-      .is("deleted_at", null),
-    admin
-      .from("refunds")
-      .select("amount, orders!inner(outlet_id)")
-      .eq("orders.outlet_id", staff.outletId),
-    admin
-      .from("ingredients")
-      .select("current_stock, unit_cost")
-      .eq("outlet_id", staff.outletId)
-      .is("deleted_at", null),
-    admin
-      .from("suppliers")
-      .select("payable_balance")
-      .eq("outlet_id", staff.outletId)
-      .is("deleted_at", null),
-    admin
-      .from("purchase_orders")
-      .select("total_amount, paid_amount, status")
-      .eq("outlet_id", staff.outletId),
-    admin
-      .from("waste_logs")
-      .select("cost_amount")
-      .eq("outlet_id", staff.outletId),
+    journalsQuery,
+    ordersQuery,
+    refundsQuery,
+    ingredientsQuery,
+    suppliersQuery,
+    posQuery,
+    wasteQuery,
   ]);
 
   const journals = ((journalsRes.data ?? []) as AccountingJournalRow[]).map(
@@ -414,10 +476,15 @@ export async function getFinancialReportData(): Promise<FinancialReportData> {
         },
       ],
     },
+    scopeLabel,
+    selectedOutletId,
+    isHoldingMode,
+    outlets,
   };
 }
 
 const createManualJournalSchema = z.object({
+  outletId: z.string().uuid("Kios tujuan tidak valid.").optional(),
   category: z.enum([
     "expense_salary",
     "expense_rent",
@@ -455,11 +522,28 @@ export async function createManualAccountingEntryAction(
   }
 
   const admin = createSupabaseAdminClient();
+  const targetOutletId =
+    parsed.data.outletId ?? staff.selectedOutletId ?? staff.outletId;
+
+  const { data: outletExists } = await admin
+    .from("outlets")
+    .select("id")
+    .eq("id", targetOutletId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!outletExists) {
+    return {
+      ok: false,
+      message: "Pilih usaha / kios tujuan yang valid sebelum menyimpan jurnal.",
+    };
+  }
+
   const mapping = JOURNAL_ACCOUNT_MAP[parsed.data.category];
   const journalNo = makeJournalNo("JV");
 
   const { error } = await admin.from("accounting_journals").insert({
-    outlet_id: staff.outletId,
+    outlet_id: targetOutletId,
     journal_no: journalNo,
     entry_date: new Date().toISOString().slice(0, 10),
     description: parsed.data.description,

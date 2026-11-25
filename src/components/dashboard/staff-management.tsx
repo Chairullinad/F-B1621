@@ -353,7 +353,7 @@ export function StaffManagement({
   function renderPermissionCell(val: string | boolean) {
     if (val === true) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 className="h-3.5 w-3.5" />
           Diizinkan
         </span>
@@ -361,14 +361,14 @@ export function StaffManagement({
     }
     if (val === false) {
       return (
-        <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+        <span className="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
           <XCircle className="h-3.5 w-3.5" />
           Tidak
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-bold text-[#1B5E86]">
+      <span className="inline-flex items-center rounded-full bg-sky-50 dark:bg-sky-950/60 px-2.5 py-0.5 text-xs font-bold text-[#1B5E86] dark:text-sky-300">
         {val}
       </span>
     );
@@ -413,7 +413,7 @@ export function StaffManagement({
       {activeTab === "users" && (
         <div className="grid gap-6 lg:grid-cols-12">
           {/* Kolom Kiri: Form Tambah User Baru */}
-          <Card className="lg:col-span-4 border-slate-200 shadow-2xs">
+          <Card className="lg:col-span-4 border-slate-200 dark:border-slate-800 shadow-2xs">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <UserPlus className="h-4 w-4 text-[#1E88E5]" />
@@ -429,7 +429,7 @@ export function StaffManagement({
                 <div className="space-y-1">
                   <label
                     htmlFor="staff-name"
-                    className="block text-xs font-semibold text-slate-700"
+                    className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
                   >
                     Nama Lengkap Staf
                   </label>
@@ -446,7 +446,7 @@ export function StaffManagement({
                 <div className="space-y-1">
                   <label
                     htmlFor="staff-email"
-                    className="block text-xs font-semibold text-slate-700"
+                    className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
                   >
                     Email Login
                   </label>
@@ -464,7 +464,7 @@ export function StaffManagement({
                 <div className="space-y-1">
                   <label
                     htmlFor="staff-password"
-                    className="block text-xs font-semibold text-slate-700"
+                    className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
                   >
                     Password Awal
                   </label>
@@ -483,7 +483,7 @@ export function StaffManagement({
                 <div className="space-y-1">
                   <label
                     htmlFor="staff-outlet"
-                    className="block text-xs font-semibold text-slate-700"
+                    className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
                   >
                     Cabang Penugasan
                   </label>
@@ -492,7 +492,7 @@ export function StaffManagement({
                     value={outletId}
                     onChange={(e) => setOutletId(e.target.value)}
                     disabled={isPending}
-                    className="flex min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                    className="flex min-h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
                   >
                     {outlets.map((out) => (
                       <option key={out.id} value={out.id}>
@@ -505,7 +505,7 @@ export function StaffManagement({
                 <div className="space-y-1">
                   <label
                     htmlFor="staff-role"
-                    className="block text-xs font-semibold text-slate-700"
+                    className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
                   >
                     Role / Hak Akses
                   </label>
@@ -514,7 +514,7 @@ export function StaffManagement({
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
                     disabled={isPending}
-                    className="flex min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                    className="flex min-h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
                   >
                     {ROLES.map((r) => (
                       <option key={r} value={r}>
@@ -522,7 +522,7 @@ export function StaffManagement({
                       </option>
                     ))}
                   </select>
-                  <p className="pt-1 text-[11px] leading-relaxed text-slate-500">
+                  <p className="pt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
                     {ROLE_DESCRIPTIONS[role]}
                   </p>
                 </div>
@@ -535,7 +535,7 @@ export function StaffManagement({
           </Card>
 
           {/* Kolom Kanan: Daftar User Lintas Cabang + Edit & Reset Password */}
-          <Card className="lg:col-span-8 border-slate-200 shadow-2xs">
+          <Card className="lg:col-span-8 border-slate-200 dark:border-slate-800 shadow-2xs">
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -559,7 +559,7 @@ export function StaffManagement({
                     className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                       filterOutletId === "ALL"
                         ? "bg-[#1B5E86] text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                     }`}
                   >
                     Semua Cabang ({initialStaff.length})
@@ -576,7 +576,7 @@ export function StaffManagement({
                         className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                           filterOutletId === out.id
                             ? "bg-[#1B5E86] text-white"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                         }`}
                       >
                         {out.name} ({count})
@@ -600,10 +600,10 @@ export function StaffManagement({
               {editingMember && (
                 <form
                   onSubmit={handleSaveEditMember}
-                  className="rounded-xl border-2 border-sky-300 bg-sky-50/50 p-4 space-y-3"
+                  className="rounded-xl border-2 border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/30 p-4 space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-slate-900">
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                       Edit User: {editingMember.full_name} (
                       {editingMember.email})
                     </p>
@@ -619,7 +619,7 @@ export function StaffManagement({
 
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-700">
+                      <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         Nama Lengkap
                       </label>
                       <Input
@@ -629,13 +629,13 @@ export function StaffManagement({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-700">
+                      <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         Cabang Tugas
                       </label>
                       <select
                         value={editOutletId}
                         onChange={(e) => setEditOutletId(e.target.value)}
-                        className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs"
+                        className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-slate-100"
                       >
                         {outlets.map((out) => (
                           <option key={out.id} value={out.id}>
@@ -645,7 +645,7 @@ export function StaffManagement({
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-700">
+                      <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         Role / Hak Akses
                       </label>
                       <select
@@ -654,7 +654,7 @@ export function StaffManagement({
                         onChange={(e) =>
                           setEditRole(e.target.value as UserRole)
                         }
-                        className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs"
+                        className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-slate-100"
                       >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
@@ -677,10 +677,10 @@ export function StaffManagement({
               {resettingMember && (
                 <form
                   onSubmit={handleResetPassword}
-                  className="rounded-xl border-2 border-amber-300 bg-amber-50/60 p-4 space-y-3"
+                  className="rounded-xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30 p-4 space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-slate-900">
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                       Reset Password untuk {resettingMember.full_name} (
                       {resettingMember.email})
                     </p>
@@ -705,7 +705,7 @@ export function StaffManagement({
                       onChange={(e) => setNewPassword(e.target.value)}
                       minLength={8}
                       required
-                      className="flex-1 bg-white"
+                      className="flex-1 bg-white dark:bg-slate-900"
                     />
                     <Button type="submit" size="sm" disabled={isPending}>
                       <KeyRound className="mr-1.5 h-3.5 w-3.5" />
@@ -721,11 +721,11 @@ export function StaffManagement({
                 return (
                   <div
                     key={member.id}
-                    className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-2xs xl:flex-row xl:items-center"
+                    className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-2xs xl:flex-row xl:items-center"
                   >
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">
+                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                           {member.full_name}
                         </span>
                         <Badge
@@ -733,13 +733,15 @@ export function StaffManagement({
                         >
                           {member.is_active ? "Aktif" : "Nonaktif"}
                         </Badge>
-                        <span className="inline-flex items-center gap-1 rounded-md bg-[#EBF5FF] px-2 py-0.5 text-[11px] font-bold text-[#1B5E86]">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[#EBF5FF] dark:bg-sky-950/60 px-2 py-0.5 text-[11px] font-bold text-[#1B5E86] dark:text-sky-300">
                           <Store className="h-3 w-3" />
                           {member.outletName ?? "LATTESPACE"}
                         </span>
                         {isSelf ? <Badge variant="outline">Akun Anda</Badge> : null}
                       </div>
-                      <p className="text-xs text-slate-500">{member.email}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {member.email}
+                      </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -755,7 +757,7 @@ export function StaffManagement({
                           )
                         }
                         disabled={isPending}
-                        className="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-800"
+                        className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 text-xs font-medium text-slate-800 dark:text-slate-200"
                       >
                         {outlets.map((out) => (
                           <option key={out.id} value={out.id}>
@@ -776,7 +778,7 @@ export function StaffManagement({
                           )
                         }
                         disabled={isPending || isSelf}
-                        className="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-bold text-[#1B5E86]"
+                        className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 text-xs font-bold text-[#1B5E86] dark:text-sky-400"
                       >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
@@ -839,7 +841,7 @@ export function StaffManagement({
       {/* TAB 2: MATRIKS HAK AKSES & IZIN OPERASIONAL PER ROLE               */}
       {/* ================================================================== */}
       {activeTab === "permissions" && (
-        <Card className="border-slate-200 shadow-2xs">
+        <Card className="border-slate-200 dark:border-slate-800 shadow-2xs">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="h-5 w-5 text-[#1E88E5]" />
@@ -853,10 +855,10 @@ export function StaffManagement({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
               <table className="w-full border-collapse text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-slate-700">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300">
                     <th className="px-4 py-3 font-bold">Modul</th>
                     <th className="px-4 py-3 font-bold">
                       Fitur / Tindakan Operasional
@@ -870,13 +872,16 @@ export function StaffManagement({
                     <th className="px-3 py-3 text-center font-bold">Pelayan</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-900">
                   {PERMISSION_MATRIX.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/80">
-                      <td className="px-4 py-3 font-semibold text-slate-600">
+                    <tr
+                      key={idx}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60"
+                    >
+                      <td className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-400">
                         {row.module}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900">
+                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
                         {row.feature}
                       </td>
                       <td className="px-3 py-3 text-center">

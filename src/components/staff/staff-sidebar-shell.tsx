@@ -23,9 +23,13 @@ import {
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { ROLE_LABELS_ID, type StaffNavItem } from "@/lib/auth";
+import type { OutletView } from "@/lib/outlets";
 import type { UserRole } from "@/lib/types/database";
 import type { StaffSidebarBadges } from "@/server/inventory";
-import { switchActiveOutletAction, type OutletView } from "@/server/outlets";
+import {
+  leaveActiveOutletAction,
+  switchActiveOutletAction,
+} from "@/server/outlets";
 
 interface StaffSidebarShellProps {
   staff: {
@@ -35,7 +39,7 @@ interface StaffSidebarShellProps {
   navItems: ReadonlyArray<StaffNavItem>;
   badges: StaffSidebarBadges;
   outlets?: OutletView[];
-  activeOutletId?: string;
+  activeOutletId?: string | null;
   logoutAction: () => Promise<void>;
   children: React.ReactNode;
 }
@@ -70,22 +74,24 @@ export function StaffSidebarShell({
   const [outletMenuOpen, setOutletMenuOpen] = React.useState(false);
   const [isSwitchingOutlet, startSwitchTransition] = React.useTransition();
 
-  const [optimisticOutletId, setOptimisticOutletId] = React.useState(activeOutletId);
+  const [optimisticOutletId, setOptimisticOutletId] = React.useState<
+    string | null | undefined
+  >(activeOutletId);
   React.useEffect(() => {
     setOptimisticOutletId(activeOutletId);
   }, [activeOutletId]);
 
+  const isHoldingMode = staff.role === "owner" && !optimisticOutletId;
+
   const currentOutlet = React.useMemo(() => {
+    if (isHoldingMode) {
+      return null;
+    }
     return (
       outlets.find((o) => o.id === optimisticOutletId) ??
-      outlets[0] ?? {
-        id: "",
-        name: "LATTESPACE",
-        description: "Coffee & Eatery",
-        themeColor: "#3B7097",
-      }
+      (staff.role !== "owner" ? (outlets[0] ?? null) : null)
     );
-  }, [outlets, optimisticOutletId]);
+  }, [outlets, optimisticOutletId, isHoldingMode, staff.role]);
 
   const handleSwitchOutlet = (targetId: string) => {
     setOutletMenuOpen(false);
@@ -94,6 +100,22 @@ export function StaffSidebarShell({
       const res = await switchActiveOutletAction(targetId);
       if (res.ok) {
         toast.success(res.message);
+        router.refresh();
+      } else {
+        setOptimisticOutletId(activeOutletId);
+        toast.error(res.message);
+      }
+    });
+  };
+
+  const handleLeaveOutlet = () => {
+    setOutletMenuOpen(false);
+    setOptimisticOutletId(null);
+    startSwitchTransition(async () => {
+      const res = await leaveActiveOutletAction();
+      if (res.ok) {
+        toast.success(res.message);
+        router.push("/dashboard");
         router.refresh();
       } else {
         setOptimisticOutletId(activeOutletId);
@@ -149,6 +171,7 @@ export function StaffSidebarShell({
         items: [
           { href: "/dashboard/produk", label: "Daftar Menu & Kategori" },
           { href: "/dashboard/cabang", label: "Pengaturan Cabang / Kedai" },
+          { href: "/dashboard/landing-page", label: "Landing Page & Banner" },
           { href: "/dashboard/meja", label: "Meja & QR Code" },
           { href: "/dashboard/pengaturan", label: "Pajak, Service & QRIS" },
         ],
@@ -221,25 +244,90 @@ export function StaffSidebarShell({
     ];
   }, [staff.role, badges]);
 
-  // Filter grup sesuai role pengguna
-  const visibleGroups = React.useMemo(() => {
+  // Filter grup sesuai role pengguna (Mode Holding Owner mempertahankan Dashboard + Laporan + Setting Kios + Akses & Keamanan)
+  const visibleGroups: MainMenuGroup[] = React.useMemo(() => {
+    if (isHoldingMode) {
+      return [
+        {
+          id: "holding-dashboard",
+          label: "Beranda",
+          icon: <LayoutDashboard className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+          roles: ["owner"],
+          items: [
+            { href: "/dashboard", label: "Dashboard" },
+          ],
+        },
+        {
+          id: "holding-laporan",
+          label: "Laporan",
+          icon: <Receipt className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+          roles: ["owner"],
+          items: [
+            { href: "/dashboard/transaksi", label: "Laporan Penjualan & Struk" },
+            { href: "/dashboard/keuangan?tab=labarugi", label: "Laporan Laba Rugi & Pajak" },
+          ],
+        },
+        {
+          id: "holding-setting",
+          label: "Setting",
+          icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+          roles: ["owner"],
+          items: [
+            { href: "/dashboard/cabang", label: "Setting Kios" },
+          ],
+        },
+        {
+          id: "holding-akses",
+          label: "Akses & Keamanan",
+          icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+          roles: ["owner"],
+          items: [
+            { href: "/dashboard/staf", label: "Kelola Staf & Hak Akses" },
+            { href: "/dashboard/audit", label: "Jejak Audit Sistem" },
+          ],
+        },
+      ];
+    }
     return allGroups.filter((g) => g.roles.includes(staff.role));
-  }, [allGroups, staff.role]);
+  }, [allGroups, staff.role, isHoldingMode]);
 
   // State Accordion: menentukan grup mana yang sedang terbuka (expand)
   const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     for (const group of visibleGroups) {
-      const hasActive = group.items.some(
-        (it) => pathname === it.href || pathname.startsWith(`${it.href}/`)
-      );
-      initial[group.id] = hasActive;
+      if (isHoldingMode) {
+        initial[group.id] = true;
+      } else {
+        const hasActive = group.items.some((it) => {
+          const itemPath = it.href.split("?")[0] ?? it.href;
+          return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+        });
+        initial[group.id] = hasActive;
+      }
     }
     if (!Object.values(initial).some(Boolean) && visibleGroups[0]) {
       initial[visibleGroups[0].id] = true;
     }
     return initial;
   });
+
+  // Pastikan semua grup menu Holding langsung terbuka saat kembali ke Portal Owner
+  React.useEffect(() => {
+    if (isHoldingMode) {
+      setOpenGroups((prev) => ({
+        ...prev,
+        "holding-dashboard": true,
+        "holding-laporan": true,
+        "holding-setting": true,
+        "holding-akses": true,
+      }));
+    } else if (staff.role === "owner") {
+      setOpenGroups((prev) => ({
+        ...prev,
+        dashboard: true,
+      }));
+    }
+  }, [isHoldingMode, staff.role]);
 
   // Gunakan ref agar sinkronisasi rute hanya bereaksi terhadap perpindahan pathname (mencegah infinite loop)
   const visibleGroupsRef = React.useRef(visibleGroups);
@@ -251,9 +339,10 @@ export function StaffSidebarShell({
   React.useEffect(() => {
     setPendingHref((prev) => (prev !== null ? null : prev));
     for (const group of visibleGroupsRef.current) {
-      const hasActive = group.items.some(
-        (it) => pathname === it.href || pathname.startsWith(`${it.href}/`)
-      );
+      const hasActive = group.items.some((it) => {
+        const itemPath = it.href.split("?")[0] ?? it.href;
+        return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+      });
       if (hasActive) {
         setOpenGroups((prev) => {
           if (prev[group.id]) return prev;
@@ -264,6 +353,14 @@ export function StaffSidebarShell({
   }, [pathname]);
 
   function toggleGroup(groupId: string) {
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+      setOpenGroups((prev) => ({
+        ...prev,
+        [groupId]: true,
+      }));
+      return;
+    }
     setOpenGroups((prev) => ({
       ...prev,
       [groupId]: !prev[groupId],
@@ -277,11 +374,14 @@ export function StaffSidebarShell({
     if (href === "/dashboard") {
       return pathname === "/dashboard";
     }
+    if (isHoldingMode && href.startsWith("/dashboard/keuangan")) {
+      return pathname === "/dashboard/keuangan";
+    }
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F0F3F7] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-sans">
+    <div className="flex min-h-screen bg-[#F4F6F9] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-sans">
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
@@ -292,19 +392,23 @@ export function StaffSidebarShell({
 
       {/* Modern Light / Dark Clean Sidebar (Identik ESB POSLite) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-xs transition-all duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col overflow-x-hidden border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-xs transition-all duration-200 lg:translate-x-0 ${
           sidebarCollapsed ? "w-18" : "w-64"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        {/* Brand Header Kiri Atas: Logo 1621Group Horizontal Panjang + Tombol Lipat Sidebar (Persis ESB POSLite) */}
-        <div className="flex h-15 items-center justify-between border-b border-slate-200/80 dark:border-slate-800 px-3.5 py-2 bg-white dark:bg-slate-900">
-          <Link
-            href={staff.role === "owner" ? "/dashboard" : "/kasir"}
-            prefetch={true}
-            onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-2 min-w-0"
-          >
-            {!sidebarCollapsed ? (
+        {/* Brand Header Kiri Atas: Logo 1621Group Horizontal Panjang + Tombol Lipat/Buka Sidebar */}
+        <div
+          className={`flex h-15 items-center border-b border-slate-200/80 dark:border-slate-800 py-2 bg-white dark:bg-slate-900 ${
+            sidebarCollapsed ? "justify-center px-2" : "justify-between px-3.5"
+          }`}
+        >
+          {!sidebarCollapsed && (
+            <Link
+              href={staff.role === "owner" ? "/dashboard" : "/kasir"}
+              prefetch={true}
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-2 min-w-0"
+            >
               <div className="relative h-10 w-42 flex items-center">
                 <Image
                   src="/logo-1621group.png"
@@ -315,31 +419,22 @@ export function StaffSidebarShell({
                   priority
                 />
               </div>
-            ) : (
-              <div className="relative flex h-9 w-10 shrink-0 items-center justify-center">
-                <Image
-                  src="/logo-1621group-stacked.png"
-                  alt="1621 Group"
-                  width={40}
-                  height={27}
-                  className="h-full w-auto object-contain"
-                  priority
-                />
-              </div>
-            )}
-          </Link>
+            </Link>
+          )}
 
-          {/* Tombol Collapse Sidebar di Dalam Kotak Putih Kiri Atas (Persis ESB POSLite) */}
+          {/* Tombol Collapse/Expand Sidebar di Dalam Header Sidebar (muat bersih saat collapsed) */}
           <button
             type="button"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden lg:inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#EBF5FF] dark:bg-slate-800 text-[#1E88E5] dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0"
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            className="hidden lg:inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#EBF5FF] dark:bg-slate-800 text-[#1E88E5] dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0"
             title={sidebarCollapsed ? "Buka Sidebar" : "Lipat Sidebar"}
+            aria-label={sidebarCollapsed ? "Buka Sidebar" : "Lipat Sidebar"}
+            aria-expanded={!sidebarCollapsed}
           >
             {sidebarCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4" />
+              <PanelLeftOpen className="h-5 w-5" />
             ) : (
-              <PanelLeftClose className="h-4 w-4" />
+              <PanelLeftClose className="h-5 w-5" />
             )}
           </button>
 
@@ -447,24 +542,29 @@ export function StaffSidebarShell({
 
         {/* User Profile Footer */}
         <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-xs">
-          <div className="flex items-center justify-between gap-2">
+          <div
+            className={`flex items-center gap-2 ${
+              sidebarCollapsed ? "justify-center" : "justify-between"
+            }`}
+          >
             {!sidebarCollapsed && (
               <div className="min-w-0">
                 <div className="truncate font-semibold text-slate-800 dark:text-slate-100">
                   {staff.fullName}
                 </div>
                 <div className="truncate text-[11px] text-slate-400 dark:text-slate-400">
-                  {ROLE_LABELS_ID[staff.role]} &bull; {currentOutlet.name}
+                  {ROLE_LABELS_ID[staff.role]} &bull;{" "}
+                  {currentOutlet ? currentOutlet.name : "Semua Usaha (Owner)"}
                 </div>
               </div>
             )}
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:border-rose-200 transition-colors cursor-pointer"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:border-rose-200 dark:hover:border-rose-800 transition-colors cursor-pointer"
                 title="Keluar dari sistem"
               >
-                <LogOut className="h-3.5 w-3.5" />
+                <LogOut className="h-4 w-4" />
               </button>
             </form>
           </div>
@@ -484,7 +584,7 @@ export function StaffSidebarShell({
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 lg:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 lg:hidden cursor-pointer"
               aria-label="Buka menu"
             >
               <MenuIcon className="h-5 w-5" />
@@ -503,16 +603,31 @@ export function StaffSidebarShell({
             </div>
           </div>
 
-          {/* Sisi Kanan: Tips Bisnis + Theme Toggle + Kartu User Login & Cabang Aktif (Persis ESB POSLite) */}
+          {/* Sisi Kanan: Keluar Kios (Owner inside kiosk) + Tips Bisnis + Theme Toggle + Kartu User Login & Cabang Aktif */}
           <div className="flex items-center gap-2.5 sm:gap-3.5">
+            {staff.role === "owner" && !isHoldingMode && (
+              <button
+                type="button"
+                onClick={handleLeaveOutlet}
+                disabled={isSwitchingOutlet}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/25 bg-white/15 hover:bg-white/25 px-3 text-xs font-semibold text-white transition-colors cursor-pointer"
+                title="Kembali ke Portal Utama Owner untuk memilih kios lain"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Semua Kios</span>
+              </button>
+            )}
+
             {/* Tombol Tips Bisnis di Topbar Biru (Persis ESB POSLite) */}
-            <Link
-              href="/dashboard#tips-bisnis"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-white hover:bg-white/10 transition-colors"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Tips Bisnis</span>
-            </Link>
+            {!isHoldingMode && (
+              <Link
+                href="/dashboard#tips-bisnis"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-white hover:bg-white/10 transition-colors"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Tips Bisnis</span>
+              </Link>
+            )}
 
             {/* Filter Mode Gelap & Terang dengan Ikon Bulan 🌙 / Matahari ☀️ */}
             <ThemeToggle />
@@ -523,26 +638,37 @@ export function StaffSidebarShell({
                 type="button"
                 onClick={() => setOutletMenuOpen(!outletMenuOpen)}
                 className="flex items-center gap-2.5 rounded-xl bg-white/15 hover:bg-white/25 dark:bg-slate-800 text-white px-3 py-1.5 text-xs transition-all border border-white/20 dark:border-slate-700 cursor-pointer"
-                title="Profil Pengguna & Pilihan Cabang"
+                title="Profil Pengguna & Pilihan Kios"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#1E88E5] shadow-2xs">
-                  <Store className="h-4 w-4" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#1E88E5] shadow-2xs overflow-hidden">
+                  {currentOutlet?.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={currentOutlet.logoUrl}
+                      alt={currentOutlet.name}
+                      className="h-full w-full object-contain p-0.5"
+                    />
+                  ) : currentOutlet ? (
+                    <Store className="h-4 w-4" />
+                  ) : (
+                    <Building2 className="h-4 w-4" />
+                  )}
                 </div>
                 <div className="hidden text-left sm:block">
                   <div className="text-xs font-semibold leading-tight flex items-center gap-1.5 text-white">
-                    <span className="truncate max-w-[140px]">
-                      {currentOutlet.name}
+                    <span className="truncate max-w-[160px]">
+                      {currentOutlet ? currentOutlet.name : "Semua Usaha (Owner)"}
                     </span>
                     <ChevronDown className="h-3.5 w-3.5 text-white/80" />
                   </div>
-                  <div className="text-[11px] text-white/85 font-normal truncate max-w-[150px] mt-0.5">
+                  <div className="text-[11px] text-white/85 font-normal truncate max-w-[160px] mt-0.5">
                     {staff.fullName}
                   </div>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 text-white/80 sm:hidden" />
               </button>
 
-              {/* Dropdown Menu Profil & Cabang */}
+              {/* Dropdown Menu Profil & Kios */}
               {outletMenuOpen && (
                 <>
                   <div
@@ -562,13 +688,27 @@ export function StaffSidebarShell({
                       </div>
                     </div>
 
+                    {staff.role === "owner" && currentOutlet && (
+                      <div className="pb-1.5 mb-1.5 border-b border-slate-100 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={handleLeaveOutlet}
+                          disabled={isSwitchingOutlet}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/50 py-2.5 text-xs font-semibold text-amber-800 dark:text-amber-300 transition cursor-pointer"
+                        >
+                          <Building2 className="h-3.5 w-3.5" />
+                          <span>Keluar Kios (Portal Semua Usaha)</span>
+                        </button>
+                      </div>
+                    )}
+
                     <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Pilih Cabang / Outlet
+                      {isHoldingMode ? "Masuk ke Usaha / Kios" : "Pilih Usaha / Kios"}
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1 max-h-60 overflow-y-auto">
                       {outlets.map((out) => {
-                        const isSelected = out.id === currentOutlet.id;
+                        const isSelected = Boolean(currentOutlet && out.id === currentOutlet.id);
                         return (
                           <button
                             key={out.id}
@@ -582,11 +722,14 @@ export function StaffSidebarShell({
                             }`}
                           >
                             <div className="flex items-center gap-2.5 truncate">
-                              <Store className="h-4 w-4 shrink-0 text-slate-400" />
+                              <span
+                                className="h-2.5 w-2.5 rounded-full shrink-0 border border-white/50"
+                                style={{ backgroundColor: out.themeColor }}
+                              />
                               <div className="truncate">
                                 <div className="truncate font-semibold">{out.name}</div>
                                 <div className="text-[11px] text-slate-400 truncate">
-                                  {out.description || "Cabang 1621 F&B"}
+                                  {out.description || "Kios / Usaha f&b1621"}
                                 </div>
                               </div>
                             </div>
@@ -606,7 +749,7 @@ export function StaffSidebarShell({
                           className="flex items-center justify-center gap-1.5 w-full rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 transition"
                         >
                           <Settings className="h-3.5 w-3.5" />
-                          <span>Kelola Cabang &amp; Kustomisasi</span>
+                          <span>Setting Kios &amp; Detail Usaha</span>
                         </Link>
                       </div>
                     )}
