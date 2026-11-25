@@ -76,7 +76,7 @@ export function OutletLandingEditor({
   const [isProcessingUpload, setIsProcessingUpload] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
 
-  // Sinkronkan form apabila user mengganti pilihan kios
+  // Sinkronkan form apabila user mengganti pilihan outlet
   React.useEffect(() => {
     setBanners(activeOutlet.landingBanners);
     setNewsTitle(activeOutlet.landingNewsTitle || "PROMO & BERITA");
@@ -247,15 +247,15 @@ export function OutletLandingEditor({
 
   return (
     <form onSubmit={handleSave} className="space-y-6">
-      {/* Pemilih Kios bila dipakai di halaman standalone multi-outlet */}
+      {/* Pemilih Outlet bila dipakai di halaman standalone multi-outlet */}
       {outlets && outlets.length > 1 && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-2xs">
           <div>
             <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-              Pilih Usaha / Kios yang Diatur
+              Pilih Outlet yang Diatur
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Setiap kios memiliki banner iklan, jam operasional, dan tautan aksinya sendiri.
+              Setiap outlet memiliki banner iklan, jam operasional, dan tautan aksinya sendiri.
             </p>
           </div>
           <select
@@ -416,7 +416,7 @@ export function OutletLandingEditor({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-                  Jam Operasional Kios
+                  Jam Operasional Outlet
                 </label>
                 <input
                   type="text"
@@ -653,7 +653,7 @@ export function OutletLandingEditor({
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-[11px] font-bold text-amber-900/70">
-                  Banner Iklan Kios
+                  Banner Iklan Outlet
                 </div>
               )}
             </div>

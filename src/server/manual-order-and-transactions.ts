@@ -731,8 +731,8 @@ export async function getTransactionsDashboardData(rawFilters?: {
   const outletNameMap = new Map(outlets.map((o) => [o.id, o.name]));
   const scopeLabel =
     selectedOutletId === "ALL"
-      ? "Semua Usaha / Kios (Konsolidasi)"
-      : outletNameMap.get(selectedOutletId) ?? "Kios Aktif";
+      ? "Semua Outlet (Konsolidasi)"
+      : outletNameMap.get(selectedOutletId) ?? "Outlet Aktif";
 
   const period = rawFilters?.period ?? "today";
   const bounds =
@@ -892,7 +892,7 @@ export async function getTransactionsDashboardData(rawFilters?: {
     return {
       id,
       outletId: rowOutletId,
-      outletName: outletNameMap.get(rowOutletId) ?? "Kios",
+      outletName: outletNameMap.get(rowOutletId) ?? "Outlet",
       orderNo: String(raw.order_no),
       source: (raw.source as OrderSource) ?? "customer_qr",
       orderType: (raw.order_type as OrderType) ?? "dine_in",

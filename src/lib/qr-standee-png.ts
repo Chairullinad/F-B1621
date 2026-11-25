@@ -495,7 +495,7 @@ export async function downloadAllQrStandeeZip(
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  const zipFilename = `semua-qr-meja-${slug || "kios"}.zip`;
+  const zipFilename = `semua-qr-meja-${slug || "outlet"}.zip`;
   triggerBlobDownload(zipBlob, zipFilename);
   return zipFilename;
 }

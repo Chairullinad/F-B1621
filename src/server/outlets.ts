@@ -18,8 +18,8 @@ const createOutletSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(2, "Nama usaha/kios minimal 2 karakter.")
-    .max(100, "Nama usaha/kios maksimal 100 karakter."),
+    .min(2, "Nama outlet minimal 2 karakter.")
+    .max(100, "Nama outlet maksimal 100 karakter."),
   address: z.string().trim().max(250).optional().default(""),
   phone: z.string().trim().max(30).optional().default(""),
   description: z.string().trim().max(250).optional().default("Kafe & Resto Modern"),
@@ -42,11 +42,11 @@ const createOutletSchema = z.object({
 });
 
 const updateOutletSchema = z.object({
-  id: z.string().uuid("ID kios tidak valid."),
+  id: z.string().uuid("ID outlet tidak valid."),
   name: z
     .string()
     .trim()
-    .min(2, "Nama usaha/kios minimal 2 karakter.")
+    .min(2, "Nama outlet minimal 2 karakter.")
     .max(100),
   address: z.string().trim().max(250).optional().default(""),
   phone: z.string().trim().max(30).optional().default(""),
@@ -92,7 +92,7 @@ const optionalActionUrlSchema = z
   .default("");
 
 const updateOutletLandingPageSchema = z.object({
-  outletId: z.string().uuid("ID kios tidak valid."),
+  outletId: z.string().uuid("ID outlet tidak valid."),
   operatingHours: z
     .string()
     .trim()
@@ -260,12 +260,12 @@ export async function createOutletAction(
     .single();
 
   if (insErr || !newOutlet) {
-    return { ok: false, message: `Gagal membuat kios baru: ${insErr?.message}` };
+    return { ok: false, message: `Gagal membuat outlet baru: ${insErr?.message}` };
   }
 
   const newOutletId = String(newOutlet.id);
 
-  // Buat 10 Meja Awal Otomatis untuk Kios Baru (aman dan tahan kegagalan)
+  // Buat 10 Meja Awal Otomatis untuk Outlet Baru (aman dan tahan kegagalan)
   try {
     const defaultTables = Array.from({ length: 10 }, (_, i) => ({
       outlet_id: newOutletId,
@@ -276,7 +276,7 @@ export async function createOutletAction(
     }));
     await admin.from("tables").insert(defaultTables);
   } catch (tableErr) {
-    console.error("Gagal inisialisasi meja kios baru:", tableErr);
+    console.error("Gagal inisialisasi meja outlet baru:", tableErr);
   }
 
   // Catat ke Audit Log (aman)
@@ -299,12 +299,12 @@ export async function createOutletAction(
         theme_color: cleanThemeColor,
         has_logo: Boolean(cleanLogoUrl),
       },
-      reason: `Owner menambahkan kios/usaha baru '${parsed.data.name}'`,
+      reason: `Owner menambahkan outlet baru '${parsed.data.name}'`,
       prev_hash: "",
       hash: "",
     });
   } catch (auditErr) {
-    console.error("Gagal mencatat audit log kios baru:", auditErr);
+    console.error("Gagal mencatat audit log outlet baru:", auditErr);
   }
 
   revalidateTag("sidebar_outlets");
@@ -363,7 +363,7 @@ export async function updateOutletCustomizationAction(
     .eq("id", parsed.data.id);
 
   if (updErr) {
-    return { ok: false, message: `Gagal memperbarui profil kios: ${updErr.message}` };
+    return { ok: false, message: `Gagal memperbarui profil outlet: ${updErr.message}` };
   }
 
   await admin.from("audit_logs").insert({
@@ -384,7 +384,7 @@ export async function updateOutletCustomizationAction(
       theme_color: parsed.data.themeColor,
       receipt_footer: resolvedFooter,
     },
-    reason: `Owner memperbarui profil & logo kios '${parsed.data.name}'`,
+    reason: `Owner memperbarui profil & logo outlet '${parsed.data.name}'`,
     prev_hash: "",
     hash: "",
   });
@@ -397,7 +397,7 @@ export async function updateOutletCustomizationAction(
   revalidatePath("/dashboard/meja");
   revalidatePath("/dashboard/meja/cetak");
 
-  return { ok: true, message: `Profil kios '${parsed.data.name}' berhasil disimpan.` };
+  return { ok: true, message: `Profil outlet '${parsed.data.name}' berhasil disimpan.` };
 }
 
 export async function updateOutletLandingPageAction(
@@ -425,7 +425,7 @@ export async function updateOutletLandingPageAction(
     .maybeSingle();
 
   if (!beforeData) {
-    return { ok: false, message: "Kios tidak ditemukan atau sudah dinonaktifkan." };
+    return { ok: false, message: "Outlet tidak ditemukan atau sudah dinonaktifkan." };
   }
 
   const cleanBanners = parsed.data.landingBanners.map((b) => ({
@@ -479,7 +479,7 @@ export async function updateOutletLandingPageAction(
       reservation_url: parsed.data.reservationUrl || null,
       feedback_url: parsed.data.feedbackUrl || null,
     },
-    reason: `Owner memperbarui banner & link landing page kios '${String(beforeData.name)}'`,
+    reason: `Owner memperbarui banner & link landing page outlet '${String(beforeData.name)}'`,
     prev_hash: "",
     hash: "",
   });
@@ -507,7 +507,7 @@ export async function switchActiveOutletAction(outletId: string): Promise<Action
     .maybeSingle();
 
   if (!out) {
-    return { ok: false, message: "Kios tidak ditemukan atau sudah nonaktif." };
+    return { ok: false, message: "Outlet tidak ditemukan atau sudah nonaktif." };
   }
 
   const cookieStore = await cookies();
@@ -519,7 +519,7 @@ export async function switchActiveOutletAction(outletId: string): Promise<Action
 
   revalidatePath("/", "layout");
 
-  return { ok: true, message: `Masuk ke kios: ${out.name}` };
+  return { ok: true, message: `Masuk ke outlet: ${out.name}` };
 }
 
 export async function leaveActiveOutletAction(): Promise<ActionResult> {
@@ -530,11 +530,11 @@ export async function leaveActiveOutletAction(): Promise<ActionResult> {
 
   return {
     ok: true,
-    message: "Kembali ke Dashboard Pemilik (Semua Kios).",
+    message: "Kembali ke Dashboard Pemilik (Semua Outlet).",
   };
 }
 
-export async function resetOutletDemoTransactionsAction(
+export async function resetOutletTransactionsAction(
   targetOutletId?: string
 ): Promise<ActionResult> {
   const staff = await requireStaffRole(["owner"]);
@@ -563,6 +563,6 @@ export async function resetOutletDemoTransactionsAction(
   return {
     ok: true,
     message:
-      "Data transaksi demo cabang berhasil di-reset ke Rp 0. Siap untuk simulasi input baru.",
+      "Data transaksi outlet berhasil di-reset ke Rp 0. Siap untuk input transaksi baru.",
   };
 }

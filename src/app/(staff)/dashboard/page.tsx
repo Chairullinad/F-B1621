@@ -11,7 +11,7 @@ interface DashboardPageProps {
     period?: "today" | "month";
     outletId?: string;
     year?: string;
-    pilih_kios?: string;
+    pilih_outlet?: string;
   }>;
 }
 
@@ -27,7 +27,7 @@ export default async function OwnerDashboardPage({
   ]);
   const sp = await searchParams;
 
-  // Owner belum memilih kios: tampilkan Portal Holding & Grafik Penjualan Per Usaha
+  // Owner belum memilih outlet: tampilkan Portal Holding & Grafik Penjualan Per Outlet
   if (staff.role === "owner" && !staff.selectedOutletId) {
     const parsedYear = sp.year ? Number.parseInt(sp.year, 10) : undefined;
     const holdingData = await getOwnerHoldingAnalytics({
@@ -37,7 +37,7 @@ export default async function OwnerDashboardPage({
     return (
       <OwnerHoldingDashboardView
         initialData={holdingData}
-        promptSelectKios={sp.pilih_kios === "1"}
+        promptSelectOutlet={sp.pilih_outlet === "1"}
       />
     );
   }

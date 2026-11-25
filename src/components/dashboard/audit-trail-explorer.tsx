@@ -268,7 +268,7 @@ export function AuditTrailExplorer({
         <div className="flex flex-wrap items-center gap-2">
           {initialData.outlets.length > 0 && (
             <select
-              aria-label="Filter Kios Audit"
+              aria-label="Filter Outlet Audit"
               value={initialData.selectedOutletId}
               onChange={(e) =>
                 router.push(
@@ -277,10 +277,10 @@ export function AuditTrailExplorer({
               }
               className="h-9 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 text-xs font-semibold text-zinc-800 dark:text-slate-100"
             >
-              <option value="ALL">Semua Usaha / Kios (Konsolidasi)</option>
+              <option value="ALL">Semua Outlet (Konsolidasi)</option>
               {initialData.outlets.map((o) => (
                 <option key={o.id} value={o.id}>
-                  Kios: {o.name}
+                  Outlet: {o.name}
                 </option>
               ))}
             </select>
@@ -461,7 +461,7 @@ export function AuditTrailExplorer({
                         {formatDateTimeWIB(selectedLog.createdAt)} &bull; Pelaku:{" "}
                         <strong>{selectedLog.actorName}</strong> (
                         {selectedLog.role})
-                        {selectedLog.outletName ? ` \u2022 Kios: ${selectedLog.outletName}` : ""}
+                        {selectedLog.outletName ? ` \u2022 Outlet: ${selectedLog.outletName}` : ""}
                       </CardDescription>
                     </div>
                     {selectedLog.orderId && (

@@ -21,7 +21,7 @@ import { switchActiveOutletAction } from "@/server/outlets";
 
 interface OwnerHoldingDashboardViewProps {
   initialData: OwnerHoldingAnalyticsData;
-  promptSelectKios?: boolean;
+  promptSelectOutlet?: boolean;
 }
 
 const MONTH_FULL_NAMES_ID = [
@@ -55,7 +55,7 @@ function formatCompactRupiahAxis(value: number): string {
 
 export function OwnerHoldingDashboardView({
   initialData,
-  promptSelectKios = false,
+  promptSelectOutlet = false,
 }: OwnerHoldingDashboardViewProps) {
   const router = useRouter();
   const [enteringOutletId, setEnteringOutletId] = React.useState<string | null>(
@@ -67,7 +67,7 @@ export function OwnerHoldingDashboardView({
     null
   );
 
-  // State toggle legend per kios (semua aktif secara default)
+  // State toggle legend per outlet (semua aktif secara default)
   const [hiddenOutletIds, setHiddenOutletIds] = React.useState<Set<string>>(
     () => new Set()
   );
@@ -84,7 +84,7 @@ export function OwnerHoldingDashboardView({
       if (next.has(outletId)) {
         next.delete(outletId);
       } else {
-        // Sisakan minimal 1 garis agar grafik tidak kosong bila masih ada > 1 kios
+        // Sisakan minimal 1 garis agar grafik tidak kosong bila masih ada > 1 outlet
         if (next.size < Math.max(0, initialData.outlets.length - 1)) {
           next.add(outletId);
         } else {
@@ -177,7 +177,7 @@ export function OwnerHoldingDashboardView({
   return (
     <div className="space-y-6 bg-[#F4F7FA] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100">
       {/* Banner Prompt apabila Owner diarahkan dari route operasional sebelum memilih outlet */}
-      {promptSelectKios && (
+      {promptSelectOutlet && (
         <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 flex items-center justify-between gap-3">
           <span>
             Silakan pilih dan klik salah satu outlet di bawah terlebih dahulu
@@ -422,7 +422,7 @@ export function OwnerHoldingDashboardView({
           </div>
         </div>
 
-        {/* Legenda Warna Unik Tiap Kios */}
+        {/* Legenda Warna Unik Tiap Outlet */}
         {initialData.outlets.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             {initialData.outlets.map((summary) => {
@@ -455,14 +455,14 @@ export function OwnerHoldingDashboardView({
           </div>
         )}
 
-        {/* Kanvas SVG Grafik Multi-Kios */}
+        {/* Kanvas SVG Grafik Multi-Outlet */}
         <div className="relative overflow-x-auto">
           <div className="min-w-[640px] relative">
             <svg
               viewBox={`0 0 ${svgW} ${svgH}`}
               className="w-full h-auto select-none"
               role="img"
-              aria-label={`Grafik penjualan per bulan tahun ${initialData.selectedYear} untuk setiap kios`}
+              aria-label={`Grafik penjualan per bulan tahun ${initialData.selectedYear} untuk setiap outlet`}
               onMouseLeave={() => setHoveredMonthIdx(null)}
             >
               {/* Grid Horizontal & Label Sumbu Y */}

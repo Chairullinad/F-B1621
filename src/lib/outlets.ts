@@ -187,7 +187,7 @@ export function mapOutletRowToView(raw: Record<string, unknown>): OutletView {
 
   return {
     id: String(raw.id),
-    name: String(raw.name ?? "Kios"),
+    name: String(raw.name ?? "Outlet"),
     address: typeof raw.address === "string" ? raw.address : null,
     phone: rawPhone ?? legacyMeta.phone ?? null,
     description:
@@ -285,7 +285,7 @@ export function mapOutletRowToSidebarView(
 }
 
 /**
- * Memastikan setiap kios pada grafik bulanan mendapat warna yang unik dan kontras secara visual.
+ * Memastikan setiap outlet pada grafik bulanan mendapat warna yang unik dan kontras secara visual.
  */
 export function assignDistinctOutletColors(
   outlets: ReadonlyArray<Pick<OutletView, "id" | "themeColor">>
@@ -334,7 +334,7 @@ export interface StandeeContrastPalette {
 
 /**
  * Menghasilkan palet warna kontras dan warna garis tepi untuk standee QR Meja
- * berdasarkan `theme_color` yang diatur Owner pada Setting Kios.
+ * berdasarkan `theme_color` yang diatur Owner pada Setting Outlet.
  */
 export function getStandeeContrastPalette(
   rawThemeColor: string | null | undefined
@@ -382,5 +382,5 @@ export function buildQrStandeeFilename(
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `qr-meja-${paddedTable}-${slug || "kios"}.png`;
+  return `qr-meja-${paddedTable}-${slug || "outlet"}.png`;
 }

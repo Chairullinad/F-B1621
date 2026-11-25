@@ -136,8 +136,8 @@ export async function getFinancialReportData(params?: {
 
   const scopeLabel =
     selectedOutletId === "ALL"
-      ? "Semua Usaha / Kios (Konsolidasi)"
-      : outlets.find((o) => o.id === selectedOutletId)?.name ?? "Kios Aktif";
+      ? "Semua Outlet (Konsolidasi)"
+      : outlets.find((o) => o.id === selectedOutletId)?.name ?? "Outlet Aktif";
 
   let journalsQuery = admin
     .from("accounting_journals")
@@ -516,7 +516,7 @@ export async function getFinancialReportData(params?: {
 }
 
 const createManualJournalSchema = z.object({
-  outletId: z.string().uuid("Kios tujuan tidak valid.").optional(),
+  outletId: z.string().uuid("Outlet tujuan tidak valid.").optional(),
   category: z.enum([
     "expense_salary",
     "expense_rent",
@@ -567,7 +567,7 @@ export async function createManualAccountingEntryAction(
   if (!outletExists) {
     return {
       ok: false,
-      message: "Pilih usaha / kios tujuan yang valid sebelum menyimpan jurnal.",
+      message: "Pilih outlet tujuan yang valid sebelum menyimpan jurnal.",
     };
   }
 

@@ -153,7 +153,7 @@ export function TransactionsHistoryView({
           )}
           {initialData.staff.role === "owner" && initialData.outlets.length > 0 && (
             <select
-              aria-label="Filter Kios Transaksi"
+              aria-label="Filter Outlet Transaksi"
               value={initialData.selectedOutletId}
               onChange={(e) =>
                 router.push(
@@ -162,10 +162,10 @@ export function TransactionsHistoryView({
               }
               className="h-11 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-zinc-800 dark:text-slate-100"
             >
-              <option value="ALL">Semua Usaha / Kios (Konsolidasi)</option>
+              <option value="ALL">Semua Outlet (Konsolidasi)</option>
               {initialData.outlets.map((o) => (
                 <option key={o.id} value={o.id}>
-                  Kios: {o.name}
+                  Outlet: {o.name}
                 </option>
               ))}
             </select>

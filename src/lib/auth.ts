@@ -446,13 +446,13 @@ export function isPublicPathname(pathname: string): boolean {
 }
 
 /**
- * Rute yang boleh diakses Owner saat belum masuk ke salah satu kios (Mode Holding):
- * - /dashboard (pilihan kios & grafik penjualan per bulan tiap usaha)
- * - /dashboard/keuangan (laporan keuangan & laba rugi konsolidasi / per kios)
- * - /dashboard/transaksi (laporan penjualan & struk konsolidasi / per kios)
- * - /dashboard/cabang (Setting Kios: nama usaha, logo usaha, detail usaha)
+ * Rute yang boleh diakses Owner saat belum masuk ke salah satu outlet (Mode Holding):
+ * - /dashboard (pilihan outlet & grafik penjualan per bulan tiap outlet)
+ * - /dashboard/keuangan (laporan keuangan & laba rugi konsolidasi / per outlet)
+ * - /dashboard/transaksi (laporan penjualan & struk konsolidasi / per outlet)
+ * - /dashboard/cabang (Setting Outlet: nama outlet, logo outlet, detail outlet)
  * - /dashboard/staf (kelola staf & hak akses lintas cabang)
- * - /dashboard/audit (jejak audit sistem konsolidasi / per kios)
+ * - /dashboard/audit (jejak audit sistem konsolidasi / per outlet)
  */
 export function canOwnerAccessWithoutOutlet(pathname: string): boolean {
   const normalized =

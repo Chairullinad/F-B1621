@@ -83,7 +83,7 @@ describe("src/lib/outlets.ts", () => {
     assert.equal(legacy.landingBanners[0]?.imageUrl, "/legacy-cover.jpg");
   });
 
-  it("memberikan warna kontras yang berbeda untuk setiap kios meskipun warna bawaannya sama atau mirip", () => {
+  it("memberikan warna kontras yang berbeda untuk setiap outlet meskipun warna bawaannya sama atau mirip", () => {
     const colorMap = assignDistinctOutletColors([
       { id: "a", themeColor: "#0284C7" },
       { id: "b", themeColor: "#0284C7" },

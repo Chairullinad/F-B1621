@@ -13,7 +13,7 @@ interface TableQrStandeeCardProps {
 /**
  * Komponen kartu/stiker Standee QR Meja berbentuk persegi (1:1) dengan:
  * - Tab logo putih di atas: Logo Outlet (besar & jelas) | Logo 1621 Group
- * - Background warna penuh dinamis sesuai `themeColor` pada Setting Kios
+ * - Background warna penuh dinamis sesuai `themeColor` pada Setting Outlet
  * - Headline "mau order? SCAN AJA", QR Code penuh, panduan 3 langkah berikon, dan Nomor Meja 2 digit
  */
 export function TableQrStandeeCard({

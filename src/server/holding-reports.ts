@@ -257,7 +257,7 @@ async function fetchHoldingSettingsInternal(): Promise<{
 
   const outlets: HoldingOutletOption[] = (outletsRes.data ?? []).map((o) => ({
     id: String(o.id),
-    name: String(o.name ?? "Kios"),
+    name: String(o.name ?? "Outlet"),
     isActive: o.is_active !== false,
     notificationEmail: notifEmailMap.get(String(o.id)) ?? null,
   }));
@@ -338,7 +338,7 @@ export async function buildDailyHoldingZipAndSummary(params: {
 
   const allOutlets = (outletsRes.data ?? []).map((o) => ({
     id: String(o.id),
-    name: String(o.name ?? "Kios"),
+    name: String(o.name ?? "Outlet"),
   }));
 
   const targetOutlets =

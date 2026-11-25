@@ -65,7 +65,7 @@ describe("src/lib/auth.ts", () => {
     assert.equal(canRoleAccessPathname("waiter", "/dashboard"), false);
   });
 
-  it("membatasi owner tanpa kios aktif (Holding Mode) ke Beranda, Laporan, Setting Kios, dan Akses & Keamanan", () => {
+  it("membatasi owner tanpa outlet aktif (Holding Mode) ke Beranda, Laporan, Setting Outlet, dan Akses & Keamanan", () => {
     assert.equal(canOwnerAccessWithoutOutlet("/dashboard"), true);
     assert.equal(canOwnerAccessWithoutOutlet("/dashboard/"), true);
     assert.equal(canOwnerAccessWithoutOutlet("/dashboard/keuangan"), true);

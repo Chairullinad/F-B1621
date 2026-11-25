@@ -293,7 +293,7 @@ export function TableQrManager({
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Logo usaha &amp; warna mengikuti pengaturan pada menu Setting Kios.
+                    Logo usaha &amp; warna mengikuti pengaturan pada menu Setting Outlet.
                   </p>
                 </div>
 
@@ -348,7 +348,7 @@ export function TableQrManager({
                         href={`/dashboard/cabang?edit=${encodeURIComponent(outletId)}`}
                       >
                         <Palette className="mr-2 h-4 w-4" />
-                        Ubah Warna &amp; Logo Kios
+                        Ubah Warna &amp; Logo Outlet
                       </Link>
                     </Button>
                   )}

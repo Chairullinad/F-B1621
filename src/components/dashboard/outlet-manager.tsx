@@ -30,7 +30,7 @@ import {
 import {
   createOutletAction,
   leaveActiveOutletAction,
-  resetOutletDemoTransactionsAction,
+  resetOutletTransactionsAction,
   switchActiveOutletAction,
   updateOutletCustomizationAction,
 } from "@/server/outlets";
@@ -140,7 +140,7 @@ function OutletLogoAndColorFields({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={form.logoUrl || DEFAULT_LOGO_PATH}
-              alt="Preview logo kios"
+              alt="Preview logo outlet"
               className="h-full w-full object-contain"
             />
           </div>
@@ -148,7 +148,7 @@ function OutletLogoAndColorFields({
           <div className="flex-1 space-y-2">
             <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
               <ImagePlus className="h-3.5 w-3.5 text-[#1E88E5]" />
-              <span>Logo Usaha / Kios (PNG transparan disarankan)</span>
+              <span>Logo Outlet (PNG transparan disarankan)</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <label
@@ -267,13 +267,13 @@ export function OutletManager({
     setOutlets(initialOutlets);
   }, [initialOutlets]);
 
-  // Modal Tambah Kios Baru
+  // Modal Tambah Outlet Baru
   const [showAddForm, setShowAddForm] = useState(initialOpenAdd);
   const [addForm, setAddForm] = useState<OutletFormState>(() =>
     makeEmptyFormState(initialOutlets.length)
   );
 
-  // Modal Edit Profil, Logo & Detail Kios
+  // Modal Edit Profil, Logo & Detail Outlet
   const [editingOutlet, setEditingOutlet] = useState<OutletView | null>(() => {
     if (!initialEditOutletId) return null;
     return initialOutlets.find((o) => o.id === initialEditOutletId) ?? null;
@@ -297,7 +297,7 @@ export function OutletManager({
   const handleCreateOutlet = (e: React.FormEvent) => {
     e.preventDefault();
     if (!addForm.name.trim()) {
-      toast.error("Nama usaha / kios wajib diisi.");
+      toast.error("Nama outlet wajib diisi.");
       return;
     }
 
@@ -374,10 +374,10 @@ export function OutletManager({
     });
   };
 
-  const handleResetDemoData = (outletId: string) => {
+  const handleResetTransactions = (outletId: string) => {
     setConfirmResetId(null);
     startTransition(async () => {
-      const res = await resetOutletDemoTransactionsAction(outletId);
+      const res = await resetOutletTransactionsAction(outletId);
       if (res.ok) {
         toast.success(res.message);
         router.refresh();
@@ -389,7 +389,7 @@ export function OutletManager({
 
   return (
     <div className="space-y-5 bg-[#F4F7FA] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100">
-      {/* Breadcrumb & Header Setting Kios */}
+      {/* Breadcrumb & Header Setting Outlet */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
           <div className="text-xs text-slate-400 font-medium">
@@ -398,14 +398,14 @@ export function OutletManager({
             </Link>{" "}
             &gt;{" "}
             <span className="text-slate-600 dark:text-slate-300">
-              Setting Kios &amp; Usaha
+              Setting Outlet &amp; Usaha
             </span>
           </div>
           <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">
-            Setting Kios &amp; Identitas Usaha
+            Setting Outlet &amp; Identitas Usaha
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Kelola nama usaha, logo usaha, warna grafik penjualan, serta detail operasional setiap kios yang Anda miliki.
+            Kelola nama usaha, logo usaha, warna grafik penjualan, serta detail operasional setiap outlet yang Anda miliki.
           </p>
         </div>
 
@@ -436,7 +436,7 @@ export function OutletManager({
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
             >
               <Settings className="h-4 w-4 text-slate-500" />
-              <span>Pajak, Service &amp; QRIS Kios</span>
+              <span>Pajak, Service &amp; QRIS Outlet</span>
             </Link>
           )}
 
@@ -453,14 +453,14 @@ export function OutletManager({
             ) : (
               <>
                 <Plus className="h-4 w-4" />
-                <span>Tambah Kios / Usaha Baru</span>
+                <span>Tambah Outlet Baru</span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Form Tambah Kios / Usaha Baru */}
+      {/* Form Tambah Outlet Baru */}
       {showAddForm && (
         <form
           onSubmit={handleCreateOutlet}
@@ -468,7 +468,7 @@ export function OutletManager({
         >
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              Buat Usaha / Kios Baru
+              Buat Outlet Baru
             </h2>
             <span className="text-xs text-slate-400">
               Terhubung ke Dashboard &amp; Laporan Keuangan Owner
@@ -478,7 +478,7 @@ export function OutletManager({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-                Nama Usaha / Kios *
+                Nama Outlet *
               </label>
               <input
                 type="text"
@@ -512,7 +512,7 @@ export function OutletManager({
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-                Alamat Lokasi Kios
+                Alamat Lokasi Outlet
               </label>
               <input
                 type="text"
@@ -527,7 +527,7 @@ export function OutletManager({
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-                Telepon / WhatsApp Kios
+                Telepon / WhatsApp Outlet
               </label>
               <input
                 type="text"
@@ -580,22 +580,22 @@ export function OutletManager({
               disabled={isPending}
               className="h-11 rounded-xl bg-[#1E88E5] px-5 text-xs font-semibold text-white hover:bg-[#1976D2] disabled:opacity-50 cursor-pointer"
             >
-              {isPending ? "Menyimpan..." : "Simpan & Tambahkan Kios"}
+              {isPending ? "Menyimpan..." : "Simpan & Tambahkan Outlet"}
             </button>
           </div>
         </form>
       )}
 
-      {/* Daftar Kios Terdaftar */}
+      {/* Daftar Outlet Terdaftar */}
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              Daftar Usaha / Kios Anda ({outlets.length} Kios)
+              Daftar Outlet Anda ({outlets.length} Outlet)
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Klik <strong>Ubah Detail &amp; Logo</strong> untuk mengubah identitas usaha, atau{" "}
-              <strong>Masuk Kios</strong> untuk membuka operasional kios tersebut.
+              Klik <strong>Ubah Detail &amp; Logo</strong> untuk mengubah identitas outlet, atau{" "}
+              <strong>Masuk Outlet</strong> untuk membuka operasional outlet tersebut.
             </p>
           </div>
           {activeOutletId && (
@@ -606,7 +606,7 @@ export function OutletManager({
               className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 px-3.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer self-start sm:self-auto"
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span>Keluar Kios Aktif</span>
+              <span>Keluar Outlet Aktif</span>
             </button>
           )}
         </div>
@@ -615,7 +615,7 @@ export function OutletManager({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/60 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                <th className="px-4 py-3.5">Logo &amp; Nama Kios</th>
+                <th className="px-4 py-3.5">Logo &amp; Nama Outlet</th>
                 <th className="px-4 py-3.5">Alamat &amp; Kontak</th>
                 <th className="px-4 py-3.5">Pajak &amp; Struk</th>
                 <th className="px-4 py-3.5">Sesi Kerja</th>
@@ -725,7 +725,7 @@ export function OutletManager({
                           disabled={isPending}
                           className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/60 px-3.5 text-xs font-semibold text-[#1E88E5] dark:text-sky-300 hover:bg-[#1E88E5] hover:text-white transition cursor-pointer"
                         >
-                          <span>Masuk Kios</span>
+                          <span>Masuk Outlet</span>
                           <ArrowRight className="h-3.5 w-3.5" />
                         </button>
                       )}
@@ -755,7 +755,7 @@ export function OutletManager({
                           <div className="flex items-center gap-1 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/50 p-1">
                             <button
                               type="button"
-                              onClick={() => handleResetDemoData(outlet.id)}
+                              onClick={() => handleResetTransactions(outlet.id)}
                               disabled={isPending}
                               className="h-9 rounded-lg bg-rose-600 px-2.5 text-xs font-bold text-white hover:bg-rose-700 cursor-pointer"
                             >
@@ -775,7 +775,7 @@ export function OutletManager({
                             onClick={() => setConfirmResetId(outlet.id)}
                             disabled={isPending}
                             className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-800/70 bg-white dark:bg-slate-800 px-3 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer"
-                            title="Hapus semua riwayat transaksi simulasi demo di kios ini"
+                            title="Hapus semua riwayat transaksi di outlet ini"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
                             <span>Reset</span>
@@ -794,21 +794,21 @@ export function OutletManager({
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <p>
             <strong>Catatan Keamanan:</strong> Tombol{" "}
-            <strong>Reset</strong> hanya untuk membersihkan data simulasi demo
-            sebelum beroperasi penuh (menghapus order &amp; pembayaran kios
+            <strong>Reset</strong> hanya untuk membersihkan data transaksi
+            sebelum beroperasi penuh (menghapus order &amp; pembayaran outlet
             tersebut; data menu, bahan baku, dan audit log tetap tersimpan).
           </p>
         </div>
       </div>
 
-      {/* Modal Edit Detail, Logo & Warna Kios */}
+      {/* Modal Edit Detail, Logo & Warna Outlet */}
       {editingOutlet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 my-auto animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                  Setting Kios — {editingOutlet.name}
+                  Setting Outlet — {editingOutlet.name}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Perubahan nama, logo, warna grafik, dan detail usaha akan tersimpan permanen ke database.
@@ -818,7 +818,7 @@ export function OutletManager({
                 type="button"
                 onClick={() => setEditingOutlet(null)}
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 cursor-pointer"
-                aria-label="Tutup modal edit kios"
+                aria-label="Tutup modal edit outlet"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -828,7 +828,7 @@ export function OutletManager({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-                    Nama Usaha / Kios *
+                    Nama Outlet *
                   </label>
                   <input
                     type="text"
@@ -861,7 +861,7 @@ export function OutletManager({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-                    Alamat Kios
+                    Alamat Outlet
                   </label>
                   <input
                     type="text"
@@ -932,7 +932,7 @@ export function OutletManager({
                   disabled={isPending}
                   className="h-11 rounded-xl bg-[#1E88E5] px-5 text-xs font-semibold text-white hover:bg-[#1976D2] disabled:opacity-50 cursor-pointer"
                 >
-                  {isPending ? "Menyimpan..." : "Simpan Setting Kios"}
+                  {isPending ? "Menyimpan..." : "Simpan Setting Outlet"}
                 </button>
               </div>
             </form>

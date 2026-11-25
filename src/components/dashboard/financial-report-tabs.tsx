@@ -75,7 +75,7 @@ export function FinancialReportTabs({
       : (initialData.outlets[0]?.id ?? "")
   );
 
-  // Sinkronkan tab & kios manual saat query parameter URL berubah
+  // Sinkronkan tab & outlet manual saat query parameter URL berubah
   useEffect(() => {
     const nextTab: TabKey = VALID_TABS.includes(initialTab as TabKey)
       ? (initialTab as TabKey)
@@ -279,15 +279,15 @@ export function FinancialReportTabs({
           )}
           {initialData.outlets.length > 0 && (
             <select
-              aria-label="Filter laporan keuangan per kios"
+              aria-label="Filter laporan keuangan per outlet"
               value={initialData.selectedOutletId}
               onChange={(e) => handleOutletScopeChange(e.target.value)}
               className="h-11 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-[13px] font-semibold text-slate-800 dark:text-slate-100 focus:border-[#1E88E5] focus:outline-none cursor-pointer"
             >
-              <option value="ALL">Semua Usaha / Kios (Konsolidasi)</option>
+              <option value="ALL">Semua Outlet (Konsolidasi)</option>
               {initialData.outlets.map((o) => (
                 <option key={o.id} value={o.id}>
-                  Kios: {o.name}
+                  Outlet: {o.name}
                 </option>
               ))}
             </select>
@@ -961,7 +961,7 @@ export function FinancialReportTabs({
               {initialData.outlets.length > 0 && (
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Usaha / Kios Tujuan
+                    Outlet Tujuan
                   </label>
                   <select
                     value={manualOutletId}

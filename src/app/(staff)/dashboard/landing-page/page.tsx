@@ -26,13 +26,13 @@ export default async function LandingPageSettingsPage({
     return (
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center">
         <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-          Belum ada kios terdaftar.
+          Belum ada outlet terdaftar.
         </p>
         <Link
           href="/dashboard/cabang?tambah=1"
           className="mt-4 inline-flex h-11 items-center rounded-xl bg-[#1E88E5] px-4 text-xs font-bold text-white"
         >
-          Buat Kios Baru
+          Buat Outlet Baru
         </Link>
       </div>
     );
@@ -48,7 +48,7 @@ export default async function LandingPageSettingsPage({
             </Link>{" "}
             &gt;{" "}
             <Link href="/dashboard/cabang" className="hover:text-[#1E88E5]">
-              Setting Kios
+              Setting Outlet
             </Link>{" "}
             &gt;{" "}
             <span className="text-slate-600 dark:text-slate-300">
@@ -68,7 +68,7 @@ export default async function LandingPageSettingsPage({
           className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shrink-0 self-start sm:self-auto"
         >
           <ArrowLeft className="h-4 w-4 text-slate-500" />
-          <span>Kembali ke Setting Kios</span>
+          <span>Kembali ke Setting Outlet</span>
         </Link>
       </div>
 

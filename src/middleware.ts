@@ -121,8 +121,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Owner yang belum masuk ke salah satu kios hanya boleh membuka Dashboard Holding,
-  // Laporan Keuangan, dan Setting Kios.
+  // Owner yang belum masuk ke salah satu outlet hanya boleh membuka Dashboard Holding,
+  // Laporan Keuangan, dan Setting Outlet.
   if (
     isProtected &&
     role === "owner" &&
@@ -132,7 +132,7 @@ export async function middleware(request: NextRequest) {
     const holdingUrl = request.nextUrl.clone();
     holdingUrl.pathname = "/dashboard";
     holdingUrl.search = "";
-    holdingUrl.searchParams.set("pilih_kios", "1");
+    holdingUrl.searchParams.set("pilih_outlet", "1");
     return NextResponse.redirect(holdingUrl);
   }
 

@@ -123,8 +123,8 @@ export async function getAuditTrailDashboardData(rawFilters?: {
 
   const scopeLabel =
     selectedOutletId === "ALL"
-      ? "Semua Usaha / Kios (Konsolidasi)"
-      : outletNameMap.get(selectedOutletId) ?? "Kios Aktif";
+      ? "Semua Outlet (Konsolidasi)"
+      : outletNameMap.get(selectedOutletId) ?? "Outlet Aktif";
 
   const period = rawFilters?.period ?? "7d";
   const startIso = getWibPeriodStartIso(period);
