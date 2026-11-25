@@ -6,19 +6,36 @@ Dokumen ini mencatat seluruh riwayat progres, keputusan teknis, kendala yang ter
 
 ## Ringkasan Status Saat Ini
 
-- **Pembaruan Terakhir:** 24 November 2026, 22:00 WIB
-- **Server Produksi:** VPS Hostinger KVM 2 (`213.190.4.98` / `srv2193752.hstgr.cloud` — Ubuntu 26.04 LTS)
+- **Pembaruan Terakhir:** 25 November 2026, 22:42 WIB
+- **Server Produksi:** VPS Hostinger KVM 2 (`213.190.4.98` / `srv2193752.hstgr.cloud` — Ubuntu 24.04 LTS)
+- **Domain Aplikasi:** `https://1621fnb.com` (HTTPS / SSL Let's Encrypt aktif)
+- **Panel Coolify:** `https://coolify.1621fnb.com`
 - **Progres Fase:**
   - [x] **Persiapan Dokumen & Audit Deploy** (Selesai 24 Nov 2026)
   - [x] **Fase 1: VPS Hostinger & DNS Domain** (Selesai 24 Nov 2026)
   - [x] **Fase 2: Hardening VPS & Setup Coolify HTTPS** (Selesai 24 Nov 2026)
-  - [ ] **Fase 3: Persiapan Project Supabase Produksi** *(Target berikutnya)*
-  - [ ] **Fase 4: Konfigurasi & Deploy Aplikasi di Coolify**
-  - [ ] **Fase 5: Verifikasi Pasca-Deploy, Backup, & Go-Live Toko**
+  - [x] **Fase 3: Persiapan Project Supabase Produksi** (Selesai 25 Nov 2026 — Terverifikasi skema & data aktif)
+  - [x] **Fase 4: Konfigurasi & Deploy Aplikasi di Coolify** (Selesai 25 Nov 2026 — Docker standalone running, `/api/health` OK)
+  - [ ] **Fase 5: Verifikasi Pasca-Deploy, Backup, & Go-Live Toko** *(Sedang berjalan)*
 
 ---
 
 ## Log Perubahan & Progres Harian
+
+### 25 November 2026 (22:00 – 22:42 WIB)
+
+#### Yang Diselesaikan
+1. **Verifikasi Skema & Kredensial Supabase (Fase 3)**
+   - Mengaudit koneksi Supabase (`xhfsogyqzcjfpwepiezc.supabase.co`) dan memastikan 7 migrasi database, data outlet, akun staf & owner, produk, inventori, serta jurnal akuntansi sudah aktif.
+   - Menyesuaikan Auth URL Configuration di Supabase Dashboard (`Site URL`: `https://1621fnb.com`, `Redirect URLs`: `https://1621fnb.com/**`, `http://localhost:3000/**`).
+2. **Deploy Aplikasi Produksi di Coolify (Fase 4)**
+   - Menghubungkan repository ke Coolify menggunakan mode Public Repository.
+   - Mengonfigurasi domain utama `https://1621fnb.com` dan `https://www.1621fnb.com` dengan HTTP $\rightarrow$ HTTPS redirect otomatis.
+   - Mengisi Environment Variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_TIMEZONE`) dan mengaktifkan flag *Build Variable* untuk variabel publik.
+   - Build multi-stage Dockerfile Next.js 15 berhasil dikompilasi dan container berjalan sehat (`running`).
+   - Endpoint `GET https://1621fnb.com/api/health` berhasil merespons `status: "healthy"` dan waktu server WIB sinkron.
+
+---
 
 ### 24 November 2026 (17:22 – 22:00 WIB)
 
