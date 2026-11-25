@@ -236,7 +236,7 @@ export function StaffSidebarShell({
     ];
   }, [staff.role, badges]);
 
-  // Filter grup sesuai role & custom per-user permissions (Mode Holding Owner mempertahankan Beranda + Laporan + Setting Outlet + Pengaturan + Akses & Keamanan)
+  // Filter grup sesuai role & custom per-user permissions (Mode Holding Owner mempertahankan Beranda + Laporan + Akses & Keamanan)
   const visibleGroups: MainMenuGroup[] = React.useMemo(() => {
     if (isHoldingMode) {
       return [
@@ -260,29 +260,13 @@ export function StaffSidebarShell({
           ],
         },
         {
-          id: "holding-setting",
-          label: "Setting",
-          icon: <Store className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
-          roles: ["owner"],
-          items: [
-            { href: "/dashboard/cabang", label: "Setting Outlet" },
-          ],
-        },
-        {
-          id: "holding-pengaturan",
-          label: "Pengaturan",
-          icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
-          roles: ["owner"],
-          items: [
-            { href: "/dashboard/pengaturan-utama", label: "Notifikasi & Report Harian" },
-          ],
-        },
-        {
           id: "holding-akses",
           label: "Akses & Keamanan",
           icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
           roles: ["owner"],
           items: [
+            { href: "/dashboard/cabang", label: "Setting Outlet" },
+            { href: "/dashboard/pengaturan-utama", label: "Notifikasi & Report Harian" },
             { href: "/dashboard/staf", label: "Kelola Staf & Hak Akses" },
             { href: "/dashboard/audit", label: "Jejak Audit Sistem" },
           ],
@@ -423,8 +407,6 @@ export function StaffSidebarShell({
         ...prev,
         "holding-dashboard": true,
         "holding-laporan": true,
-        "holding-setting": true,
-        "holding-pengaturan": true,
         "holding-akses": true,
       }));
     } else if (staff.role === "owner") {
