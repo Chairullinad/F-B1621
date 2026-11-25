@@ -1,19 +1,18 @@
 "use server";
 
 import crypto from "node:crypto";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import {
   isSafeActionLinkUrl,
+  mapOutletRowToSidebarView,
   mapOutletRowToView,
-  type LandingBannerItem,
   type OutletView,
+  type SidebarOutletView,
 } from "@/lib/outlets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
-
-export type { LandingBannerItem, OutletView };
 
 const createOutletSchema = z.object({
   name: z
@@ -151,6 +150,48 @@ async function getRequestMeta(): Promise<{ ip: string; device: string }> {
   return { ip, device };
 }
 
+const getCachedSidebarOutlets = unstable_cache(
+  async (): Promise<SidebarOutletView[]> => {
+    const admin = createSupabaseAdminClient();
+    const { data: rawOutlets } = await admin
+      .from("outlets")
+      .select("id, name, description, logo_url, theme_color, receipt_footer")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+
+    return (rawOutlets ?? []).map((o) =>
+      mapOutletRowToSidebarView(o as Record<string, unknown>)
+    );
+  },
+  ["sidebar_outlets"],
+  { revalidate: 60, tags: ["sidebar_outlets"] }
+);
+
+export async function listSidebarOutletsAction(): Promise<{
+  outlets: SidebarOutletView[];
+  activeOutletId: string | null;
+}> {
+  const staff = await requireStaffRole([
+    "owner",
+    "cashier",
+    "warehouse",
+    "kitchen",
+    "waiter",
+  ]);
+  const outlets = await getCachedSidebarOutlets();
+
+  if (staff.role !== "owner") {
+    return { outlets, activeOutletId: staff.outletId };
+  }
+
+  const validSelectedId =
+    staff.selectedOutletId && outlets.some((o) => o.id === staff.selectedOutletId)
+      ? staff.selectedOutletId
+      : null;
+
+  return { outlets, activeOutletId: validSelectedId };
+}
+
 export async function listAllOutletsAction(): Promise<{
   outlets: OutletView[];
   activeOutletId: string | null;
@@ -266,6 +307,7 @@ export async function createOutletAction(
     console.error("Gagal mencatat audit log kios baru:", auditErr);
   }
 
+  revalidateTag("sidebar_outlets");
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
@@ -347,9 +389,13 @@ export async function updateOutletCustomizationAction(
     hash: "",
   });
 
+  revalidateTag("sidebar_outlets");
+  revalidateTag("sidebar_outlets");
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
+  revalidatePath("/dashboard/meja");
+  revalidatePath("/dashboard/meja/cetak");
 
   return { ok: true, message: `Profil kios '${parsed.data.name}' berhasil disimpan.` };
 }

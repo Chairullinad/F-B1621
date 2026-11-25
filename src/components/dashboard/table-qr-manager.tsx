@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { QrCode, Printer, ExternalLink, RefreshCw, Power } from "lucide-react";
+import { QrCode, Printer, ExternalLink, RefreshCw, Power, Palette, X } from "lucide-react";
 import { toast } from "sonner";
+import { DownloadAllQrPngButton } from "@/components/dashboard/download-all-qr-png-button";
+import { DownloadQrPngButton } from "@/components/dashboard/download-qr-png-button";
+import { TableQrStandeeCard } from "@/components/dashboard/table-qr-standee-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,10 +26,16 @@ import {
 
 export function TableQrManager({
   initialTables,
+  outletId,
   outletName,
+  outletLogoUrl = "/logo-1621group-stacked.png",
+  outletThemeColor = "#0284C7",
 }: {
   initialTables: ReadonlyArray<TableRow>;
+  outletId?: string;
   outletName: string;
+  outletLogoUrl?: string;
+  outletThemeColor?: string;
 }) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedTable, setSelectedTable] = React.useState<TableRow | null>(
@@ -41,6 +49,17 @@ export function TableQrManager({
       setOrigin(window.location.origin);
     }
   }, []);
+
+  React.useEffect(() => {
+    if (!selectedTable) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedTable(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedTable]);
 
   const filteredTables = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -96,6 +115,18 @@ export function TableQrManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <DownloadAllQrPngButton
+              outletName={outletName}
+              outletLogoUrl={outletLogoUrl}
+              outletThemeColor={outletThemeColor}
+              tables={initialTables
+                .filter((t) => t.is_active)
+                .map((t) => ({
+                  tableNo: t.table_no,
+                  qrToken: t.qr_token,
+                }))}
+              showSeparateOption={false}
+            />
             <Button asChild size="default">
               <Link href="/dashboard/meja/cetak">
                 Cetak Massal Semua QR (100 Meja)
@@ -112,104 +143,6 @@ export function TableQrManager({
               placeholder="Cari nomor meja (contoh: Meja 7 atau 7)..."
             />
           </div>
-
-          {selectedTable ? (
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50 p-5">
-              <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="default">Pratinjau Standee QR Meja</Badge>
-                    <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                      {selectedTable.name} — {outletName}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 break-all">
-                    URL Tujuan Pelanggan:{" "}
-                    <Link
-                      href={`/m/${selectedTable.qr_token}`}
-                      target="_blank"
-                      className="font-mono text-[#1E88E5] underline"
-                    >
-                      {origin}/m/{selectedTable.qr_token}
-                    </Link>
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
-                    Desain stiker meja resmi dilengkapi dengan identitas <strong>1621 Group</strong>, nama cabang, nomor meja, dan panduan pemesanan mandiri 3 langkah.
-                  </p>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <Button asChild size="sm">
-                      <Link
-                        href={`/dashboard/meja/cetak?table=${selectedTable.table_no}`}
-                      >
-                        <Printer className="mr-1.5 h-3.5 w-3.5" />
-                        Cetak QR {selectedTable.name}
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm">
-                      <Link
-                        href={`/m/${selectedTable.qr_token}`}
-                        target="_blank"
-                      >
-                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                        Simulasi Scan Pelanggan
-                      </Link>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedTable(null)}
-                    >
-                      Tutup Pratinjau
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Kartu Pratinjau Standee Meja Branded 1621 Group */}
-                <div className="flex w-64 shrink-0 flex-col items-center justify-between overflow-hidden rounded-2xl border-2 border-[#1B5E86] bg-white p-4 text-center shadow-md">
-                  <div className="flex w-full flex-col items-center border-b border-slate-100 pb-2.5">
-                    <Image
-                      src="/logo-1621group.png"
-                      alt="1621 Group"
-                      width={132}
-                      height={37}
-                      className="h-8 w-auto object-contain"
-                    />
-                    <span className="mt-1 rounded-full bg-[#EBF5FF] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1B5E86]">
-                      {outletName}
-                    </span>
-                  </div>
-
-                  <div className="my-2.5">
-                    <span className="inline-block rounded-lg bg-[#1B5E86] px-4 py-1 text-base font-extrabold tracking-wide text-white uppercase shadow-xs">
-                      {selectedTable.name}
-                    </span>
-                  </div>
-
-                  <div
-                    className="h-40 w-40 rounded-xl border-2 border-slate-200 bg-white p-2 shadow-2xs"
-                    dangerouslySetInnerHTML={{
-                      __html: generateQrSvgString(
-                        `${origin}/m/${selectedTable.qr_token}`
-                      ),
-                    }}
-                  />
-
-                  <div className="mt-3 w-full space-y-1 border-t border-slate-100 pt-2.5">
-                    <p className="text-[11px] font-bold text-slate-900">
-                      SCAN UNTUK PESAN DI MEJA
-                    </p>
-                    <p className="text-[10px] font-medium text-slate-500">
-                      1. Scan QR &bull; 2. Pilih Menu &bull; 3. Bayar
-                    </p>
-                    <p className="font-mono text-[9px] text-slate-400">
-                      1621 GROUP POS &bull; #{selectedTable.table_no}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filteredTables.map((table) => (
@@ -283,6 +216,157 @@ export function TableQrManager({
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal Pop-up Pratinjau Standee QR Meja */}
+      {selectedTable ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qr-standee-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150"
+          onClick={() => setSelectedTable(null)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Modal */}
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <Badge variant="default">Pratinjau Standee QR Meja</Badge>
+                <h2
+                  id="qr-standee-modal-title"
+                  className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 truncate"
+                >
+                  {selectedTable.name} &mdash; {outletName}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedTable(null)}
+                aria-label="Tutup pop-up QR"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 cursor-pointer transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body Modal: Standee Besar Kiri + Aksi & Detail Kanan */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 p-5 sm:p-6 items-center">
+              <div className="md:col-span-7 flex justify-center">
+                <TableQrStandeeCard
+                  outletName={outletName}
+                  outletLogoUrl={outletLogoUrl}
+                  outletThemeColor={outletThemeColor}
+                  tableNo={selectedTable.table_no}
+                  qrSvg={generateQrSvgString(
+                    `${origin}/m/${selectedTable.qr_token}`,
+                    2
+                  )}
+                />
+              </div>
+
+              <div className="md:col-span-5 space-y-4">
+                <div className="space-y-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    URL Tujuan Pelanggan
+                  </div>
+                  <Link
+                    href={`/m/${selectedTable.qr_token}`}
+                    target="_blank"
+                    className="block font-mono text-xs text-[#1E88E5] underline break-all"
+                  >
+                    {origin}/m/{selectedTable.qr_token}
+                  </Link>
+                </div>
+
+                <div className="space-y-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Warna Latar Aktif:</span>
+                    <span className="inline-flex items-center gap-1.5 font-mono font-bold text-slate-800 dark:text-slate-100">
+                      <span
+                        className="inline-block h-3.5 w-3.5 rounded-full border border-slate-300"
+                        style={{ backgroundColor: outletThemeColor }}
+                      />
+                      {outletThemeColor.toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Logo usaha &amp; warna mengikuti pengaturan pada menu Setting Kios.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <DownloadQrPngButton
+                    outletName={outletName}
+                    outletLogoUrl={outletLogoUrl}
+                    outletThemeColor={outletThemeColor}
+                    tableNo={selectedTable.table_no}
+                    qrToken={selectedTable.qr_token}
+                    variant="default"
+                    className="h-11 w-full bg-[#1E88E5] hover:bg-[#1976D2] text-white"
+                  />
+
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="default"
+                    className="h-11 w-full"
+                  >
+                    <Link
+                      href={`/dashboard/meja/cetak?table=${selectedTable.table_no}`}
+                    >
+                      <Printer className="mr-2 h-4 w-4" />
+                      Cetak QR {selectedTable.name}
+                    </Link>
+                  </Button>
+
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="default"
+                    className="h-11 w-full"
+                  >
+                    <Link
+                      href={`/m/${selectedTable.qr_token}`}
+                      target="_blank"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Simulasi Scan Pelanggan
+                    </Link>
+                  </Button>
+
+                  {outletId && (
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="default"
+                      className="h-11 w-full"
+                    >
+                      <Link
+                        href={`/dashboard/cabang?edit=${encodeURIComponent(outletId)}`}
+                      >
+                        <Palette className="mr-2 h-4 w-4" />
+                        Ubah Warna &amp; Logo Kios
+                      </Link>
+                    </Button>
+                  )}
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-11 w-full"
+                    onClick={() => setSelectedTable(null)}
+                  >
+                    Tutup Pop-up
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

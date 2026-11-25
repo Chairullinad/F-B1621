@@ -8,7 +8,6 @@ import {
   BarChart3,
   Building2,
   Calendar,
-  FileText,
   LineChart,
   Plus,
   Settings,
@@ -170,12 +169,12 @@ export function OwnerHoldingDashboardView({
 
   return (
     <div className="space-y-6 bg-[#F4F7FA] dark:bg-slate-950 -m-4 md:-m-6 p-4 md:p-6 min-h-screen font-sans text-slate-800 dark:text-slate-100">
-      {/* Banner Prompt apabila Owner diarahkan dari route operasional sebelum memilih kios */}
+      {/* Banner Prompt apabila Owner diarahkan dari route operasional sebelum memilih outlet */}
       {promptSelectKios && (
         <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 flex items-center justify-between gap-3">
           <span>
-            Silakan pilih dan masuk ke salah satu usaha / kios di bawah terlebih
-            dahulu untuk membuka menu operasional kasir, menu, dapur, atau stok.
+            Silakan pilih dan klik salah satu outlet di bawah terlebih dahulu
+            untuk membuka menu operasional kasir, menu, dapur, atau stok.
           </span>
         </div>
       )}
@@ -185,14 +184,14 @@ export function OwnerHoldingDashboardView({
         <div>
           <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-200/80 dark:border-sky-800 px-3 py-1 text-xs font-semibold text-[#1E88E5] dark:text-sky-300">
             <Building2 className="h-3.5 w-3.5" />
-            <span>Portal Holding Owner &bull; Semua Usaha / Kios</span>
+            <span>Portal Holding Owner &bull; Semua Outlet</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">
-            Ringkasan Usaha &amp; Pilih Kios
+            Ringkasan Outlet &amp; Grafik Penjualan
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Pantau grafik penjualan bulanan seluruh usaha Anda, atau masuk ke
-            kios tertentu untuk mengelola operasional harian.
+            Klik salah satu outlet di bawah untuk langsung masuk ke dashboard
+            operasionalnya, atau pantau performa gabungan seluruh outlet.
           </p>
         </div>
 
@@ -224,24 +223,103 @@ export function OwnerHoldingDashboardView({
           </div>
 
           <Link
-            href="/dashboard/keuangan?tab=labarugi"
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-2xs"
-          >
-            <FileText className="h-4 w-4 text-[#1E88E5]" />
-            <span>Laporan Laba Rugi &amp; Pajak</span>
-          </Link>
-
-          <Link
             href="/dashboard/cabang"
             className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1E88E5] hover:bg-[#1976D2] px-4 text-sm font-semibold text-white transition shadow-2xs"
           >
             <Settings className="h-4 w-4" />
-            <span>Setting Kios</span>
+            <span>Setting Outlet</span>
           </Link>
         </div>
       </div>
 
-      {/* 4 KPI Gabungan Seluruh Kios */}
+      {/* Pilihan Outlet untuk Masuk (Paling Atas di Bawah Header, Klik Kartu Langsung Masuk) */}
+      <section className="space-y-3">
+        {initialData.outlets.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center">
+            <Store className="mx-auto h-10 w-10 text-slate-400" />
+            <h3 className="mt-3 text-base font-bold text-slate-900 dark:text-slate-100">
+              Belum ada outlet terdaftar
+            </h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Tambahkan outlet pertama Anda melalui menu Setting Outlet.
+            </p>
+            <Link
+              href="/dashboard/cabang?tambah=1"
+              className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-[#1E88E5] px-5 text-sm font-semibold text-white hover:bg-[#1976D2]"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Buat Outlet Baru</span>
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {initialData.outlets.map((summary) => {
+              const { outlet, chartColor } = summary;
+              const isEntering = isPending && enteringOutletId === outlet.id;
+
+              return (
+                <button
+                  key={outlet.id}
+                  type="button"
+                  onClick={() => handleEnterOutlet(outlet.id)}
+                  disabled={isPending}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-left shadow-xs transition hover:border-[#1E88E5]/60 hover:shadow-md dark:hover:border-sky-600/60 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+                >
+                  {/* Garis Warna Identitas Outlet di Bagian Atas Kartu */}
+                  <div
+                    className="h-1.5 w-full"
+                    style={{ backgroundColor: chartColor }}
+                  />
+
+                  <div className="p-4 sm:p-5 flex items-center gap-3.5 w-full">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 overflow-hidden shadow-2xs">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={outlet.logoUrl}
+                        alt={outlet.name}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="truncate text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#1E88E5] dark:group-hover:text-sky-400 transition-colors">
+                          {outlet.name}
+                        </h3>
+                        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: chartColor }}
+                          />
+                          {outlet.isActive ? "Aktif" : "Nonaktif"}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-1 text-xs text-slate-500 dark:text-slate-400">
+                        {outlet.description || "Usaha Kuliner & F&B"}
+                      </p>
+                      {outlet.address && (
+                        <p className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">
+                          {outlet.address}
+                        </p>
+                      )}
+                      <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#1E88E5] dark:text-sky-400">
+                        <span>
+                          {isEntering
+                            ? "Membuka Dashboard Outlet..."
+                            : "Masuk ke Dashboard Outlet"}
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* 4 KPI Gabungan Seluruh Outlet */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -269,19 +347,19 @@ export function OwnerHoldingDashboardView({
 
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Total Usaha / Kios
+            Total Outlet
           </div>
           <div className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {initialData.totalOutlets} Kios
+            {initialData.totalOutlets} Outlet
           </div>
           <div className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            {initialData.activeOutletsCount} kios berstatus aktif
+            {initialData.activeOutletsCount} outlet berstatus aktif
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Kios Performa Tertinggi
+            Outlet Performa Tertinggi
           </div>
           <div className="mt-1.5 text-xl font-bold text-slate-900 dark:text-slate-100 truncate">
             {initialData.bestOutletName ?? "Belum Ada Data"}
@@ -297,158 +375,15 @@ export function OwnerHoldingDashboardView({
         </div>
       </div>
 
-      {/* Pilihan Kios untuk Masuk */}
-      <section className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
-              Pilih Usaha / Kios untuk Masuk
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Setiap usaha memiliki menu kasir, meja QR, dapur KDS, dan stok bahan bakunya masing-masing.
-            </p>
-          </div>
-          <Link
-            href="/dashboard/cabang?tambah=1"
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition self-start sm:self-auto"
-          >
-            <Plus className="h-4 w-4 text-[#1E88E5]" />
-            <span>Tambah Usaha / Kios Baru</span>
-          </Link>
-        </div>
-
-        {initialData.outlets.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center">
-            <Store className="mx-auto h-10 w-10 text-slate-400" />
-            <h3 className="mt-3 text-base font-bold text-slate-900 dark:text-slate-100">
-              Belum ada usaha atau kios terdaftar
-            </h3>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Tambahkan usaha / kios pertama Anda melalui menu Setting Kios.
-            </p>
-            <Link
-              href="/dashboard/cabang?tambah=1"
-              className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-[#1E88E5] px-5 text-sm font-semibold text-white hover:bg-[#1976D2]"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Buat Kios Baru</span>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {initialData.outlets.map((summary) => {
-              const { outlet, chartColor } = summary;
-              const isEntering = isPending && enteringOutletId === outlet.id;
-
-              return (
-                <div
-                  key={outlet.id}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs transition hover:shadow-md dark:hover:border-slate-700"
-                >
-                  {/* Garis Warna Identitas Usaha di Bagian Atas Kartu */}
-                  <div
-                    className="h-1.5 w-full"
-                    style={{ backgroundColor: chartColor }}
-                  />
-
-                  <div className="p-5 flex-1 space-y-4">
-                    <div className="flex items-start gap-3.5">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 overflow-hidden shadow-2xs">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={outlet.logoUrl}
-                          alt={outlet.name}
-                          className="h-full w-full object-contain"
-                        />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="truncate text-base font-bold text-slate-900 dark:text-slate-100">
-                            {outlet.name}
-                          </h3>
-                          <span
-                            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0"
-                          >
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: chartColor }}
-                            />
-                            {outlet.isActive ? "Aktif" : "Nonaktif"}
-                          </span>
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
-                          {outlet.description || "Usaha Kuliner & F&B"}
-                        </p>
-                        {outlet.address && (
-                          <p className="mt-1 truncate text-[11px] text-slate-400 dark:text-slate-500">
-                            {outlet.address}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 p-3 border border-slate-100 dark:border-slate-800">
-                      <div>
-                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                          Omset {currentMonthLabel}
-                        </div>
-                        <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
-                          {formatRupiah(summary.currentMonthSales)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                          Total {initialData.selectedYear}
-                        </div>
-                        <div className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
-                          {formatRupiah(summary.annualSales)}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {summary.annualBills.toLocaleString("id-ID")} transaksi
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 px-5 py-3.5">
-                    <button
-                      type="button"
-                      onClick={() => handleEnterOutlet(outlet.id)}
-                      disabled={isPending}
-                      className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#1E88E5] hover:bg-[#1976D2] disabled:opacity-60 px-4 text-sm font-semibold text-white transition cursor-pointer"
-                    >
-                      <span>
-                        {isEntering ? "Membuka Kios..." : "Masuk ke Kios"}
-                      </span>
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-
-                    <Link
-                      href={`/dashboard/cabang?edit=${encodeURIComponent(outlet.id)}`}
-                      className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 text-xs font-semibold text-slate-700 dark:text-slate-200 transition"
-                      title="Setting nama, logo, dan detail usaha ini"
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span>Setting</span>
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Grafik Penjualan Per Bulan Tiap Usaha (Warna Berbeda Per Usaha) */}
+      {/* Grafik Penjualan Per Bulan Tiap Outlet (Warna Berbeda Per Outlet) */}
       <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
-              Grafik Penjualan Per Bulan Tiap Usaha ({initialData.selectedYear})
+              Grafik Penjualan Per Bulan Tiap Outlet ({initialData.selectedYear})
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Setiap warna mewakili satu usaha / kios (waktu WIB). Klik nama usaha di legenda untuk menyaring tampilan grafik.
+              Setiap warna mewakili satu outlet (waktu WIB). Klik nama outlet di legenda untuk menyaring tampilan grafik.
             </p>
           </div>
 
@@ -731,13 +666,13 @@ export function OwnerHoldingDashboardView({
           </div>
         </div>
 
-        {/* Matriks Ringkas Penjualan Bulanan Tiap Usaha */}
+        {/* Matriks Ringkas Penjualan Bulanan Tiap Outlet */}
         {initialData.outlets.length > 0 && (
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                  <th className="py-2 pr-3 font-semibold">Usaha / Kios</th>
+                  <th className="py-2 pr-3 font-semibold">Outlet</th>
                   {initialData.monthlyChart.map((m) => (
                     <th key={m.monthIndex} className="py-2 px-1.5 font-semibold text-right">
                       {m.monthLabel}

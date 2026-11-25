@@ -1,13 +1,25 @@
 "use server";
 
+import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getDefaultRouteForRole } from "@/lib/auth";
+import {
+  ALL_PERMISSION_KEYS,
+  getDefaultRouteForUser,
+  hasUserPermission,
+  ROLE_DEFAULT_PERMISSIONS,
+  sanitizeCustomPermissions,
+} from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ProfileRow, UserRole } from "@/lib/types/database";
+import type {
+  PermissionKey,
+  ProfileRow,
+  UserCustomPermissions,
+  UserRole,
+} from "@/lib/types/database";
 
 const userRoleSchema = z.enum(["owner", "cashier", "warehouse", "kitchen", "waiter"]);
 
@@ -68,6 +80,7 @@ export interface AuthenticatedStaff {
   selectedOutletId: string | null;
   fullName: string;
   role: UserRole;
+  customPermissions: UserCustomPermissions | null;
   isActive: boolean;
 }
 
@@ -127,87 +140,135 @@ async function recordAuthAuditLog(params: {
 
 /**
  * Mengambil sesi staf aktif saat ini beserta profil dari tabel public.profiles.
+ * Dibungkus React `cache()` agar hanya dieksekusi sekali per request (tidak berulang di Layout & Page).
  * Mengembalikan null jika belum login atau akun nonaktif/dihapus.
  */
-export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | null> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
+const loadCurrentStaffSessionCached = cache(
+  async (): Promise<AuthenticatedStaff | null> => {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
 
-    if (userErr || !user) {
-      return null;
-    }
-
-    const admin = createSupabaseAdminClient();
-    const { data: profile, error: profileErr } = await admin
-      .from("profiles")
-      .select("id, outlet_id, full_name, role, is_active, deleted_at")
-      .eq("id", user.id)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (profileErr || !profile || !profile.is_active) {
-      return null;
-    }
-
-    const role = profile.role as UserRole;
-    const activeOutletId = String(profile.outlet_id);
-    let resolvedOutletId = activeOutletId;
-    let selectedOutletId: string | null =
-      role === "owner" ? null : activeOutletId;
-
-    if (role === "owner") {
-      try {
-        const cookieStore = await cookies();
-        const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
-        if (cookieOutletId) {
-          const { data: out } = await admin
-            .from("outlets")
-            .select("id")
-            .eq("id", cookieOutletId)
-            .is("deleted_at", null)
-            .maybeSingle();
-          if (out) {
-            resolvedOutletId = String(out.id);
-            selectedOutletId = String(out.id);
-          }
-        }
-      } catch {
-        // Abaikan jika pemanggilan cookies di context non-request
+      if (userErr || !user) {
+        return null;
       }
-    }
 
-    return {
-      userId: profile.id,
-      email: user.email ?? "",
-      outletId: resolvedOutletId,
-      selectedOutletId,
-      fullName: profile.full_name,
-      role,
-      isActive: profile.is_active,
-    };
-  } catch {
-    return null;
+      const admin = createSupabaseAdminClient();
+      let profile: {
+        id: string;
+        outlet_id: string;
+        full_name: string;
+        role: string;
+        is_active: boolean;
+        deleted_at: string | null;
+        custom_permissions?: unknown;
+      } | null = null;
+      let profileErr: { message: string } | null = null;
+
+      const firstRes = await admin
+        .from("profiles")
+        .select(
+          "id, outlet_id, full_name, role, is_active, deleted_at, custom_permissions"
+        )
+        .eq("id", user.id)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (
+        firstRes.error &&
+        firstRes.error.message.includes("custom_permissions")
+      ) {
+        const fallbackRes = await admin
+          .from("profiles")
+          .select("id, outlet_id, full_name, role, is_active, deleted_at")
+          .eq("id", user.id)
+          .is("deleted_at", null)
+          .maybeSingle();
+        profile = fallbackRes.data;
+        profileErr = fallbackRes.error;
+      } else {
+        profile = firstRes.data;
+        profileErr = firstRes.error;
+      }
+
+      if (profileErr || !profile || !profile.is_active) {
+        return null;
+      }
+
+      const role = profile.role as UserRole;
+      const customPermissions = sanitizeCustomPermissions(
+        profile.custom_permissions
+      );
+      const activeOutletId = String(profile.outlet_id);
+      let resolvedOutletId = activeOutletId;
+      let selectedOutletId: string | null =
+        role === "owner" ? null : activeOutletId;
+
+      if (role === "owner") {
+        try {
+          const cookieStore = await cookies();
+          const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
+          if (cookieOutletId) {
+            const { data: out } = await admin
+              .from("outlets")
+              .select("id")
+              .eq("id", cookieOutletId)
+              .is("deleted_at", null)
+              .maybeSingle();
+            if (out) {
+              resolvedOutletId = String(out.id);
+              selectedOutletId = String(out.id);
+            }
+          }
+        } catch {
+          // Abaikan jika pemanggilan cookies di context non-request
+        }
+      }
+
+      return {
+        userId: profile.id,
+        email: user.email ?? "",
+        outletId: resolvedOutletId,
+        selectedOutletId,
+        fullName: profile.full_name,
+        role,
+        customPermissions,
+        isActive: profile.is_active,
+      };
+    } catch {
+      return null;
+    }
   }
+);
+
+export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | null> {
+  return loadCurrentStaffSessionCached();
 }
 
 /**
- * Memastikan pemanggil adalah staf aktif dengan role yang diizinkan.
- * Mengalihkan ke /login jika belum login, atau ke halaman default rolenya jika tidak berhak.
+ * Memastikan pemanggil adalah staf aktif dengan role/hak akses yang diizinkan.
+ * Mengalihkan ke /login jika belum login, atau ke halaman default usernya jika tidak berhak.
  */
 export async function requireStaffRole(
-  allowedRoles?: ReadonlyArray<UserRole>
+  allowedRoles?: ReadonlyArray<UserRole>,
+  requiredPermission?: PermissionKey
 ): Promise<AuthenticatedStaff> {
   const staff = await getCurrentStaffSession();
   if (!staff) {
     redirect("/login");
   }
 
-  if (allowedRoles && !allowedRoles.includes(staff.role)) {
-    redirect(getDefaultRouteForRole(staff.role));
+  if (allowedRoles) {
+    if (requiredPermission !== undefined) {
+      if (!hasUserPermission(staff.role, staff.customPermissions, requiredPermission)) {
+        redirect(getDefaultRouteForUser(staff.role, staff.customPermissions));
+      }
+    } else if (!allowedRoles.includes(staff.role)) {
+      redirect(getDefaultRouteForUser(staff.role, staff.customPermissions));
+    }
   }
 
   return staff;
@@ -252,11 +313,40 @@ export async function loginStaffAction(
   }
 
   const admin = createSupabaseAdminClient();
-  const { data: profile, error: profileErr } = await admin
+  let profile: {
+    id: string;
+    outlet_id: string;
+    full_name: string;
+    role: string;
+    is_active: boolean;
+    deleted_at: string | null;
+    custom_permissions?: unknown;
+  } | null = null;
+  let profileErr: { message: string } | null = null;
+
+  const firstProfileRes = await admin
     .from("profiles")
-    .select("id, outlet_id, full_name, role, is_active, deleted_at")
+    .select(
+      "id, outlet_id, full_name, role, is_active, deleted_at, custom_permissions"
+    )
     .eq("id", signInData.user.id)
     .maybeSingle();
+
+  if (
+    firstProfileRes.error &&
+    firstProfileRes.error.message.includes("custom_permissions")
+  ) {
+    const fallbackRes = await admin
+      .from("profiles")
+      .select("id, outlet_id, full_name, role, is_active, deleted_at")
+      .eq("id", signInData.user.id)
+      .maybeSingle();
+    profile = fallbackRes.data;
+    profileErr = fallbackRes.error;
+  } else {
+    profile = firstProfileRes.data;
+    profileErr = firstProfileRes.error;
+  }
 
   if (profileErr || !profile || profile.deleted_at !== null) {
     await supabase.auth.signOut();
@@ -295,7 +385,10 @@ export async function loginStaffAction(
   }
 
   const role = profile.role as UserRole;
-  const targetRoute = getDefaultRouteForRole(role);
+  const customPermissions = sanitizeCustomPermissions(
+    profile.custom_permissions
+  );
+  const targetRoute = getDefaultRouteForUser(role, customPermissions);
 
   if (role === "owner") {
     try {
@@ -394,6 +487,7 @@ export async function listStaffMembersForOwner(): Promise<
 
   return (profiles as ProfileRow[]).map((p) => ({
     ...p,
+    custom_permissions: sanitizeCustomPermissions(p.custom_permissions),
     email: emailMap.get(p.id) ?? "-",
     outletName: outletNameMap.get(String(p.outlet_id)) ?? "LATTESPACE",
   }));
@@ -701,6 +795,230 @@ export async function toggleStaffActiveAction(rawInput: {
     message: isActive
       ? "Akun staf berhasil diaktifkan."
       : "Akun staf berhasil dinonaktifkan.",
+  };
+}
+
+const updateStaffPermissionsInputSchema = z.object({
+  profileId: z.string().uuid("ID profil staf tidak valid."),
+  effectivePermissions: z.record(z.string(), z.boolean()).nullable(),
+});
+
+/**
+ * Server Action (Khusus Owner): Atur hak akses per-user (override di atas izin default Role).
+ * Mengirim effectivePermissions = null akan mereset hak akses user kembali ke bawaan Role-nya.
+ */
+export async function updateStaffPermissionsAction(rawInput: {
+  profileId: string;
+  effectivePermissions: Partial<Record<PermissionKey, boolean>> | null;
+}): Promise<ActionResult> {
+  const owner = await requireStaffRole(["owner"]);
+  const parsed = updateStaffPermissionsInputSchema.safeParse(rawInput);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "Data hak akses tidak valid.",
+    };
+  }
+
+  const { profileId, effectivePermissions } = parsed.data;
+  const admin = createSupabaseAdminClient();
+
+  const { data: targetProfile, error: fetchErr } = await admin
+    .from("profiles")
+    .select("id, full_name, role, outlet_id")
+    .eq("id", profileId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (fetchErr || !targetProfile) {
+    return { ok: false, message: "Profil staf tidak ditemukan." };
+  }
+
+  const targetRole = targetProfile.role as UserRole;
+  if (targetRole === "owner") {
+    return {
+      ok: false,
+      message: "Role Owner selalu memiliki akses penuh dan tidak dapat dibatasi.",
+    };
+  }
+
+  let nextCustom: UserCustomPermissions | null = null;
+  if (effectivePermissions) {
+    const roleDefaults = ROLE_DEFAULT_PERMISSIONS[targetRole];
+    const diff: UserCustomPermissions = {};
+    let hasDiff = false;
+    for (const key of ALL_PERMISSION_KEYS) {
+      if (typeof effectivePermissions[key] === "boolean") {
+        const val = effectivePermissions[key];
+        if (val !== roleDefaults[key]) {
+          diff[key] = val;
+          hasDiff = true;
+        }
+      }
+    }
+    nextCustom = hasDiff ? diff : null;
+  }
+
+  const { ip, device } = await getRequestAuditMeta();
+  await admin.rpc("set_audit_context", {
+    p_user_id: owner.userId,
+    p_role: owner.role,
+    p_device: device,
+    p_ip: ip,
+    p_reason: nextCustom
+      ? `Penyesuaian hak akses per-user untuk ${targetProfile.full_name}`
+      : `Reset hak akses ${targetProfile.full_name} ke bawaan Role ${targetRole}`,
+  });
+
+  const { error: updErr } = await admin
+    .from("profiles")
+    .update({ custom_permissions: nextCustom })
+    .eq("id", profileId);
+
+  if (updErr) {
+    if (updErr.message.includes("custom_permissions")) {
+      return {
+        ok: false,
+        message:
+          "Kolom custom_permissions belum ada di database. Jalankan migrasi 0010 terlebih dahulu.",
+      };
+    }
+    return {
+      ok: false,
+      message: `Gagal menyimpan hak akses user: ${updErr.message}`,
+    };
+  }
+
+  revalidatePath("/dashboard/staf");
+  return {
+    ok: true,
+    message: nextCustom
+      ? `Hak akses khusus untuk ${targetProfile.full_name} berhasil disimpan.`
+      : `Hak akses ${targetProfile.full_name} dikembalikan ke standar Role.`,
+  };
+}
+
+const changeOwnPasswordInputSchema = z.object({
+  currentPassword: z.string().min(1, "Kata sandi saat ini wajib diisi."),
+  newPassword: z
+    .string()
+    .min(8, "Kata sandi baru minimal 8 karakter.")
+    .max(100),
+});
+
+/**
+ * Server Action (Semua staf aktif): Mengganti kata sandi akun sendiri dari dalam aplikasi.
+ */
+export async function changeOwnPasswordAction(rawInput: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<ActionResult> {
+  const staff = await getCurrentStaffSession();
+  if (!staff) {
+    return {
+      ok: false,
+      message: "Sesi login Anda telah berakhir. Silakan login kembali.",
+    };
+  }
+
+  const parsed = changeOwnPasswordInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ?? "Data kata sandi tidak valid.",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error: verifyErr } = await supabase.auth.signInWithPassword({
+    email: staff.email,
+    password: parsed.data.currentPassword,
+  });
+
+  if (verifyErr) {
+    return {
+      ok: false,
+      message: "Kata sandi saat ini tidak sesuai.",
+    };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error: updErr } = await admin.auth.admin.updateUserById(
+    staff.userId,
+    {
+      password: parsed.data.newPassword,
+    }
+  );
+
+  if (updErr) {
+    return {
+      ok: false,
+      message: `Gagal memperbarui kata sandi: ${updErr.message}`,
+    };
+  }
+
+  const { ip, device } = await getRequestAuditMeta();
+  await admin.from("audit_logs").insert({
+    outlet_id: staff.outletId,
+    user_id: staff.userId,
+    role: staff.role,
+    device,
+    ip,
+    action: "staff.password_changed_self",
+    entity: "profiles",
+    entity_id: staff.userId,
+    before: null,
+    after: {
+      staff_name: staff.fullName,
+      email: staff.email,
+    },
+    reason: `Staf ${staff.fullName} mengubah kata sandinya sendiri`,
+    prev_hash: "",
+    hash: "",
+  });
+
+  return {
+    ok: true,
+    message: "Kata sandi Anda berhasil diperbarui.",
+  };
+}
+
+/**
+ * Server Action: Mencatat audit log setelah staf berhasil mereset kata sandinya sendiri via email recovery.
+ */
+export async function recordSelfPasswordResetAuditAction(): Promise<ActionResult> {
+  const staff = await getCurrentStaffSession();
+  if (!staff) {
+    return { ok: true, message: "Kata sandi diperbarui." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { ip, device } = await getRequestAuditMeta();
+  await admin.from("audit_logs").insert({
+    outlet_id: staff.outletId,
+    user_id: staff.userId,
+    role: staff.role,
+    device,
+    ip,
+    action: "staff.password_reset_self",
+    entity: "profiles",
+    entity_id: staff.userId,
+    before: null,
+    after: {
+      staff_name: staff.fullName,
+      email: staff.email,
+    },
+    reason: `Staf ${staff.fullName} mereset kata sandinya sendiri melalui link email`,
+    prev_hash: "",
+    hash: "",
+  });
+
+  return {
+    ok: true,
+    message: "Kata sandi baru berhasil disimpan.",
+    redirectTo: getDefaultRouteForUser(staff.role, staff.customPermissions),
   };
 }
 

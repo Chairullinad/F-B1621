@@ -3,8 +3,11 @@
 import * as React from "react";
 import {
   CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   Pencil,
+  RotateCcw,
   ShieldCheck,
   Store,
   UserPlus,
@@ -22,16 +25,59 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ROLE_LABELS_ID } from "@/lib/auth";
-import type { UserRole } from "@/lib/types/database";
+import {
+  getEffectivePermissions,
+  PERMISSION_DEFINITIONS,
+  ROLE_DEFAULT_PERMISSIONS,
+  ROLE_LABELS_ID,
+} from "@/lib/auth";
+import type { OutletView } from "@/lib/outlets";
+import type { PermissionKey, UserRole } from "@/lib/types/database";
 import {
   createStaffUserAction,
   resetStaffPasswordAction,
   toggleStaffActiveAction,
   updateStaffMemberAction,
+  updateStaffPermissionsAction,
   type StaffMemberWithEmail,
 } from "@/server/auth";
-import type { OutletView } from "@/server/outlets";
+
+interface BrowserPasswordCredentialData {
+  id: string;
+  password: string;
+  name?: string;
+}
+
+interface BrowserPasswordCredentialConstructor {
+  new (data: BrowserPasswordCredentialData): Credential;
+}
+
+async function tryStoreBrowserPasswordCredential(params: {
+  email: string;
+  password: string;
+  fullName: string;
+}): Promise<boolean> {
+  if (typeof window === "undefined" || !("credentials" in navigator)) {
+    return false;
+  }
+  const winWithCred = window as unknown as {
+    PasswordCredential?: BrowserPasswordCredentialConstructor;
+  };
+  if (typeof winWithCred.PasswordCredential !== "function") {
+    return false;
+  }
+  try {
+    const cred = new winWithCred.PasswordCredential({
+      id: params.email.trim().toLowerCase(),
+      password: params.password,
+      name: params.fullName.trim(),
+    });
+    await navigator.credentials.store(cred);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const ROLES: ReadonlyArray<UserRole> = [
   "owner",
@@ -223,15 +269,22 @@ export function StaffManagement({
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [showCreatePassword, setShowCreatePassword] = React.useState(false);
   const [role, setRole] = React.useState<UserRole>("cashier");
   const [outletId, setOutletId] = React.useState<string>(defaultOutletId);
 
-  // State modal edit nama / reset password
+  // State modal edit nama / reset password / hak akses per user
   const [editingMember, setEditingMember] =
     React.useState<StaffMemberWithEmail | null>(null);
   const [editFullName, setEditFullName] = React.useState("");
   const [editRole, setEditRole] = React.useState<UserRole>("cashier");
   const [editOutletId, setEditOutletId] = React.useState<string>(defaultOutletId);
+
+  const [permissionMember, setPermissionMember] =
+    React.useState<StaffMemberWithEmail | null>(null);
+  const [draftPermissions, setDraftPermissions] = React.useState<
+    Record<PermissionKey, boolean>
+  >(() => getEffectivePermissions("cashier", null));
 
   const [resettingMember, setResettingMember] =
     React.useState<StaffMemberWithEmail | null>(null);
@@ -259,11 +312,15 @@ export function StaffManagement({
 
   function handleCreateStaff(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const submittedEmail = email.trim().toLowerCase();
+    const submittedPassword = password;
+    const submittedName = fullName.trim();
+
     startTransition(async () => {
       const res = await createStaffUserAction({
-        fullName,
-        email,
-        password,
+        fullName: submittedName,
+        email: submittedEmail,
+        password: submittedPassword,
         role,
         outletId,
       });
@@ -271,11 +328,65 @@ export function StaffManagement({
         toast.error(res.message);
         return;
       }
-      toast.success(res.message);
+
+      const savedToBrowser = await tryStoreBrowserPasswordCredential({
+        email: submittedEmail,
+        password: submittedPassword,
+        fullName: submittedName,
+      });
+
+      toast.success(
+        savedToBrowser
+          ? `${res.message} Email & password siap disimpan di Google Password Manager.`
+          : res.message
+      );
       setFullName("");
       setEmail("");
       setPassword("");
+      setShowCreatePassword(false);
       setRole("cashier");
+    });
+  }
+
+  function handleOpenPermissions(member: StaffMemberWithEmail) {
+    setEditingMember(null);
+    setResettingMember(null);
+    setPermissionMember(member);
+    setDraftPermissions(
+      getEffectivePermissions(member.role, member.custom_permissions)
+    );
+  }
+
+  function handleSavePermissions(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!permissionMember) return;
+    startTransition(async () => {
+      const res = await updateStaffPermissionsAction({
+        profileId: permissionMember.id,
+        effectivePermissions: draftPermissions,
+      });
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(res.message);
+      setPermissionMember(null);
+    });
+  }
+
+  function handleResetPermissionsToRole() {
+    if (!permissionMember) return;
+    startTransition(async () => {
+      const res = await updateStaffPermissionsAction({
+        profileId: permissionMember.id,
+        effectivePermissions: null,
+      });
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(res.message);
+      setPermissionMember(null);
     });
   }
 
@@ -425,7 +536,11 @@ export function StaffManagement({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleCreateStaff} className="space-y-3.5">
+              <form
+                method="post"
+                onSubmit={handleCreateStaff}
+                className="space-y-3.5"
+              >
                 <div className="space-y-1">
                   <label
                     htmlFor="staff-name"
@@ -435,6 +550,8 @@ export function StaffManagement({
                   </label>
                   <Input
                     id="staff-name"
+                    name="name"
+                    autoComplete="name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Contoh: Budi Santoso"
@@ -452,7 +569,9 @@ export function StaffManagement({
                   </label>
                   <Input
                     id="staff-email"
+                    name="username"
                     type="email"
+                    autoComplete="username"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="kasir.lattespace@1621.id"
@@ -468,16 +587,41 @@ export function StaffManagement({
                   >
                     Password Awal
                   </label>
-                  <Input
-                    id="staff-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Minimal 8 karakter"
-                    minLength={8}
-                    required
-                    disabled={isPending}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="staff-password"
+                      name="password"
+                      type={showCreatePassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Minimal 8 karakter"
+                      minLength={8}
+                      required
+                      disabled={isPending}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCreatePassword((v) => !v)}
+                      aria-label={
+                        showCreatePassword
+                          ? "Sembunyikan password"
+                          : "Tampilkan password"
+                      }
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      tabIndex={-1}
+                    >
+                      {showCreatePassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Saat akun dibuat, browser akan menawarkan simpan email &amp; password ke Google Password Manager.
+                  </p>
                 </div>
 
                 <div className="space-y-1">
@@ -715,9 +859,109 @@ export function StaffManagement({
                 </form>
               )}
 
+              {/* Form Inline Edit Hak Akses Per User (untuk staf yang promosi / butuh izin khusus) */}
+              {permissionMember && (
+                <form
+                  onSubmit={handleSavePermissions}
+                  className="rounded-xl border-2 border-indigo-300 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 p-4 space-y-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                        <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                        Edit Hak Akses Khusus: {permissionMember.full_name}
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                        Role dasar:{" "}
+                        <strong>{ROLE_LABELS_ID[permissionMember.role]}</strong>{" "}
+                        ({permissionMember.email}). Centang fitur tambahan bila
+                        staf ini dipromosikan atau diberi tugas ekstra.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPermissionMember(null)}
+                    >
+                      Batal
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {PERMISSION_DEFINITIONS.map((perm) => {
+                      const roleDefault =
+                        ROLE_DEFAULT_PERMISSIONS[permissionMember.role][
+                          perm.key
+                        ];
+                      const checked = draftPermissions[perm.key];
+                      const isOverridden = checked !== roleDefault;
+                      return (
+                        <label
+                          key={perm.key}
+                          className={`flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-xs transition ${
+                            checked
+                              ? "border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900"
+                              : "border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={isPending}
+                            onChange={(e) =>
+                              setDraftPermissions((prev) => ({
+                                ...prev,
+                                [perm.key]: e.target.checked,
+                              }))
+                            }
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-600 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                {perm.label}
+                              </span>
+                              {isOverridden && (
+                                <span className="rounded bg-amber-100 dark:bg-amber-950 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                                  Custom
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {perm.module} &bull; Bawaan Role:{" "}
+                              {roleDefault ? "Aktif" : "Tidak"}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={handleResetPermissionsToRole}
+                    >
+                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                      Reset ke Bawaan Role
+                    </Button>
+                    <Button type="submit" size="sm" disabled={isPending}>
+                      Simpan Hak Akses User
+                    </Button>
+                  </div>
+                </form>
+              )}
+
               {/* Daftar Baris Staf */}
               {filteredStaff.map((member) => {
                 const isSelf = member.id === currentOwnerId;
+                const customOverridesCount = member.custom_permissions
+                  ? Object.keys(member.custom_permissions).length
+                  : 0;
                 return (
                   <div
                     key={member.id}
@@ -737,6 +981,11 @@ export function StaffManagement({
                           <Store className="h-3 w-3" />
                           {member.outletName ?? "LATTESPACE"}
                         </span>
+                        {customOverridesCount > 0 && (
+                          <Badge variant="outline" className="border-indigo-300 text-indigo-700 dark:border-indigo-700 dark:text-indigo-300">
+                            +{customOverridesCount} Akses Custom
+                          </Badge>
+                        )}
                         {isSelf ? <Badge variant="outline">Akun Anda</Badge> : null}
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -787,12 +1036,27 @@ export function StaffManagement({
                         ))}
                       </select>
 
+                      {member.role !== "owner" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isPending}
+                          onClick={() => handleOpenPermissions(member)}
+                          className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
+                        >
+                          <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+                          Hak Akses
+                        </Button>
+                      )}
+
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         disabled={isPending}
                         onClick={() => {
+                          setPermissionMember(null);
                           setEditingMember(member);
                           setEditFullName(member.full_name);
                           setEditRole(member.role);
@@ -809,6 +1073,7 @@ export function StaffManagement({
                         size="sm"
                         disabled={isPending}
                         onClick={() => {
+                          setPermissionMember(null);
                           setResettingMember(member);
                           setNewPassword("");
                         }}

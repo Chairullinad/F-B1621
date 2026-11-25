@@ -1,100 +1,78 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Image from "next/image";
-import { BarChart3, CheckCircle2, Layers } from "lucide-react";
-
-const SLIDES = [
-  {
-    title: "Laporan Analisis Lengkap & Akurat",
-    subtitle:
-      "Hindari salah hitung! Dengan 1621F&B, semua transaksi tercatat otomatis!",
-  },
-  {
-    title: "BOM & Auto-Deduct Bahan Baku",
-    subtitle:
-      "Stok bahan baku terpotong presisi sesuai resep saat transaksi kasir & QR meja lunas.",
-  },
-  {
-    title: "Multi-Outlet & Pembukuan 5 Tab",
-    subtitle:
-      "Kelola puluhan cabang terpusat dengan jurnal otomatis, laba rugi, dan neraca real-time.",
-  },
-];
+import { Heart } from "lucide-react";
 
 export function LoginHeroCarousel() {
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % SLIDES.length);
-    }, 4500);
-    return () => clearInterval(timer);
-  }, []);
-
   return (
-    <div className="flex flex-col items-center justify-center text-center max-w-lg px-6 py-12 select-none">
-      {/* Ilustrasi Bisnis Minimalis dengan Lingkaran Oranye/Kuning Khas ESB */}
-      <div className="relative mb-8 flex items-center justify-center">
-        <div className="h-64 w-64 md:h-72 md:w-72 rounded-full bg-gradient-to-tr from-[#F58220] to-amber-300 shadow-inner flex flex-col items-center justify-center relative overflow-hidden p-6">
-          <div className="absolute -bottom-6 w-full h-24 bg-white/15 rounded-full" />
-          <div className="absolute -top-6 -right-6 w-20 h-20 bg-white/20 rounded-full" />
+    <div className="relative flex flex-col items-center justify-center w-full max-w-[460px] px-4 py-6 select-none">
+      {/* Awan Dekoratif Kiri & Kanan ala Referensi 3D Clay */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-2 top-24 h-10 w-16 rounded-full bg-white/90 shadow-[0_8px_20px_rgba(30,136,229,0.16)] blur-[0.2px]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-1 bottom-24 h-11 w-16 rounded-full bg-white/90 shadow-[0_8px_20px_rgba(30,136,229,0.16)] blur-[0.2px]"
+      />
 
-          <div className="relative z-10 rounded-2xl bg-white/95 backdrop-blur-xs p-5 shadow-xl border border-white/60 flex flex-col items-center gap-3 w-48">
-            <Image
-              src="/logo-1621group-stacked.png"
-              alt="1621 Group"
-              width={110}
-              height={74}
-              className="h-14 w-auto object-contain"
-              priority
-            />
-            <div className="w-full border-t border-slate-100 pt-2.5 flex items-center justify-between text-slate-600 text-[11px] font-medium">
-              <span className="flex items-center gap-1">
-                <BarChart3 className="h-3.5 w-3.5 text-[#1E88E5]" />
-                <span>POSLite</span>
-              </span>
-              <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Real-Time</span>
-              </span>
+      {/* Kartu Welcome 3D Lembut Bernuansa Biru */}
+      <div className="relative w-full overflow-hidden rounded-[36px] border-2 border-white bg-gradient-to-b from-[#FAF7F3] via-[#F5F9FF] to-[#E6F1FE] pt-8 px-6 pb-0 shadow-[0_28px_65px_-16px_rgba(30,136,229,0.28)]">
+        {/* Header Welcome Back + Hati & Sinar Kuning Kecil ala Referensi */}
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-rose-100/90 shadow-xs">
+            <Heart className="h-4 w-4 fill-rose-400 text-rose-400" />
+          </div>
+
+          <div className="relative inline-flex items-center gap-2.5">
+            {/* Aksen Sinar Kiri */}
+            <div
+              aria-hidden="true"
+              className="flex flex-col gap-1 items-end mr-0.5"
+            >
+              <span className="h-1 w-3.5 rounded-full bg-amber-300 rotate-12" />
+              <span className="h-1 w-4 rounded-full bg-amber-400" />
+              <span className="h-1 w-3.5 rounded-full bg-amber-300 -rotate-12" />
+            </div>
+
+            <h2 className="text-3xl sm:text-[34px] font-extrabold tracking-tight text-[#1E88E5] drop-shadow-[0_2px_0_rgba(255,255,255,0.9)]">
+              Welcome Back
+            </h2>
+
+            {/* Aksen Sinar Kanan */}
+            <div
+              aria-hidden="true"
+              className="flex flex-col gap-1 items-start ml-0.5"
+            >
+              <span className="h-1 w-3.5 rounded-full bg-amber-300 -rotate-12" />
+              <span className="h-1 w-4 rounded-full bg-amber-400" />
+              <span className="h-1 w-3.5 rounded-full bg-amber-300 rotate-12" />
             </div>
           </div>
+
+          <p className="mt-1.5 text-sm font-medium text-slate-500">
+            Masuk untuk melanjutkan perjalanan bisnis Anda
+          </p>
         </div>
 
-        <div className="absolute -right-2 bottom-6 bg-white rounded-xl px-3 py-2 shadow-md border border-slate-100 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-          <Layers className="h-4 w-4 text-[#1E88E5]" />
-          <span>Multi-Outlet</span>
+        {/* Ilustrasi Karakter 3D Memeluk Logo 1621 Group dengan Animasi Mengambang Halus */}
+        <div className="relative mt-4 flex justify-center">
+          <div
+            className="relative h-[340px] w-[340px] sm:h-[360px] sm:w-[360px]"
+            style={{ animation: "floatGentle 4.5s ease-in-out infinite" }}
+          >
+            <Image
+              src="/images/login-welcome-mascot.jpg"
+              alt="Karakter 3D memeluk logo 1621 Group"
+              fill
+              className="object-contain object-bottom mix-blend-multiply"
+              sizes="360px"
+              priority
+            />
+          </div>
         </div>
-      </div>
-
-      {/* Teks Carousel */}
-      <div className="min-h-[80px]">
-        <h3 className="text-base md:text-lg font-bold text-slate-800 tracking-tight transition-all duration-300">
-          {SLIDES[currentSlide]?.title}
-        </h3>
-        <p className="mt-2 text-xs text-slate-500 leading-relaxed max-w-md">
-          {SLIDES[currentSlide]?.subtitle}
-        </p>
-      </div>
-
-      {/* 3 Dots Indicator (Persis Screenshot 1) */}
-      <div className="mt-6 flex items-center gap-1.5">
-        {SLIDES.map((_, idx) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={() => setCurrentSlide(idx)}
-            className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-              currentSlide === idx
-                ? "w-6 bg-[#1E88E5]"
-                : "w-2 bg-slate-300 hover:bg-slate-400"
-            }`}
-            aria-label={`Slide ${idx + 1}`}
-          />
-        ))}
       </div>
     </div>
   );
 }
-

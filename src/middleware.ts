@@ -3,8 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   canOwnerAccessWithoutOutlet,
   canRoleAccessPathname,
-  getDefaultRouteForRole,
+  getDefaultRouteForUser,
   isStaffProtectedPathname,
+  sanitizeCustomPermissions,
 } from "@/lib/auth";
 import type { UserRole } from "@/lib/types/database";
 
@@ -69,11 +70,29 @@ export async function middleware(request: NextRequest) {
   }
 
   // Ambil role dan status aktif staf dari tabel profiles (menggunakan RLS profiles_select_same_outlet)
-  const { data: profile } = await supabase
+  let profile: {
+    role: string;
+    is_active: boolean;
+    deleted_at: string | null;
+    custom_permissions?: unknown;
+  } | null = null;
+
+  const { data: profileWithPerms, error: profilePermsErr } = await supabase
     .from("profiles")
-    .select("role, is_active, deleted_at")
+    .select("role, is_active, deleted_at, custom_permissions")
     .eq("id", user.id)
     .maybeSingle();
+
+  if (profilePermsErr && profilePermsErr.message.includes("custom_permissions")) {
+    const { data: fallbackProfile } = await supabase
+      .from("profiles")
+      .select("role, is_active, deleted_at")
+      .eq("id", user.id)
+      .maybeSingle();
+    profile = fallbackProfile;
+  } else {
+    profile = profileWithPerms;
+  }
 
   if (!profile || !profile.is_active || profile.deleted_at !== null) {
     if (isProtected) {
@@ -85,19 +104,20 @@ export async function middleware(request: NextRequest) {
   }
 
   const role = profile.role as UserRole;
+  const customPermissions = sanitizeCustomPermissions(profile.custom_permissions);
 
-  // Jika sudah login lalu membuka /login, langsung arahkan ke rute default rolenya
+  // Jika sudah login lalu membuka /login, langsung arahkan ke rute default usernya
   if (pathname === "/login") {
     const targetUrl = request.nextUrl.clone();
-    targetUrl.pathname = getDefaultRouteForRole(role);
+    targetUrl.pathname = getDefaultRouteForUser(role, customPermissions);
     targetUrl.search = "";
     return NextResponse.redirect(targetUrl);
   }
 
-  // Cek apakah role staf boleh mengakses rute ini
-  if (isProtected && !canRoleAccessPathname(role, pathname)) {
+  // Cek apakah user (role + custom permissions) boleh mengakses rute ini
+  if (isProtected && !canRoleAccessPathname(role, pathname, customPermissions)) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = getDefaultRouteForRole(role);
+    redirectUrl.pathname = getDefaultRouteForUser(role, customPermissions);
     redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
   }

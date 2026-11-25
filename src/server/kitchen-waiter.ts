@@ -112,7 +112,7 @@ async function applyOperationalAuditContext(
  * - TIDAK menyertakan harga satuan, subtotal, total, atau metode pembayaran (PRD 5.8).
  */
 export async function getKitchenWorkspaceData(): Promise<KitchenWorkspaceData> {
-  const staff = await requireStaffRole(["owner", "kitchen", "cashier"]);
+  const staff = await requireStaffRole(["owner", "kitchen", "cashier"], "dapur");
   const admin = createSupabaseAdminClient();
 
   const thirtyMinsAgoIso = new Date(Date.now() - 30 * 60 * 1000).toISOString();
@@ -348,7 +348,7 @@ export async function markOrderReadyAction(rawInput: {
  * - TIDAK menyertakan harga atau data pembayaran (PRD 5.9).
  */
 export async function getWaiterWorkspaceData(): Promise<WaiterWorkspaceData> {
-  const staff = await requireStaffRole(["owner", "waiter", "cashier", "kitchen"]);
+  const staff = await requireStaffRole(["owner", "waiter", "cashier", "kitchen"], "antar");
   const admin = createSupabaseAdminClient();
 
   const [readyRes, tablesRes] = await Promise.all([

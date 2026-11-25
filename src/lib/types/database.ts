@@ -19,6 +19,48 @@ export type OrderStatus =
 export type PaymentMethod = "cash" | "qris";
 export type RefundReasonCategory = "outlet_fault" | "other";
 
+export type PermissionKey =
+  | "dashboard"
+  | "keuangan"
+  | "transaksi"
+  | "kasir"
+  | "order_manual"
+  | "dapur"
+  | "antar"
+  | "menu_kedai"
+  | "inventory"
+  | "opname_waste"
+  | "supplier_po"
+  | "pengaturan"
+  | "staf_audit";
+
+export type UserCustomPermissions = Partial<Record<PermissionKey, boolean>>;
+
+export interface DailyReportSections {
+  sales: boolean;
+  profit_loss: boolean;
+  cash_flow: boolean;
+  tax: boolean;
+  journals: boolean;
+  inventory: boolean;
+  audit: boolean;
+}
+
+export interface HoldingSettingsRow {
+  id: string;
+  owner_email: string | null;
+  daily_report_enabled: boolean;
+  daily_report_time_wib: string;
+  daily_report_outlet_ids: string[];
+  daily_report_sections: DailyReportSections;
+  last_daily_report_date: string | null;
+  last_daily_report_sent_at: string | null;
+  monthly_report_enabled: boolean;
+  instant_events: InstantNotificationEvents;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InstantNotificationEvents {
   refund: boolean;
   paid_cancellation: boolean;
@@ -61,6 +103,7 @@ export interface ProfileRow {
   full_name: string;
   role: UserRole;
   is_active: boolean;
+  custom_permissions?: UserCustomPermissions | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

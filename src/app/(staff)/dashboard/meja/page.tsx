@@ -7,7 +7,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function MejaPage() {
-  const [tables, { outlet }] = await Promise.all([
+  const [tables, { outletView }] = await Promise.all([
     listTablesForOwner(),
     getOutletAndNotificationSettings(),
   ]);
@@ -16,14 +16,20 @@ export default async function MejaPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-[20px] font-bold text-slate-800 dark:text-slate-100">
-          Meja &amp; QR Code Pelanggan — {outlet.name}
+          Meja &amp; QR Code Pelanggan — {outletView.name}
         </h1>
         <p className="text-[13px] text-slate-500 dark:text-slate-400">
           Kelola daftar meja aktif, buka simulasi scan pelanggan di tab baru, atau cetak QR Code meja.
         </p>
       </div>
 
-      <TableQrManager initialTables={tables} outletName={outlet.name} />
+      <TableQrManager
+        initialTables={tables}
+        outletId={outletView.id}
+        outletName={outletView.name}
+        outletLogoUrl={outletView.logoUrl}
+        outletThemeColor={outletView.themeColor}
+      />
     </div>
   );
 }

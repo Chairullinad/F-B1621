@@ -257,7 +257,7 @@ async function applyCashierAuditContext(
  * - Batas diskon kasir & konfigurasi pajak outlet
  */
 export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
-  const staff = await requireStaffRole(["owner", "cashier"]);
+  const staff = await requireStaffRole(["owner", "cashier"], "kasir");
   const admin = createSupabaseAdminClient();
 
   // 1. Kedaluwarsakan order PENDING yang sudah melewati expires_at lewat job server

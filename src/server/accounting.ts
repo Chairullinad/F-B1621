@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import {
+  getWibPeriodBounds,
+  normalizeFinancialPeriod,
+  type FinancialPeriodKey,
+} from "@/lib/datetime";
 import { roundRupiah } from "@/lib/money";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -18,6 +23,7 @@ function makeJournalNo(prefix = "JV"): string {
 
 export interface FinancialReportData {
   periodLabel: string;
+  activePeriod: FinancialPeriodKey;
   scopeLabel: string;
   selectedOutletId: string;
   isHoldingMode: boolean;
@@ -96,9 +102,13 @@ export interface FinancialReportData {
 
 export async function getFinancialReportData(params?: {
   outletId?: string;
+  period?: string;
 }): Promise<FinancialReportData> {
-  const staff = await requireStaffRole(["owner"]);
+  const staff = await requireStaffRole(["owner"], "keuangan");
   const admin = createSupabaseAdminClient();
+
+  const activePeriod = normalizeFinancialPeriod(params?.period);
+  const periodBounds = getWibPeriodBounds(activePeriod);
 
   const outletsRes = await admin
     .from("outlets")
@@ -138,6 +148,11 @@ export async function getFinancialReportData(params?: {
   if (selectedOutletId !== "ALL") {
     journalsQuery = journalsQuery.eq("outlet_id", selectedOutletId);
   }
+  if (periodBounds.startDateWib && periodBounds.endDateWib) {
+    journalsQuery = journalsQuery
+      .gte("entry_date", periodBounds.startDateWib)
+      .lte("entry_date", periodBounds.endDateWib);
+  }
 
   let ordersQuery = admin
     .from("orders")
@@ -147,6 +162,11 @@ export async function getFinancialReportData(params?: {
   if (selectedOutletId !== "ALL") {
     ordersQuery = ordersQuery.eq("outlet_id", selectedOutletId);
   }
+  if (periodBounds.startIso && periodBounds.endIso) {
+    ordersQuery = ordersQuery
+      .gte("created_at", periodBounds.startIso)
+      .lte("created_at", periodBounds.endIso);
+  }
 
   let refundsQuery = admin
     .from("refunds")
@@ -154,6 +174,11 @@ export async function getFinancialReportData(params?: {
     .is("orders.deleted_at", null);
   if (selectedOutletId !== "ALL") {
     refundsQuery = refundsQuery.eq("orders.outlet_id", selectedOutletId);
+  }
+  if (periodBounds.startIso && periodBounds.endIso) {
+    refundsQuery = refundsQuery
+      .gte("created_at", periodBounds.startIso)
+      .lte("created_at", periodBounds.endIso);
   }
 
   let ingredientsQuery = admin
@@ -178,10 +203,20 @@ export async function getFinancialReportData(params?: {
   if (selectedOutletId !== "ALL") {
     posQuery = posQuery.eq("outlet_id", selectedOutletId);
   }
+  if (periodBounds.startIso && periodBounds.endIso) {
+    posQuery = posQuery
+      .gte("created_at", periodBounds.startIso)
+      .lte("created_at", periodBounds.endIso);
+  }
 
   let wasteQuery = admin.from("waste_logs").select("cost_amount");
   if (selectedOutletId !== "ALL") {
     wasteQuery = wasteQuery.eq("outlet_id", selectedOutletId);
+  }
+  if (periodBounds.startIso && periodBounds.endIso) {
+    wasteQuery = wasteQuery
+      .gte("created_at", periodBounds.startIso)
+      .lte("created_at", periodBounds.endIso);
   }
 
   const [
@@ -366,14 +401,11 @@ export async function getFinancialReportData(params?: {
   const totalEquity = ownerCapital + currentEarnings;
   const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
 
-  const now = new Date();
-  const periodLabel = now.toLocaleDateString("id-ID", {
-    month: "long",
-    year: "numeric",
-  });
+  const periodLabel = periodBounds.label;
 
   return {
     periodLabel,
+    activePeriod,
     kpi: {
       totalRevenue,
       totalCogs: cogsAmount,
@@ -512,7 +544,7 @@ const JOURNAL_ACCOUNT_MAP: Record<
 export async function createManualAccountingEntryAction(
   input: z.infer<typeof createManualJournalSchema>
 ): Promise<ActionResult> {
-  const staff = await requireStaffRole(["owner"]);
+  const staff = await requireStaffRole(["owner"], "keuangan");
   const parsed = createManualJournalSchema.safeParse(input);
   if (!parsed.success) {
     return {

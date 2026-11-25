@@ -2,7 +2,7 @@ import { StaffSidebarShell } from "@/components/staff/staff-sidebar-shell";
 import { getNavItemsForRole } from "@/lib/auth";
 import { logoutStaffAction, requireStaffRole } from "@/server/auth";
 import { getStaffSidebarBadges } from "@/server/inventory";
-import { listAllOutletsAction } from "@/server/outlets";
+import { listSidebarOutletsAction } from "@/server/outlets";
 
 export default async function StaffLayout({
   children,
@@ -26,7 +26,7 @@ export default async function StaffLayout({
     badgeOutletId
       ? getStaffSidebarBadges(badgeOutletId)
       : Promise.resolve(emptyBadges),
-    listAllOutletsAction().catch(() => ({
+    listSidebarOutletsAction().catch(() => ({
       outlets: [],
       activeOutletId: staff.selectedOutletId,
     })),
@@ -34,7 +34,11 @@ export default async function StaffLayout({
 
   return (
     <StaffSidebarShell
-      staff={{ fullName: staff.fullName, role: staff.role }}
+      staff={{
+        fullName: staff.fullName,
+        role: staff.role,
+        customPermissions: staff.customPermissions,
+      }}
       navItems={allowedNavItems}
       badges={badges}
       outlets={outletsData.outlets}

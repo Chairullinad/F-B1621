@@ -1,10 +1,11 @@
 "use server";
 
 import crypto from "node:crypto";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { formatRupiah, validateTaxAndServiceConfig } from "@/lib/money";
+import { mapOutletRowToView, type OutletView } from "@/lib/outlets";
 import { parseEmvTags } from "@/lib/qris";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -149,7 +150,7 @@ async function applyOwnerAuditContext(reason: string) {
 // 1. MASTER KATEGORI
 // ============================================================================
 export async function listCategoriesForOwner(): Promise<CategoryRow[]> {
-  const owner = await requireStaffRole(["owner"]);
+  const owner = await requireStaffRole(["owner"], "menu_kedai");
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin
@@ -295,7 +296,7 @@ export async function deleteCategoryAction(rawInput: {
 // 2. MASTER PRODUK
 // ============================================================================
 export async function listProductsForOwner(): Promise<ProductRow[]> {
-  const owner = await requireStaffRole(["owner"]);
+  const owner = await requireStaffRole(["owner"], "menu_kedai");
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin
@@ -500,7 +501,7 @@ export async function deleteProductAction(rawInput: {
 // 3. MASTER MEJA & QR (100 Meja)
 // ============================================================================
 export async function listTablesForOwner(): Promise<TableRow[]> {
-  const owner = await requireStaffRole(["owner"]);
+  const owner = await requireStaffRole(["owner"], "menu_kedai");
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin
@@ -596,11 +597,12 @@ export async function regenerateTableQrTokenAction(rawInput: {
 // ============================================================================
 export interface OutletAndNotificationSettings {
   outlet: OutletRow;
+  outletView: OutletView;
   notification: NotificationSettingsRow;
 }
 
 export async function getOutletAndNotificationSettings(): Promise<OutletAndNotificationSettings> {
-  const owner = await requireStaffRole(["owner"]);
+  const owner = await requireStaffRole(["owner"], "pengaturan");
   const admin = createSupabaseAdminClient();
 
   const [{ data: outletData, error: outletErr }, { data: notifData }] =
@@ -686,7 +688,9 @@ export async function getOutletAndNotificationSettings(): Promise<OutletAndNotif
         updated_at: new Date().toISOString(),
       };
 
-  return { outlet, notification };
+  const outletView = mapOutletRowToView(rawOutlet);
+
+  return { outlet, outletView, notification };
 }
 
 export async function updateOutletProfileSettingsAction(rawInput: {
@@ -729,6 +733,7 @@ export async function updateOutletProfileSettingsAction(rawInput: {
     };
   }
 
+  revalidateTag("sidebar_outlets");
   revalidatePath("/dashboard/pengaturan");
   revalidatePath("/order-manual");
   revalidatePath("/kasir");
@@ -796,6 +801,7 @@ export async function updateTaxAndServiceSettingsAction(rawInput: {
     details: parsed.data,
   });
 
+  revalidateTag("sidebar_outlets");
   revalidatePath("/dashboard/pengaturan");
   revalidatePath("/order-manual");
   revalidatePath("/kasir");
@@ -870,6 +876,7 @@ export async function updateQrisSettingsAction(rawInput: {
     };
   }
 
+  revalidateTag("sidebar_outlets");
   revalidatePath("/dashboard/pengaturan");
   revalidatePath("/order-manual");
   revalidatePath("/kasir");

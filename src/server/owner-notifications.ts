@@ -29,10 +29,17 @@ export interface MonthlyReportSummary {
   settingsAndPriceChangeCount: number;
 }
 
-async function sendTransactionalEmail(params: {
+export interface EmailAttachmentInput {
+  filename: string;
+  contentBase64: string;
+  contentType?: string;
+}
+
+export async function sendTransactionalEmail(params: {
   to: string;
   subject: string;
   html: string;
+  attachments?: ReadonlyArray<EmailAttachmentInput>;
 }): Promise<EmailDeliveryResult> {
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const fromEmail =
@@ -40,18 +47,38 @@ async function sendTransactionalEmail(params: {
 
   if (resendApiKey) {
     try {
+      const payload: {
+        from: string;
+        to: string[];
+        subject: string;
+        html: string;
+        attachments?: Array<{
+          filename: string;
+          content: string;
+          content_type?: string;
+        }>;
+      } = {
+        from: fromEmail,
+        to: [params.to],
+        subject: params.subject,
+        html: params.html,
+      };
+
+      if (params.attachments && params.attachments.length > 0) {
+        payload.attachments = params.attachments.map((att) => ({
+          filename: att.filename,
+          content: att.contentBase64,
+          ...(att.contentType ? { content_type: att.contentType } : {}),
+        }));
+      }
+
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${resendApiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [params.to],
-          subject: params.subject,
-          html: params.html,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {

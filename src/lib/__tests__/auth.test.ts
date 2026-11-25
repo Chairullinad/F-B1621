@@ -16,9 +16,11 @@ describe("src/lib/auth.ts", () => {
     assert.equal(getDefaultRouteForRole("waiter"), "/antar");
   });
 
-  it("mengizinkan rute publik (/m/[token] dan /login) tanpa login", () => {
+  it("mengizinkan rute publik (/m/[token], /login, /reset-password) tanpa login", () => {
     assert.equal(isPublicPathname("/m/abc123token"), true);
     assert.equal(isPublicPathname("/login"), true);
+    assert.equal(isPublicPathname("/reset-password"), true);
+    assert.equal(isPublicPathname("/auth/callback"), true);
     assert.equal(isPublicPathname("/kasir"), false);
   });
 
@@ -71,6 +73,7 @@ describe("src/lib/auth.ts", () => {
     assert.equal(canOwnerAccessWithoutOutlet("/dashboard/transaksi"), true);
     assert.equal(canOwnerAccessWithoutOutlet("/dashboard/cabang"), true);
     assert.equal(canOwnerAccessWithoutOutlet("/dashboard/cabang/edit"), true);
+    assert.equal(canOwnerAccessWithoutOutlet("/dashboard/pengaturan-utama"), true);
     assert.equal(canOwnerAccessWithoutOutlet("/dashboard/staf"), true);
     assert.equal(canOwnerAccessWithoutOutlet("/dashboard/audit"), true);
 
@@ -80,6 +83,31 @@ describe("src/lib/auth.ts", () => {
     assert.equal(canOwnerAccessWithoutOutlet("/kasir"), false);
     assert.equal(canOwnerAccessWithoutOutlet("/dapur"), false);
     assert.equal(canOwnerAccessWithoutOutlet("/antar"), false);
+  });
+
+  it("mendukung custom per-user permissions ketika staf dipromosikan", () => {
+    // Kasir promosi diberi akses laporan transaksi dan stock opname
+    const promotedCashier = {
+      transaksi: true,
+      opname_waste: true,
+      order_manual: false,
+    };
+    assert.equal(
+      canRoleAccessPathname("cashier", "/dashboard/transaksi", promotedCashier),
+      true
+    );
+    assert.equal(
+      canRoleAccessPathname("cashier", "/dashboard/opname", promotedCashier),
+      true
+    );
+    assert.equal(
+      canRoleAccessPathname("cashier", "/order-manual", promotedCashier),
+      false
+    );
+    assert.equal(
+      canRoleAccessPathname("cashier", "/kasir", promotedCashier),
+      true
+    );
   });
 });
 
