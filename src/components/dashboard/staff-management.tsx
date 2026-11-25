@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ROLE_LABELS_ID } from "@/lib/auth";
+import type { OutletView } from "@/lib/outlets";
 import type { UserRole } from "@/lib/types/database";
 import {
   createStaffUserAction,
@@ -31,7 +32,6 @@ import {
   updateStaffMemberAction,
   type StaffMemberWithEmail,
 } from "@/server/auth";
-import type { OutletView } from "@/server/outlets";
 
 const ROLES: ReadonlyArray<UserRole> = [
   "owner",

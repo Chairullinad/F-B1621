@@ -332,6 +332,15 @@ export function CashierWorkspace({
   // Langganan Supabase Realtime (orders + audit_logs + presence antar kasir)
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleRefresh = () => {
+      if (debounceTimer) return;
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        router.refresh();
+      }, 600);
+    };
 
     const dbChannel = supabase
       .channel(`cashier-orders-${initialData.outlet.id}`)
@@ -344,7 +353,7 @@ export function CashierWorkspace({
           filter: `outlet_id=eq.${initialData.outlet.id}`,
         },
         () => {
-          router.refresh();
+          scheduleRefresh();
         }
       )
       .on(
@@ -356,7 +365,7 @@ export function CashierWorkspace({
           filter: `outlet_id=eq.${initialData.outlet.id}`,
         },
         () => {
-          router.refresh();
+          scheduleRefresh();
         }
       )
       .subscribe();
@@ -401,12 +410,15 @@ export function CashierWorkspace({
         }
       });
 
-    // Polling setiap 3 detik untuk memastikan order meja dan kedaluwarsa tampil real-time
+    // Fallback polling setiap 15 detik (saat tab aktif) sebagai cadangan jika Realtime tertunda
     const interval = setInterval(() => {
-      router.refresh();
-    }, 3000);
+      if (!document.hidden) {
+        router.refresh();
+      }
+    }, 15_000);
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       clearInterval(interval);
       supabase.removeChannel(dbChannel);
       supabase.removeChannel(presenceChannel);

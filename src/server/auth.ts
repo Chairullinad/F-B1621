@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -127,71 +128,78 @@ async function recordAuthAuditLog(params: {
 
 /**
  * Mengambil sesi staf aktif saat ini beserta profil dari tabel public.profiles.
+ * Dibungkus React `cache()` agar hanya dieksekusi sekali per request (tidak berulang di Layout & Page).
  * Mengembalikan null jika belum login atau akun nonaktif/dihapus.
  */
-export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | null> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
+const loadCurrentStaffSessionCached = cache(
+  async (): Promise<AuthenticatedStaff | null> => {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
 
-    if (userErr || !user) {
-      return null;
-    }
-
-    const admin = createSupabaseAdminClient();
-    const { data: profile, error: profileErr } = await admin
-      .from("profiles")
-      .select("id, outlet_id, full_name, role, is_active, deleted_at")
-      .eq("id", user.id)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (profileErr || !profile || !profile.is_active) {
-      return null;
-    }
-
-    const role = profile.role as UserRole;
-    const activeOutletId = String(profile.outlet_id);
-    let resolvedOutletId = activeOutletId;
-    let selectedOutletId: string | null =
-      role === "owner" ? null : activeOutletId;
-
-    if (role === "owner") {
-      try {
-        const cookieStore = await cookies();
-        const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
-        if (cookieOutletId) {
-          const { data: out } = await admin
-            .from("outlets")
-            .select("id")
-            .eq("id", cookieOutletId)
-            .is("deleted_at", null)
-            .maybeSingle();
-          if (out) {
-            resolvedOutletId = String(out.id);
-            selectedOutletId = String(out.id);
-          }
-        }
-      } catch {
-        // Abaikan jika pemanggilan cookies di context non-request
+      if (userErr || !user) {
+        return null;
       }
-    }
 
-    return {
-      userId: profile.id,
-      email: user.email ?? "",
-      outletId: resolvedOutletId,
-      selectedOutletId,
-      fullName: profile.full_name,
-      role,
-      isActive: profile.is_active,
-    };
-  } catch {
-    return null;
+      const admin = createSupabaseAdminClient();
+      const { data: profile, error: profileErr } = await admin
+        .from("profiles")
+        .select("id, outlet_id, full_name, role, is_active, deleted_at")
+        .eq("id", user.id)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (profileErr || !profile || !profile.is_active) {
+        return null;
+      }
+
+      const role = profile.role as UserRole;
+      const activeOutletId = String(profile.outlet_id);
+      let resolvedOutletId = activeOutletId;
+      let selectedOutletId: string | null =
+        role === "owner" ? null : activeOutletId;
+
+      if (role === "owner") {
+        try {
+          const cookieStore = await cookies();
+          const cookieOutletId = cookieStore.get("fnb1621_active_outlet")?.value;
+          if (cookieOutletId) {
+            const { data: out } = await admin
+              .from("outlets")
+              .select("id")
+              .eq("id", cookieOutletId)
+              .is("deleted_at", null)
+              .maybeSingle();
+            if (out) {
+              resolvedOutletId = String(out.id);
+              selectedOutletId = String(out.id);
+            }
+          }
+        } catch {
+          // Abaikan jika pemanggilan cookies di context non-request
+        }
+      }
+
+      return {
+        userId: profile.id,
+        email: user.email ?? "",
+        outletId: resolvedOutletId,
+        selectedOutletId,
+        fullName: profile.full_name,
+        role,
+        isActive: profile.is_active,
+      };
+    } catch {
+      return null;
+    }
   }
+);
+
+export async function getCurrentStaffSession(): Promise<AuthenticatedStaff | null> {
+  return loadCurrentStaffSessionCached();
 }
 
 /**
