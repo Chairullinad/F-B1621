@@ -93,7 +93,7 @@ export async function getAuditTrailDashboardData(rawFilters?: {
   period?: "today" | "7d" | "30d" | "all";
   outletId?: string;
 }): Promise<AuditTrailDashboardData> {
-  const staff = await requireStaffRole(["owner"]);
+  const staff = await requireStaffRole(["owner"], "staf_audit");
   const admin = createSupabaseAdminClient();
 
   const outletsRes = await admin
@@ -349,7 +349,7 @@ export async function getAuditTrailDashboardData(rawFilters?: {
 export async function verifyAuditChainNowAction(): Promise<
   ActionResult & { verification?: AuditChainVerificationStatus }
 > {
-  await requireStaffRole(["owner"]);
+  await requireStaffRole(["owner"], "staf_audit");
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin.rpc("verify_audit_chain");

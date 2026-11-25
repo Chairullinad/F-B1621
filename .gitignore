@@ -44,3 +44,6 @@ next-env.d.ts
 supabase/.branches
 supabase/.temp
 
+# local-only agent changelog (tidak di-push ke GitHub)
+LOCAL_CHANGELOG.md
+

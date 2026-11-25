@@ -19,12 +19,19 @@ import {
   Sparkles,
   Menu as MenuIcon,
   X as CloseIcon,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { ROLE_LABELS_ID, type StaffNavItem } from "@/lib/auth";
+import {
+  getRequiredPermissionForPathname,
+  hasUserPermission,
+  ROLE_LABELS_ID,
+  type StaffNavItem,
+} from "@/lib/auth";
 import type { OutletView } from "@/lib/outlets";
-import type { UserRole } from "@/lib/types/database";
+import type { UserCustomPermissions, UserRole } from "@/lib/types/database";
+import { changeOwnPasswordAction } from "@/server/auth";
 import type { StaffSidebarBadges } from "@/server/inventory";
 import {
   leaveActiveOutletAction,
@@ -35,6 +42,7 @@ interface StaffSidebarShellProps {
   staff: {
     fullName: string;
     role: UserRole;
+    customPermissions?: UserCustomPermissions | null;
   };
   navItems: ReadonlyArray<StaffNavItem>;
   badges: StaffSidebarBadges;
@@ -73,6 +81,11 @@ export function StaffSidebarShell({
   const [pendingHref, setPendingHref] = React.useState<string | null>(null);
   const [outletMenuOpen, setOutletMenuOpen] = React.useState(false);
   const [isSwitchingOutlet, startSwitchTransition] = React.useTransition();
+  const [passwordModalOpen, setPasswordModalOpen] = React.useState(false);
+  const [currentPw, setCurrentPw] = React.useState("");
+  const [nextPw, setNextPw] = React.useState("");
+  const [confirmNextPw, setConfirmNextPw] = React.useState("");
+  const [isUpdatingPw, startPwTransition] = React.useTransition();
 
   const [optimisticOutletId, setOptimisticOutletId] = React.useState<
     string | null | undefined
@@ -228,7 +241,7 @@ export function StaffSidebarShell({
         roles: ["owner"],
         items: [
           { href: "/dashboard/transaksi", label: "Laporan Penjualan & Struk" },
-          { href: "/dashboard/keuangan?tab=labarugi", label: "Laporan Laba Rugi & Pajak" },
+          { href: "/dashboard/keuangan?tab=aruskas", label: "Laporan Laba Rugi & Pajak" },
         ],
       },
       {
@@ -244,7 +257,7 @@ export function StaffSidebarShell({
     ];
   }, [staff.role, badges]);
 
-  // Filter grup sesuai role pengguna (Mode Holding Owner mempertahankan Dashboard + Laporan + Setting Kios + Akses & Keamanan)
+  // Filter grup sesuai role & custom per-user permissions (Mode Holding Owner mempertahankan Dashboard + Laporan + Setting Kios + Pengaturan + Akses & Keamanan)
   const visibleGroups: MainMenuGroup[] = React.useMemo(() => {
     if (isHoldingMode) {
       return [
@@ -264,16 +277,25 @@ export function StaffSidebarShell({
           roles: ["owner"],
           items: [
             { href: "/dashboard/transaksi", label: "Laporan Penjualan & Struk" },
-            { href: "/dashboard/keuangan?tab=labarugi", label: "Laporan Laba Rugi & Pajak" },
+            { href: "/dashboard/keuangan?tab=aruskas", label: "Laporan Laba Rugi & Pajak" },
           ],
         },
         {
           id: "holding-setting",
           label: "Setting",
+          icon: <Store className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+          roles: ["owner"],
+          items: [
+            { href: "/dashboard/cabang", label: "Setting Outlet" },
+          ],
+        },
+        {
+          id: "holding-pengaturan",
+          label: "Pengaturan",
           icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
           roles: ["owner"],
           items: [
-            { href: "/dashboard/cabang", label: "Setting Kios" },
+            { href: "/dashboard/pengaturan-utama", label: "Notifikasi & Report Harian" },
           ],
         },
         {
@@ -288,8 +310,112 @@ export function StaffSidebarShell({
         },
       ];
     }
-    return allGroups.filter((g) => g.roles.includes(staff.role));
-  }, [allGroups, staff.role, isHoldingMode]);
+
+    if (staff.role === "owner") {
+      return allGroups;
+    }
+
+    // Untuk staf non-owner, tampilkan semua menu yang diizinkan oleh Role + customPermissions (promosi)
+    const promotedCatalog: MainMenuGroup[] = [
+      {
+        id: "dashboard",
+        label: "Beranda",
+        icon: <LayoutDashboard className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: [staff.role],
+        items: [
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/dashboard/stok-menu", label: "Stok Menu" },
+          { href: "/dashboard/keuangan?tab=aruskas", label: "Pembukuan" },
+        ],
+      },
+      {
+        id: "operasional",
+        label: "Kasir & Pesanan",
+        icon: <Smartphone className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: [staff.role],
+        items: [
+          {
+            href: "/kasir",
+            label: "Layar Kasir, Kitchen & Antar",
+            badgeCount: badges.pending_orders,
+          },
+          { href: "/order-manual", label: "POS / Order Manual" },
+          { href: "/kasir?tab=shift", label: "Tutupan Shift & Struk" },
+          { href: "/dapur", label: "Layar Kitchen (KDS)" },
+          { href: "/antar", label: "Layar Antar Meja" },
+        ],
+      },
+      {
+        id: "menu-kedai",
+        label: "Menu & Kedai",
+        icon: <Building2 className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: [staff.role],
+        items: [
+          { href: "/dashboard/produk", label: "Daftar Menu & Kategori" },
+          { href: "/dashboard/landing-page", label: "Landing Page & Banner" },
+          { href: "/dashboard/meja", label: "Meja & QR Code" },
+          { href: "/dashboard/pengaturan", label: "Pajak, Service & QRIS" },
+        ],
+      },
+      {
+        id: "inventori",
+        label: "Inventori & Gudang",
+        icon: <Boxes className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: [staff.role],
+        items: [
+          {
+            href: "/dashboard/inventory",
+            label: "Bahan Baku & Resep BOM",
+            badgeCount: badges.low_stock,
+          },
+          {
+            href: "/dashboard/opname",
+            label: "Stock Opname",
+            badgeCount: badges.pending_opnames,
+          },
+          {
+            href: "/dashboard/transfer-stok",
+            label: "Transfer Stok",
+            badgeCount: badges.pending_transfers,
+          },
+          { href: "/dashboard/waste", label: "Barang Rusak (Waste)" },
+          { href: "/dashboard/supplier", label: "Supplier & Purchase Order" },
+        ],
+      },
+      {
+        id: "laporan",
+        label: "Laporan",
+        icon: <Receipt className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: [staff.role],
+        items: [
+          { href: "/dashboard/transaksi", label: "Laporan Penjualan & Struk" },
+          { href: "/dashboard/keuangan?tab=aruskas", label: "Laporan Laba Rugi & Pajak" },
+        ],
+      },
+      {
+        id: "master",
+        label: "Akses & Keamanan",
+        icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: [staff.role],
+        items: [
+          { href: "/dashboard/staf", label: "Kelola Staf & Hak Akses" },
+          { href: "/dashboard/audit", label: "Jejak Audit Sistem" },
+        ],
+      },
+    ];
+
+    return promotedCatalog
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => {
+          const itemPath = item.href.split("?")[0] ?? item.href;
+          const perm = getRequiredPermissionForPathname(itemPath);
+          if (!perm) return true;
+          return hasUserPermission(staff.role, staff.customPermissions, perm);
+        }),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [allGroups, staff.role, staff.customPermissions, isHoldingMode, badges]);
 
   // State Accordion: menentukan grup mana yang sedang terbuka (expand)
   const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(() => {
@@ -319,6 +445,7 @@ export function StaffSidebarShell({
         "holding-dashboard": true,
         "holding-laporan": true,
         "holding-setting": true,
+        "holding-pengaturan": true,
         "holding-akses": true,
       }));
     } else if (staff.role === "owner") {
@@ -754,7 +881,22 @@ export function StaffSidebarShell({
                       </div>
                     )}
 
-                    <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800">
+                    <div className="pt-1 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOutletMenuOpen(false);
+                          setCurrentPw("");
+                          setNextPw("");
+                          setConfirmNextPw("");
+                          setPasswordModalOpen(true);
+                        }}
+                        className="flex items-center justify-center gap-1.5 w-full rounded-xl text-[#1B5E86] dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/50 py-2 text-xs font-semibold transition cursor-pointer"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                        <span>Ganti Kata Sandi Saya</span>
+                      </button>
+
                       <form action={logoutAction}>
                         <button
                           type="submit"
@@ -771,6 +913,116 @@ export function StaffSidebarShell({
             </div>
           </div>
         </header>
+
+        {/* Modal Ganti Kata Sandi Mandiri oleh Staf */}
+        {passwordModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-[#1E88E5]" />
+                  <span>Ganti Kata Sandi</span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setPasswordModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                  aria-label="Tutup modal"
+                >
+                  <CloseIcon className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (nextPw.length < 8) {
+                    toast.error("Kata sandi baru minimal 8 karakter.");
+                    return;
+                  }
+                  if (nextPw !== confirmNextPw) {
+                    toast.error("Konfirmasi kata sandi baru tidak cocok.");
+                    return;
+                  }
+                  startPwTransition(async () => {
+                    const res = await changeOwnPasswordAction({
+                      currentPassword: currentPw,
+                      newPassword: nextPw,
+                    });
+                    if (!res.ok) {
+                      toast.error(res.message);
+                      return;
+                    }
+                    toast.success(res.message);
+                    setPasswordModalOpen(false);
+                  });
+                }}
+                className="space-y-3"
+              >
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Kata Sandi Saat Ini
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    value={currentPw}
+                    onChange={(e) => setCurrentPw(e.target.value)}
+                    placeholder="Masukkan kata sandi lama"
+                    className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Kata Sandi Baru
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    value={nextPw}
+                    onChange={(e) => setNextPw(e.target.value)}
+                    placeholder="Minimal 8 karakter"
+                    className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Ulangi Kata Sandi Baru
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    value={confirmNextPw}
+                    onChange={(e) => setConfirmNextPw(e.target.value)}
+                    placeholder="Ketik ulang kata sandi baru"
+                    className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setPasswordModalOpen(false)}
+                    className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3.5 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingPw}
+                    className="h-10 rounded-lg bg-[#1E88E5] hover:bg-[#1976D2] px-4 text-xs font-bold text-white disabled:opacity-60 cursor-pointer"
+                  >
+                    {isUpdatingPw ? "Menyimpan..." : "Simpan Kata Sandi"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Content View */}
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">

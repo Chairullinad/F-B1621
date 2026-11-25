@@ -80,11 +80,11 @@ describe("src/lib/outlets.ts", () => {
     assert.equal(legacy.landingBanners[0]?.imageUrl, "/legacy-cover.jpg");
   });
 
-  it("memberikan warna berbeda untuk setiap kios meskipun warna bawaannya sama", () => {
+  it("memberikan warna kontras yang berbeda untuk setiap kios meskipun warna bawaannya sama atau mirip", () => {
     const colorMap = assignDistinctOutletColors([
       { id: "a", themeColor: "#0284C7" },
       { id: "b", themeColor: "#0284C7" },
-      { id: "c", themeColor: "#0284c7" },
+      { id: "c", themeColor: "#1E88E5" }, // biru mirip dengan #0284C7
       { id: "d", themeColor: "#7C3AED" },
     ]);
 
@@ -95,6 +95,7 @@ describe("src/lib/outlets.ts", () => {
       colorMap.get("d"),
     ];
     assert.equal(colorMap.get("a"), "#0284C7");
+    assert.notEqual(colorMap.get("c"), "#1E88E5");
     assert.equal(colorMap.get("d"), "#7C3AED");
     assert.equal(new Set(colors).size, 4);
   });

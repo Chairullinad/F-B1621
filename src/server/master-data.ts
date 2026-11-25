@@ -149,7 +149,7 @@ async function applyOwnerAuditContext(reason: string) {
 // 1. MASTER KATEGORI
 // ============================================================================
 export async function listCategoriesForOwner(): Promise<CategoryRow[]> {
-  const owner = await requireStaffRole(["owner"]);
+  const owner = await requireStaffRole(["owner"], "menu_kedai");
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin
@@ -295,7 +295,7 @@ export async function deleteCategoryAction(rawInput: {
 // 2. MASTER PRODUK
 // ============================================================================
 export async function listProductsForOwner(): Promise<ProductRow[]> {
-  const owner = await requireStaffRole(["owner"]);
+  const owner = await requireStaffRole(["owner"], "menu_kedai");
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin
@@ -500,7 +500,7 @@ export async function deleteProductAction(rawInput: {
 // 3. MASTER MEJA & QR (100 Meja)
 // ============================================================================
 export async function listTablesForOwner(): Promise<TableRow[]> {
-  const owner = await requireStaffRole(["owner"]);
+  const owner = await requireStaffRole(["owner"], "menu_kedai");
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin
@@ -600,7 +600,7 @@ export interface OutletAndNotificationSettings {
 }
 
 export async function getOutletAndNotificationSettings(): Promise<OutletAndNotificationSettings> {
-  const owner = await requireStaffRole(["owner"]);
+  const owner = await requireStaffRole(["owner"], "pengaturan");
   const admin = createSupabaseAdminClient();
 
   const [{ data: outletData, error: outletErr }, { data: notifData }] =

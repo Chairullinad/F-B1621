@@ -11,41 +11,49 @@ import {
   BookOpen,
   Building2,
   Download,
+  Eye,
+  EyeOff,
   Receipt,
   Scale,
   Wallet,
   X,
 } from "lucide-react";
+import { DailyEmailReportTemplate } from "@/components/dashboard/daily-email-report-template";
 import { formatRupiah } from "@/lib/money";
 import {
   createManualAccountingEntryAction,
   type FinancialReportData,
 } from "@/server/accounting";
+import type { DailyHoldingReportPreview } from "@/server/holding-reports";
 
 interface FinancialReportTabsProps {
   initialData: FinancialReportData;
   initialTab?: string;
+  dailyEmailPreview?: DailyHoldingReportPreview;
 }
 
-type TabKey = "jurnal" | "labarugi" | "neraca" | "aruskas" | "pajak";
+type TabKey = "aruskas" | "jurnal" | "labarugi" | "neraca" | "pajak";
 
 const VALID_TABS: ReadonlyArray<TabKey> = [
+  "aruskas",
   "jurnal",
   "labarugi",
   "neraca",
-  "aruskas",
   "pajak",
 ];
 
 export function FinancialReportTabs({
   initialData,
   initialTab,
+  dailyEmailPreview,
 }: FinancialReportTabsProps) {
   const router = useRouter();
   const safeInitialTab: TabKey = VALID_TABS.includes(initialTab as TabKey)
     ? (initialTab as TabKey)
-    : "jurnal";
+    : "aruskas";
   const [activeTab, setActiveTab] = useState<TabKey>(safeInitialTab);
+  const [showEmailTemplatePreview, setShowEmailTemplatePreview] =
+    useState(false);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{
     ok: boolean;
@@ -206,6 +214,24 @@ export function FinancialReportTabs({
             <Download className="h-4 w-4 text-slate-500" />
             <span>Export CSV</span>
           </button>
+          {dailyEmailPreview && (
+            <button
+              type="button"
+              onClick={() => setShowEmailTemplatePreview((v) => !v)}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              {showEmailTemplatePreview ? (
+                <EyeOff className="h-4 w-4 text-slate-500" />
+              ) : (
+                <Eye className="h-4 w-4 text-slate-500" />
+              )}
+              <span>
+                {showEmailTemplatePreview
+                  ? "Tutup Template Email"
+                  : "Template Email Harian"}
+              </span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -305,8 +331,30 @@ export function FinancialReportTabs({
         </div>
       </div>
 
+      {/* Template Report Harian Email (Tersembunyi secara default; dibuka hanya bila Owner ingin melihat preview template email) */}
+      {showEmailTemplatePreview && dailyEmailPreview && (
+        <DailyEmailReportTemplate
+          preview={dailyEmailPreview}
+          dateQueryBasePath={`/dashboard/keuangan?outletId=${encodeURIComponent(
+            initialData.selectedOutletId
+          )}&tab=${activeTab}`}
+        />
+      )}
+
       {/* Tabs Navigation */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 pt-2 rounded-t-xl shadow-2xs overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setActiveTab("aruskas")}
+          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-[13px] font-semibold whitespace-nowrap transition cursor-pointer ${
+            activeTab === "aruskas"
+              ? "border-[#1E88E5] text-[#1E88E5] dark:text-sky-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <Wallet className="h-4 w-4" />
+          <span>Arus Kas (Cash Flow)</span>
+        </button>
         <button
           type="button"
           onClick={() => setActiveTab("jurnal")}
@@ -345,18 +393,6 @@ export function FinancialReportTabs({
         >
           <Scale className="h-4 w-4" />
           <span>Neraca</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("aruskas")}
-          className={`flex min-h-11 items-center gap-2 border-b-2 px-4 text-[13px] font-semibold whitespace-nowrap transition cursor-pointer ${
-            activeTab === "aruskas"
-              ? "border-[#1E88E5] text-[#1E88E5] dark:text-sky-400"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-          }`}
-        >
-          <Wallet className="h-4 w-4" />
-          <span>Arus Kas</span>
         </button>
         <button
           type="button"

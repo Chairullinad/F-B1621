@@ -34,7 +34,11 @@ export default async function StaffLayout({
 
   return (
     <StaffSidebarShell
-      staff={{ fullName: staff.fullName, role: staff.role }}
+      staff={{
+        fullName: staff.fullName,
+        role: staff.role,
+        customPermissions: staff.customPermissions,
+      }}
       navItems={allowedNavItems}
       badges={badges}
       outlets={outletsData.outlets}

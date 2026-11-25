@@ -97,7 +97,7 @@ export interface FinancialReportData {
 export async function getFinancialReportData(params?: {
   outletId?: string;
 }): Promise<FinancialReportData> {
-  const staff = await requireStaffRole(["owner"]);
+  const staff = await requireStaffRole(["owner"], "keuangan");
   const admin = createSupabaseAdminClient();
 
   const outletsRes = await admin
@@ -512,7 +512,7 @@ const JOURNAL_ACCOUNT_MAP: Record<
 export async function createManualAccountingEntryAction(
   input: z.infer<typeof createManualJournalSchema>
 ): Promise<ActionResult> {
-  const staff = await requireStaffRole(["owner"]);
+  const staff = await requireStaffRole(["owner"], "keuangan");
   const parsed = createManualJournalSchema.safeParse(input);
   if (!parsed.success) {
     return {

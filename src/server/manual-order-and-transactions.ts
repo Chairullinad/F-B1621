@@ -203,7 +203,7 @@ function getWibDayBoundsIso(daysLookback: number): {
  * Mengambil seluruh data untuk halaman Buat Order Manual (/order-manual).
  */
 export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspaceData> {
-  const staff = await requireStaffRole(["owner", "cashier"]);
+  const staff = await requireStaffRole(["owner", "cashier"], "order_manual");
   const admin = createSupabaseAdminClient();
 
   const [outletRes, catRes, prodRes, tablesRes] = await Promise.all([
@@ -320,7 +320,7 @@ export async function createManualCashierOrderAction(rawInput: {
     idempotencyKey,
   } = parsed.data;
 
-  const staff = await requireStaffRole(["owner", "cashier"]);
+  const staff = await requireStaffRole(["owner", "cashier"], "order_manual");
   const hdrs = await headers();
   const forwardedFor = hdrs.get("x-forwarded-for");
   const ip =
@@ -695,7 +695,7 @@ export async function getTransactionsDashboardData(rawFilters?: {
   cashierId?: string;
   outletId?: string;
 }): Promise<TransactionsDashboardData> {
-  const staff = await requireStaffRole(["owner", "cashier"]);
+  const staff = await requireStaffRole(["owner", "cashier"], "transaksi");
   const admin = createSupabaseAdminClient();
 
   let outlets: Array<{ id: string; name: string }> = [];

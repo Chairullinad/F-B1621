@@ -32,15 +32,15 @@ export interface OutletView {
 
 export const OUTLET_CHART_FALLBACK_PALETTE = [
   "#0284C7", // Sky Blue
-  "#E11D48", // Rose
+  "#DC2626", // Red
   "#059669", // Emerald
   "#D97706", // Amber
   "#7C3AED", // Violet
-  "#0D9488", // Teal
+  "#0891B2", // Cyan
   "#DB2777", // Pink
-  "#4F46E5", // Indigo
+  "#65A30D", // Lime
   "#EA580C", // Orange
-  "#16A34A", // Green
+  "#334155", // Slate
 ] as const;
 
 interface LegacyReceiptMeta {
@@ -217,31 +217,86 @@ export function mapOutletRowToView(raw: Record<string, unknown>): OutletView {
   };
 }
 
+function parseHexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const clean = hex.trim().replace(/^#/, "");
+  if (!/^[0-9a-f]{6}$/i.test(clean)) return null;
+  return {
+    r: Number.parseInt(clean.slice(0, 2), 16),
+    g: Number.parseInt(clean.slice(2, 4), 16),
+    b: Number.parseInt(clean.slice(4, 6), 16),
+  };
+}
+
+function rgbToHueDeg(r: number, g: number, b: number): { hue: number; sat: number } {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const d = max - min;
+  if (d === 0) return { hue: 0, sat: 0 };
+  const l = (max + min) / 2;
+  const sat = d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (max === rn) h = ((gn - bn) / d) % 6;
+  else if (max === gn) h = (bn - rn) / d + 2;
+  else h = (rn - gn) / d + 4;
+  return { hue: (h * 60 + 360) % 360, sat };
+}
+
+function isColorTooSimilar(hexA: string, hexB: string): boolean {
+  if (hexA.toLowerCase() === hexB.toLowerCase()) return true;
+  const rgbA = parseHexToRgb(hexA);
+  const rgbB = parseHexToRgb(hexB);
+  if (!rgbA || !rgbB) return false;
+
+  const rgbDist = Math.hypot(rgbA.r - rgbB.r, rgbA.g - rgbB.g, rgbA.b - rgbB.b);
+  if (rgbDist < 95) return true;
+
+  const hslA = rgbToHueDeg(rgbA.r, rgbA.g, rgbA.b);
+  const hslB = rgbToHueDeg(rgbB.r, rgbB.g, rgbB.b);
+  if (hslA.sat >= 0.2 && hslB.sat >= 0.2) {
+    const rawHueDiff = Math.abs(hslA.hue - hslB.hue);
+    const hueDiff = Math.min(rawHueDiff, 360 - rawHueDiff);
+    if (hueDiff < 32) return true;
+  }
+  return false;
+}
+
 /**
- * Memastikan setiap kios pada grafik bulanan mendapat warna yang unik dan mudah dibedakan.
+ * Memastikan setiap kios pada grafik bulanan mendapat warna yang unik dan kontras secara visual.
  */
 export function assignDistinctOutletColors(
   outlets: ReadonlyArray<Pick<OutletView, "id" | "themeColor">>
 ): Map<string, string> {
-  const used = new Set<string>();
+  const usedColors: string[] = [];
   const result = new Map<string, string>();
 
   for (const outlet of outlets) {
-    const preferred = outlet.themeColor?.trim();
-    const normalizedPreferred = preferred?.toLowerCase() ?? "";
-    const isValidHex = /^#[0-9a-f]{6}$/i.test(normalizedPreferred);
+    const preferred = outlet.themeColor?.trim() ?? "";
+    const isValidHex = /^#[0-9a-f]{6}$/i.test(preferred);
+    const preferredDistinct =
+      isValidHex && !usedColors.some((c) => isColorTooSimilar(c, preferred));
 
-    if (isValidHex && !used.has(normalizedPreferred)) {
-      used.add(normalizedPreferred);
+    if (preferredDistinct) {
+      usedColors.push(preferred);
       result.set(outlet.id, preferred);
       continue;
     }
 
     const nextAvailable =
       OUTLET_CHART_FALLBACK_PALETTE.find(
-        (c) => !used.has(c.toLowerCase())
-      ) ?? "#0284C7";
-    used.add(nextAvailable.toLowerCase());
+        (candidate) => !usedColors.some((c) => isColorTooSimilar(c, candidate))
+      ) ??
+      OUTLET_CHART_FALLBACK_PALETTE.find(
+        (candidate) => !usedColors.some((c) => c.toLowerCase() === candidate.toLowerCase())
+      ) ??
+      OUTLET_CHART_FALLBACK_PALETTE[
+        usedColors.length % OUTLET_CHART_FALLBACK_PALETTE.length
+      ] ??
+      "#0284C7";
+
+    usedColors.push(nextAvailable);
     result.set(outlet.id, nextAvailable);
   }
 
