@@ -747,16 +747,16 @@ export function ReceiptPrintView({
             </div>
 
             {/* Daftar Menu Produksi Kitchen (Tanpa Harga, Huruf Besar + Kotak Checker) */}
-            <div className="space-y-2 border-b-2 border-zinc-900 py-2.5">
+            <div className="space-y-2.5 border-b-2 border-zinc-900 py-2.5">
               {receipt.items.map((item) => (
-                <div key={`kitchen-${item.id}`} className="text-xs">
-                  <div className="flex items-start justify-between gap-2 font-extrabold">
+                <div key={`kitchen-${item.id}`}>
+                  <div className="flex items-start justify-between gap-2 text-base font-black leading-snug tracking-tight">
                     <span>
                       [ ] {item.qty}x {item.productName}
                     </span>
                   </div>
                   {item.note && (
-                    <div className="mt-0.5 border-l-2 border-zinc-900 pl-2 text-[11px] font-bold">
+                    <div className="mt-1 border-l-2 border-zinc-900 pl-2 text-xs font-bold leading-snug">
                       CATATAN KITCHEN: {item.note}
                     </div>
                   )}

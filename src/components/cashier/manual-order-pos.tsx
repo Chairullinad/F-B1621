@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertCircle,
   ArrowLeft,
   Banknote,
   CheckCircle2,
@@ -89,6 +90,37 @@ export function ManualOrderPos({
     message: string;
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [paymentResultModal, setPaymentResultModal] = useState<{
+    status: "success" | "error";
+    title: string;
+    message: string;
+    orderId?: string;
+    orderNo?: string;
+  } | null>(null);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (paymentResultModal?.status !== "success") {
+      return;
+    }
+    redirectTimerRef.current = setTimeout(() => {
+      router.push("/kasir");
+    }, 1500);
+
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
+    };
+  }, [paymentResultModal, router]);
+
+  function cancelPendingRedirect() {
+    if (redirectTimerRef.current) {
+      clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = null;
+    }
+  }
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -286,6 +318,11 @@ export function ManualOrderPos({
 
       if (!res.ok) {
         setErrorMsg(res.message);
+        setPaymentResultModal({
+          status: "error",
+          title: "Pembayaran Gagal",
+          message: res.message,
+        });
         return;
       }
 
@@ -293,6 +330,13 @@ export function ManualOrderPos({
         orderId: res.orderId ?? "",
         orderNo: res.orderNo ?? "",
         message: res.message,
+      });
+      setPaymentResultModal({
+        status: "success",
+        title: "Pembayaran Berhasil",
+        message: res.message,
+        orderId: res.orderId ?? "",
+        orderNo: res.orderNo ?? "",
       });
       setShowQrisModal(false);
       setCart([]);
@@ -304,6 +348,17 @@ export function ManualOrderPos({
         `manual-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
       );
       router.refresh();
+    } catch (err) {
+      const fallbackMessage =
+        err instanceof Error && err.message
+          ? err.message
+          : "Terjadi kesalahan jaringan saat memproses pembayaran.";
+      setErrorMsg(fallbackMessage);
+      setPaymentResultModal({
+        status: "error",
+        title: "Pembayaran Gagal",
+        message: fallbackMessage,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -993,6 +1048,103 @@ export function ManualOrderPos({
                   ? "Memproses..."
                   : "Pembayaran QRIS Sesuai — Selesaikan Order"}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP HASIL PEMBAYARAN MANUAL (BERHASIL / GAGAL) */}
+      {paymentResultModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs"
+          onClick={() => {
+            if (paymentResultModal.status === "error") {
+              setPaymentResultModal(null);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manual-payment-result-title"
+            className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center">
+              {paymentResultModal.status === "success" ? (
+                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
+                  <CheckCircle2 className="h-8 w-8" />
+                </div>
+              ) : (
+                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
+                  <AlertCircle className="h-8 w-8" />
+                </div>
+              )}
+
+              <h3
+                id="manual-payment-result-title"
+                className="text-xl font-extrabold text-slate-900 dark:text-slate-100"
+              >
+                {paymentResultModal.title}
+              </h3>
+
+              {paymentResultModal.status === "success" &&
+                paymentResultModal.orderNo && (
+                  <Badge className="mt-2 bg-emerald-700 text-white">
+                    Order #{paymentResultModal.orderNo}
+                  </Badge>
+                )}
+
+              <p className="mt-2.5 text-sm text-slate-600 dark:text-slate-300">
+                {paymentResultModal.message}
+              </p>
+
+              {paymentResultModal.status === "success" && (
+                <p className="mt-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  Otomatis dialihkan ke menu Pesanan Layar Kasir...
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2">
+              {paymentResultModal.status === "success" ? (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      cancelPendingRedirect();
+                      router.push("/kasir");
+                    }}
+                    className="min-h-11 w-full bg-emerald-700 font-bold text-white hover:bg-emerald-800"
+                  >
+                    Ke Menu Pesanan Layar Kasir Sekarang
+                  </Button>
+                  {paymentResultModal.orderId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        cancelPendingRedirect();
+                        router.push(
+                          `/struk/${paymentResultModal.orderId}?autoprint=1`
+                        );
+                      }}
+                      className="min-h-11 w-full font-semibold"
+                    >
+                      <Printer className="mr-1.5 h-4 w-4" />
+                      Cetak Struk (#{paymentResultModal.orderNo})
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => setPaymentResultModal(null)}
+                  className="min-h-11 w-full bg-rose-600 font-bold text-white hover:bg-rose-700"
+                >
+                  Tutup & Perbaiki Pesanan
+                </Button>
+              )}
             </div>
           </div>
         </div>

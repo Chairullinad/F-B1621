@@ -145,6 +145,13 @@ describe("src/lib/escpos.ts", () => {
     });
     const kitchenAscii = Buffer.from(kitchenBytes).toString("ascii");
     assert.ok(!kitchenAscii.includes("kopienak1621"));
+    // Pastikan item menu tiket kitchen memakai ukuran besar ganda (GS ! 0x11) lalu kembali normal (GS ! 0x00)
+    const doubleBothSeq = Buffer.from([0x1d, 0x21, 0x11]);
+    const normalSeq = Buffer.from([0x1d, 0x21, 0x00]);
+    const bufKitchen = Buffer.from(kitchenBytes);
+    const firstItemMarkerIdx = bufKitchen.lastIndexOf(doubleBothSeq);
+    assert.ok(firstItemMarkerIdx !== -1);
+    assert.ok(bufKitchen.indexOf(normalSeq, firstItemMarkerIdx) > firstItemMarkerIdx);
 
     const shiftBytes = buildShiftClosingEscPosBytes({
       paperSize: "58mm",

@@ -562,15 +562,28 @@ export function buildOrderReceiptEscPosBytes(
     });
     builder.appendDivider("=", width);
 
+    const kitchenItemWidth = Math.max(12, Math.floor(width / 2));
     for (const item of receipt.items) {
-      builder.appendWrappedLines(`[ ] ${item.qty}x ${item.productName}`, width, {
-        bold: true,
-      });
-      if (item.note) {
-        builder.appendWrappedLines(`  CATATAN: ${item.note}`, width, {
-          bold: true,
-        });
+      builder
+        .appendBytes(CMD_ALIGN_LEFT)
+        .appendBytes(CMD_BOLD_ON)
+        .appendBytes(CMD_SIZE_DOUBLE_BOTH);
+      for (const line of wrapEscPosText(
+        `[ ] ${item.qty}x ${item.productName}`,
+        kitchenItemWidth
+      )) {
+        builder.appendAsciiLine(line);
       }
+      if (item.note) {
+        builder.appendBytes(CMD_SIZE_DOUBLE_HEIGHT);
+        for (const noteLine of wrapEscPosText(
+          `  CATATAN: ${item.note}`,
+          width
+        )) {
+          builder.appendAsciiLine(noteLine);
+        }
+      }
+      builder.appendBytes(CMD_SIZE_NORMAL).appendBytes(CMD_BOLD_OFF);
     }
 
     builder.appendDivider("=", width);
