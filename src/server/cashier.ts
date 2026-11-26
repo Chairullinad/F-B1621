@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import {
+  buildFullOrderVoidDraft,
+  diffOrderItemsForVoid,
+  type OrderVoidScope,
+} from "@/lib/cashier-voids";
+import {
   calculateCashChange,
   calculateDiscountAmount,
   calculateOrderTotals,
@@ -591,6 +596,63 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
   };
 }
 
+interface InsertOrderVoidRowInput {
+  outlet_id: string;
+  order_id: string;
+  order_no: string;
+  table_name: string;
+  void_scope: OrderVoidScope;
+  order_status_at_void: string;
+  product_id: string | null;
+  product_name: string;
+  qty_before: number;
+  qty_after: number;
+  qty_cancelled: number;
+  unit_price: number;
+  void_amount: number;
+  reason_category: string;
+  reason: string;
+  actor_user_id: string;
+  actor_name: string;
+}
+
+async function resolveTableNameForVoid(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  outletId: string,
+  tableId: string | null | undefined,
+  orderType: string | null | undefined,
+): Promise<string> {
+  if (!tableId) {
+    return orderType === "takeaway" ? "Takeaway" : "-";
+  }
+  const { data } = await admin
+    .from("tables")
+    .select("name")
+    .eq("outlet_id", outletId)
+    .eq("id", tableId)
+    .maybeSingle();
+  return data?.name ? String(data.name) : orderType === "takeaway" ? "Takeaway" : "-";
+}
+
+async function insertOrderVoidRecordsSafe(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  rows: InsertOrderVoidRowInput[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  try {
+    const { error } = await admin.from("order_void_records").insert(rows);
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("order_void_records") || msg.includes("schema cache") || msg.includes("relation")) {
+        return;
+      }
+      console.error("[order_void_records] gagal menyimpan catatan void:", error.message);
+    }
+  } catch {
+    // Abaikan kegagalan pencatatan sekunder agar transaksi utama tetap berjalan
+  }
+}
+
 /**
  * Server Action: Revisi daftar item pada order berstatus PENDING (Hanya Kasir/Owner).
  * Merekam kondisi daftar item sebelum dan sesudah revisi di audit_logs,
@@ -805,7 +867,56 @@ export async function revisePendingOrderItemsAction(rawInput: {
     hash: "",
   });
 
+  const partialVoids = diffOrderItemsForVoid({
+    beforeItems: (beforeItems ?? []).map((item) => ({
+      productId: item.product_id ? String(item.product_id) : null,
+      productName: String(item.product_name),
+      unitPrice: Number(item.unit_price),
+      qty: Number(item.qty),
+      lineTotal: Number(item.line_total),
+    })),
+    afterItems: nextItems.map((item) => ({
+      productId: item.product_id,
+      productName: item.product_name,
+      unitPrice: item.unit_price,
+      qty: item.qty,
+      lineTotal: item.line_total,
+    })),
+  });
+
+  if (partialVoids.length > 0) {
+    const tableName = await resolveTableNameForVoid(
+      admin,
+      staff.outletId,
+      orderRow.table_id ? String(orderRow.table_id) : null,
+      orderRow.order_type ? String(orderRow.order_type) : null,
+    );
+    await insertOrderVoidRecordsSafe(
+      admin,
+      partialVoids.map((v) => ({
+        outlet_id: staff.outletId,
+        order_id: orderId,
+        order_no: String(orderRow.order_no),
+        table_name: tableName,
+        void_scope: "partial_item",
+        order_status_at_void: "pending",
+        product_id: v.productId,
+        product_name: v.productName,
+        qty_before: v.qtyBefore,
+        qty_after: v.qtyAfter,
+        qty_cancelled: v.qtyCancelled,
+        unit_price: v.unitPrice,
+        void_amount: v.voidAmount,
+        reason_category: reason.startsWith("Rebilling") ? "outlet_fault" : "other",
+        reason,
+        actor_user_id: staff.userId,
+        actor_name: staff.fullName,
+      })),
+    );
+  }
+
   revalidatePath("/kasir");
+  revalidatePath("/dashboard/transaksi");
   return {
     ok: true,
     message: `Revisi order #${orderRow.order_no} berhasil disimpan (Total baru: ${formatRupiah(totals.total)}).`,
@@ -1303,6 +1414,52 @@ export async function cancelOrderWithRefundAction(rawInput: {
         "Gagal membatalkan order (mungkin status telah berubah di perangkat lain).",
     };
   }
+
+  const [{ data: cancelledItems }, tableNameForVoid] = await Promise.all([
+    admin
+      .from("order_items")
+      .select("product_id, product_name, unit_price, qty, line_total")
+      .eq("order_id", orderId),
+    resolveTableNameForVoid(
+      admin,
+      staff.outletId,
+      orderRow.table_id ? String(orderRow.table_id) : null,
+      orderRow.order_type ? String(orderRow.order_type) : null,
+    ),
+  ]);
+
+  const fullVoidDraft = buildFullOrderVoidDraft({
+    items: (cancelledItems ?? []).map((item) => ({
+      productId: item.product_id ? String(item.product_id) : null,
+      productName: String(item.product_name),
+      unitPrice: Number(item.unit_price),
+      qty: Number(item.qty),
+      lineTotal: Number(item.line_total),
+    })),
+    orderTotal: Number(orderRow.total),
+  });
+
+  await insertOrderVoidRecordsSafe(admin, [
+    {
+      outlet_id: staff.outletId,
+      order_id: orderId,
+      order_no: String(orderRow.order_no),
+      table_name: tableNameForVoid,
+      void_scope: "full_order",
+      order_status_at_void: currentStatus,
+      product_id: fullVoidDraft.productId,
+      product_name: fullVoidDraft.productName,
+      qty_before: fullVoidDraft.qtyBefore,
+      qty_after: 0,
+      qty_cancelled: fullVoidDraft.qtyCancelled,
+      unit_price: fullVoidDraft.unitPrice,
+      void_amount: fullVoidDraft.voidAmount,
+      reason_category: reasonCategory,
+      reason,
+      actor_user_id: staff.userId,
+      actor_name: staff.fullName,
+    },
+  ]);
 
   // Jika order sebelumnya sudah dibayar (PAID, READY, atau SERVED), wajib buat catatan refund
   if (

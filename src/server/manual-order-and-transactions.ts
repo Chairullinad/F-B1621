@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import type { ProductAddonGroupWithOptions } from "@/lib/addons";
+import {
+  buildFullOrderVoidDraft,
+  type OrderVoidScope,
+} from "@/lib/cashier-voids";
 import { parseWibDateRange } from "@/lib/datetime";
 import {
   calculateCashChange,
@@ -155,6 +159,29 @@ export interface FinancialSummaryMetrics {
   qrisGrossSales: number;
 }
 
+export interface OrderVoidRecordView {
+  id: string;
+  outletId: string;
+  outletName: string;
+  orderId: string;
+  orderNo: string;
+  tableName: string;
+  voidScope: OrderVoidScope;
+  orderStatusAtVoid: string;
+  productId: string | null;
+  productName: string;
+  qtyBefore: number;
+  qtyAfter: number;
+  qtyCancelled: number;
+  unitPrice: number;
+  voidAmount: number;
+  reasonCategory: string;
+  reason: string;
+  actorUserId: string | null;
+  actorName: string;
+  createdAt: string;
+}
+
 export interface TransactionsDashboardData {
   staff: {
     userId: string;
@@ -172,6 +199,8 @@ export interface TransactionsDashboardData {
   isCustomRange: boolean;
   summary: FinancialSummaryMetrics;
   transactions: TransactionRowView[];
+  voidRecords: OrderVoidRecordView[];
+  voidTableReady: boolean;
 }
 
 function getWibDayBoundsIso(daysLookback: number): {
@@ -792,10 +821,25 @@ export async function getTransactionsDashboardData(rawFilters?: {
     tablesQuery = tablesQuery.eq("outlet_id", selectedOutletId);
   }
 
-  const [ordersRes, profilesRes, tablesRes] = await Promise.all([
+  let voidRecordsQuery = admin
+    .from("order_void_records")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (selectedOutletId !== "ALL") {
+    voidRecordsQuery = voidRecordsQuery.eq("outlet_id", selectedOutletId);
+  }
+  if (bounds) {
+    voidRecordsQuery = voidRecordsQuery
+      .gte("created_at", bounds.startIso)
+      .lte("created_at", bounds.endIso);
+  }
+
+  const [ordersRes, profilesRes, tablesRes, voidRes] = await Promise.all([
     ordersQuery,
     profilesQuery,
     tablesQuery,
+    voidRecordsQuery,
   ]);
 
   const profileMap = new Map<string, { fullName: string; role: UserRole }>();
@@ -1001,6 +1045,79 @@ export async function getTransactionsDashboardData(rawFilters?: {
     return true;
   });
 
+  // Susun daftar pembatalan pesanan & void item (dengan fallback aman bila migrasi 0014 belum dijalankan)
+  const voidTableMissing = Boolean(
+    voidRes.error &&
+      (voidRes.error.message.toLowerCase().includes("order_void_records") ||
+        voidRes.error.message.toLowerCase().includes("schema cache") ||
+        voidRes.error.message.toLowerCase().includes("relation"))
+  );
+  const voidTableReady = !voidTableMissing;
+
+  const voidRecords: OrderVoidRecordView[] = voidTableReady
+    ? ((voidRes.data ?? []) as Array<Record<string, unknown>>).map((row) => {
+        const rowOutletId = String(row.outlet_id ?? "");
+        const rawScope = String(row.void_scope ?? "full_order");
+        return {
+          id: String(row.id),
+          outletId: rowOutletId,
+          outletName: outletNameMap.get(rowOutletId) ?? "Outlet",
+          orderId: String(row.order_id),
+          orderNo: String(row.order_no ?? "-"),
+          tableName: String(row.table_name ?? "-"),
+          voidScope: rawScope === "partial_item" ? "partial_item" : "full_order",
+          orderStatusAtVoid: String(row.order_status_at_void ?? "cancelled"),
+          productId: row.product_id ? String(row.product_id) : null,
+          productName: String(row.product_name ?? "-"),
+          qtyBefore: Number(row.qty_before ?? 0),
+          qtyAfter: Number(row.qty_after ?? 0),
+          qtyCancelled: Number(row.qty_cancelled ?? 0),
+          unitPrice: Number(row.unit_price ?? 0),
+          voidAmount: Number(row.void_amount ?? 0),
+          reasonCategory: String(row.reason_category ?? "other"),
+          reason: String(row.reason ?? "-"),
+          actorUserId: row.actor_user_id ? String(row.actor_user_id) : null,
+          actorName: String(row.actor_name ?? "-"),
+          createdAt: String(row.created_at),
+        };
+      })
+    : allTransactions
+        .filter((tx) => tx.status === "cancelled")
+        .map((tx) => {
+          const draft = buildFullOrderVoidDraft({
+            items: tx.items.map((item) => ({
+              productId: item.productId,
+              productName: item.productName,
+              unitPrice: item.unitPrice,
+              qty: item.qty,
+              lineTotal: item.lineTotal,
+            })),
+            orderTotal: tx.refund?.amount ?? tx.total,
+          });
+          return {
+            id: `fallback-${tx.id}`,
+            outletId: tx.outletId,
+            outletName: tx.outletName,
+            orderId: tx.id,
+            orderNo: tx.orderNo,
+            tableName: tx.tableName,
+            voidScope: "full_order",
+            orderStatusAtVoid: tx.refund ? "paid" : "pending",
+            productId: draft.productId,
+            productName: draft.productName,
+            qtyBefore: draft.qtyBefore,
+            qtyAfter: 0,
+            qtyCancelled: draft.qtyCancelled,
+            unitPrice: draft.unitPrice,
+            voidAmount: draft.voidAmount,
+            reasonCategory: tx.refund?.reasonCategory ?? "other",
+            reason: tx.refund?.reason ?? tx.cancelReason ?? "Order dibatalkan",
+            actorUserId: tx.cashierId,
+            actorName: tx.cashierName,
+            createdAt: tx.cancelledAt ?? tx.createdAt,
+          };
+        });
+
   return {
     staff: {
       userId: staff.userId,
@@ -1029,6 +1146,8 @@ export async function getTransactionsDashboardData(rawFilters?: {
       qrisGrossSales,
     },
     transactions: filteredTransactions,
+    voidRecords,
+    voidTableReady,
   };
 }
 

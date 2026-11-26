@@ -19,9 +19,16 @@ import { formatRupiah } from "@/lib/money";
 import type { OrderStatus, RefundReasonCategory } from "@/lib/types/database";
 import { cancelOrderWithRefundAction } from "@/server/cashier";
 import type {
+  OrderVoidRecordView,
   TransactionRowView,
   TransactionsDashboardData,
 } from "@/server/manual-order-and-transactions";
+
+function escapeCsvCell(value: string | number): string {
+  const raw = String(value);
+  const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "MENUNGGU BAYAR",
@@ -52,9 +59,16 @@ export function TransactionsHistoryView({
   activePeriod: "today" | "7d" | "30d" | "all";
 }) {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<"transactions" | "voids">(
+    "transactions"
+  );
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [cashierFilter, setCashierFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [voidScopeFilter, setVoidScopeFilter] = useState<
+    "all" | "full_order" | "partial_item"
+  >("all");
+  const [voidSearchQuery, setVoidSearchQuery] = useState<string>("");
   const [selectedTxId, setSelectedTxId] = useState<string | null>(
     initialData.transactions[0]?.id ?? null
   );
@@ -97,6 +111,90 @@ export function TransactionsHistoryView({
       null
     );
   }, [filteredList, selectedTxId]);
+
+  const filteredVoidRecords = useMemo(() => {
+    const q = voidSearchQuery.trim().toLowerCase();
+    return initialData.voidRecords.filter((rec) => {
+      if (voidScopeFilter !== "all" && rec.voidScope !== voidScopeFilter) {
+        return false;
+      }
+      if (
+        q &&
+        !rec.orderNo.toLowerCase().includes(q) &&
+        !rec.tableName.toLowerCase().includes(q) &&
+        !rec.productName.toLowerCase().includes(q) &&
+        !rec.reason.toLowerCase().includes(q) &&
+        !rec.actorName.toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [initialData.voidRecords, voidScopeFilter, voidSearchQuery]);
+
+  const voidMetrics = useMemo(() => {
+    let fullOrderCount = 0;
+    let partialItemCount = 0;
+    let totalVoidAmount = 0;
+    for (const rec of filteredVoidRecords) {
+      if (rec.voidScope === "full_order") {
+        fullOrderCount += 1;
+      } else {
+        partialItemCount += 1;
+      }
+      totalVoidAmount += rec.voidAmount;
+    }
+    return { fullOrderCount, partialItemCount, totalVoidAmount };
+  }, [filteredVoidRecords]);
+
+  function handleExportVoidCsv() {
+    const headers = [
+      "Waktu (WIB)",
+      "Outlet",
+      "No Order",
+      "Meja",
+      "Jenis",
+      "Status Saat Void",
+      "Menu / Item",
+      "Qty Awal",
+      "Qty Akhir",
+      "Qty Dibatalkan",
+      "Nominal Batal (Rp)",
+      "Kategori Alasan",
+      "Alasan",
+      "Pelaku",
+    ];
+    const rows = filteredVoidRecords.map((rec: OrderVoidRecordView) => [
+      formatDateTimeWIB(rec.createdAt),
+      rec.outletName,
+      `#${rec.orderNo}`,
+      rec.tableName,
+      rec.voidScope === "full_order" ? "Batal Pesanan" : "Batal Item",
+      rec.orderStatusAtVoid.toUpperCase(),
+      rec.productName,
+      rec.qtyBefore,
+      rec.qtyAfter,
+      rec.qtyCancelled,
+      rec.voidAmount,
+      rec.reasonCategory === "outlet_fault" ? "Kesalahan Outlet" : "Lainnya",
+      rec.reason,
+      rec.actorName,
+    ]);
+    const csvContent =
+      "\uFEFF" +
+      [headers, ...rows]
+        .map((cols) => cols.map(escapeCsvCell).join(","))
+        .join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `pembatalan-void-${activePeriod}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 
   async function handleCancelAndRefund() {
     if (!selectedTx) return;
@@ -310,7 +408,44 @@ export function TransactionsHistoryView({
         </div>
       )}
 
-      {/* Baris Filter Status, Kasir, dan Pencarian */}
+      {/* Tab Navigasi Utama: Riwayat Transaksi vs Tabel Pembatalan & Void Item */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("transactions")}
+          className={`min-h-[44px] rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            activeTab === "transactions"
+              ? "bg-slate-900 text-white dark:bg-sky-600"
+              : "text-zinc-700 hover:bg-zinc-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          }`}
+        >
+          Riwayat Transaksi ({filteredList.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("voids")}
+          className={`min-h-[44px] rounded-lg px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-2 ${
+            activeTab === "voids"
+              ? "bg-red-600 text-white dark:bg-red-700"
+              : "text-zinc-700 hover:bg-zinc-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          }`}
+        >
+          <span>Tabel Pembatalan &amp; Void Item</span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+              activeTab === "voids"
+                ? "bg-white/20 text-white"
+                : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+            }`}
+          >
+            {initialData.voidRecords.length}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === "transactions" ? (
+        <>
+          {/* Baris Filter Status, Kasir, dan Pencarian */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
         <select
           aria-label="Filter Status Order"
@@ -605,6 +740,186 @@ export function TransactionsHistoryView({
           )}
         </div>
       </div>
+        </>
+      ) : (
+        <div className="space-y-4">
+          {!initialData.voidTableReady && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              <p className="font-bold">
+                Tabel <code>order_void_records</code> belum dibuat di database.
+              </p>
+              <p className="mt-1">
+                Saat ini tampilan menampilkan fallback pembatalan pesanan penuh dari data transaksi. Jalankan migrasi{" "}
+                <code>supabase/migrations/20261107000014_order_void_records.sql</code> di Supabase SQL Editor agar catatan void per item (<code>partial_item</code>) ikut tersimpan permanen.
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Pembatalan Pesanan Penuh</CardDescription>
+                <CardTitle className="text-xl font-extrabold text-red-600 dark:text-red-400">
+                  {voidMetrics.fullOrderCount} Pesanan
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Void / Kurangi Item</CardDescription>
+                <CardTitle className="text-xl font-extrabold text-amber-600 dark:text-amber-400">
+                  {voidMetrics.partialItemCount} Kejadian
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Total Nominal Batal &amp; Void</CardDescription>
+                <CardTitle className="text-xl font-extrabold text-zinc-900 dark:text-slate-100">
+                  {formatRupiah(voidMetrics.totalVoidAmount)}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5">
+            <select
+              aria-label="Filter Jenis Pembatalan"
+              value={voidScopeFilter}
+              onChange={(e) =>
+                setVoidScopeFilter(
+                  e.target.value as "all" | "full_order" | "partial_item"
+                )
+              }
+              className="h-11 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm text-zinc-900 dark:text-slate-100"
+            >
+              <option value="all">
+                Semua Jenis ({initialData.voidRecords.length})
+              </option>
+              <option value="full_order">Batal Pesanan (Full Order)</option>
+              <option value="partial_item">Batal / Kurangi Item (Void Item)</option>
+            </select>
+
+            <Input
+              type="search"
+              placeholder="Cari no. order, meja, menu, alasan, atau staf..."
+              value={voidSearchQuery}
+              onChange={(e) => setVoidSearchQuery(e.target.value)}
+              className="flex-1 min-w-52"
+            />
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={filteredVoidRecords.length === 0}
+              onClick={handleExportVoidCsv}
+              className="min-h-[44px]"
+            >
+              Export CSV Pembatalan
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              {filteredVoidRecords.length === 0 ? (
+                <div className="py-14 text-center text-sm text-zinc-500 dark:text-slate-400">
+                  Belum ada data pembatalan pesanan maupun void item pada periode ini.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-zinc-200 dark:border-slate-800 bg-zinc-50 dark:bg-slate-800/80 text-xs uppercase text-zinc-500 dark:text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3">Waktu (WIB)</th>
+                        <th className="px-4 py-3">Order &amp; Meja</th>
+                        <th className="px-4 py-3">Jenis</th>
+                        <th className="px-4 py-3">Item &amp; Perubahan Qty</th>
+                        <th className="px-4 py-3 text-right">Nominal</th>
+                        <th className="px-4 py-3">Alasan &amp; Pelaku</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200 dark:divide-slate-800">
+                      {filteredVoidRecords.map((rec) => (
+                        <tr
+                          key={rec.id}
+                          className="hover:bg-zinc-50 dark:hover:bg-slate-800/50"
+                        >
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-zinc-600 dark:text-slate-300">
+                            {formatDateTimeWIB(rec.createdAt)}
+                            {initialData.selectedOutletId === "ALL" && (
+                              <div className="mt-0.5 font-semibold text-[#1E88E5] dark:text-sky-400">
+                                {rec.outletName}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-mono font-bold text-zinc-900 dark:text-slate-100">
+                              #{rec.orderNo}
+                            </div>
+                            <div className="text-xs text-zinc-500 dark:text-slate-400">
+                              {rec.tableName}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTxId(rec.orderId);
+                                setActiveTab("transactions");
+                              }}
+                              className="mt-1 text-xs font-semibold text-[#1E88E5] hover:underline dark:text-sky-400"
+                            >
+                              Lihat Order &rarr;
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant={
+                                rec.voidScope === "full_order"
+                                  ? "destructive"
+                                  : "warning"
+                              }
+                            >
+                              {rec.voidScope === "full_order"
+                                ? "BATAL PESANAN"
+                                : "VOID ITEM"}
+                            </Badge>
+                            <div className="mt-1 text-[11px] uppercase text-zinc-500 dark:text-slate-400">
+                              Status awal: {rec.orderStatusAtVoid}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 max-w-xs">
+                            <div className="font-semibold text-zinc-900 dark:text-slate-100">
+                              {rec.productName}
+                            </div>
+                            <div className="text-xs text-zinc-600 dark:text-slate-400">
+                              {rec.voidScope === "partial_item"
+                                ? `Qty: ${rec.qtyBefore} → ${rec.qtyAfter} (Dibatalkan: ${rec.qtyCancelled})`
+                                : `Total item dibatalkan: ${rec.qtyCancelled}`}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap font-extrabold text-red-600 dark:text-red-400">
+                            {formatRupiah(rec.voidAmount)}
+                          </td>
+                          <td className="px-4 py-3 max-w-xs">
+                            <div className="text-xs font-medium text-zinc-800 dark:text-slate-200">
+                              &ldquo;{rec.reason}&rdquo;
+                            </div>
+                            <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-slate-400">
+                              {rec.reasonCategory === "outlet_fault"
+                                ? "Kesalahan Outlet"
+                                : "Lainnya"}{" "}
+                              • Oleh: {rec.actorName}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
