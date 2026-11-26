@@ -185,7 +185,7 @@ export function ManualOrderPos({
       label:
         orderType === "dine_in" && selectedTableObj
           ? `MEJA-${String(selectedTableObj.table_no).padStart(2, "0")} (${selectedTableObj.name})`
-          : "TAKEAWAY / BUNGKUS",
+          : "TAKEAWAY",
     };
   }, [
     initialData.outlet.qrisRawPayload,
@@ -412,11 +412,11 @@ export function ManualOrderPos({
 
             <CardContent className="space-y-4">
               {/* Pilihan Dine-in vs Takeaway */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex gap-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    className="flex-1"
+                    className="min-h-11 flex-1 sm:flex-initial"
                     variant={orderType === "dine_in" ? "default" : "outline"}
                     onClick={() => setOrderType("dine_in")}
                   >
@@ -425,17 +425,17 @@ export function ManualOrderPos({
                   </Button>
                   <Button
                     type="button"
-                    className="flex-1"
+                    className="min-h-11 flex-1 sm:flex-initial"
                     variant={orderType === "takeaway" ? "default" : "outline"}
                     onClick={() => setOrderType("takeaway")}
                   >
                     <Package className="mr-1.5 h-4 w-4" />
-                    Takeaway / Bungkus
+                    Takeaway
                   </Button>
                 </div>
 
                 {orderType === "dine_in" && (
-                  <div>
+                  <div className="min-w-[180px] flex-1">
                     <select
                       aria-label="Pilih Meja Pelanggan"
                       value={selectedTableId}
@@ -567,7 +567,7 @@ export function ManualOrderPos({
               </CardTitle>
               <CardDescription>
                 {orderType === "takeaway"
-                  ? "Tipe: Takeaway / Bungkus"
+                  ? "Tipe: Takeaway"
                   : `Tipe: Makan di Tempat (${
                       initialData.tables.find((t) => t.id === selectedTableId)
                         ?.name ?? "-"
