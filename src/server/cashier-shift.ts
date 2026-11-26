@@ -227,7 +227,7 @@ export async function computeShiftTransactionMetrics(params: {
   const rawOrders = (ordersRes.data ?? []) as Array<Record<string, unknown>>;
   const orderIds = rawOrders.map((o) => String(o.id));
 
-  const [itemsRes, paymentsRes, refundsRes] =
+  const [itemsRes, paymentsRes, refundsRes, qrisAuditsRes] =
     orderIds.length > 0
       ? await Promise.all([
           admin
@@ -237,8 +237,20 @@ export async function computeShiftTransactionMetrics(params: {
             .order("created_at", { ascending: true }),
           admin.from("payments").select("*").in("order_id", orderIds),
           admin.from("refunds").select("*").in("order_id", orderIds),
+          admin
+            .from("audit_logs")
+            .select("entity_id")
+            .eq("entity", "orders")
+            .in("entity_id", orderIds)
+            .eq("action", "payment.qris_verified"),
         ])
-      : [{ data: [] }, { data: [] }, { data: [] }];
+      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+
+  const qrisVerifiedOrderIds = new Set<string>(
+    ((qrisAuditsRes.data ?? []) as Array<{ entity_id: string }>).map((a) =>
+      String(a.entity_id)
+    )
+  );
 
   const itemsByOrder = new Map<
     string,
@@ -258,7 +270,12 @@ export async function computeShiftTransactionMetrics(params: {
   const paymentMethodByOrder = new Map<string, PaymentMethod>();
   for (const row of (paymentsRes.data ?? []) as Array<Record<string, unknown>>) {
     const oid = String(row.order_id);
-    paymentMethodByOrder.set(oid, (row.method as PaymentMethod) ?? "cash");
+    paymentMethodByOrder.set(
+      oid,
+      qrisVerifiedOrderIds.has(oid)
+        ? "qris"
+        : ((row.method as PaymentMethod) ?? "cash")
+    );
   }
 
   const refundByOrder = new Map<

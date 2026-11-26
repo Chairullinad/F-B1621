@@ -54,8 +54,6 @@ interface ManualCartItem {
   selectedAddons: OrderItemAddonSnapshot[];
 }
 
-const SHOW_MANUAL_POS_QRIS = false;
-
 export function ManualOrderPos({
   initialData,
 }: {
@@ -725,27 +723,22 @@ export function ManualOrderPos({
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    className="flex-1"
+                    className="min-h-[44px] flex-1"
                     variant={paymentMethod === "cash" ? "default" : "outline"}
                     onClick={() => setPaymentMethod("cash")}
                   >
                     <Banknote className="mr-1.5 h-4 w-4" />
                     Tunai
                   </Button>
-                  {SHOW_MANUAL_POS_QRIS && (
-                    <Button
-                      type="button"
-                      className="flex-1"
-                      variant={paymentMethod === "qris" ? "default" : "outline"}
-                      onClick={() => {
-                        setPaymentMethod("qris");
-                        setShowQrisModal(true);
-                      }}
-                    >
-                      <QrCode className="mr-1.5 h-4 w-4" />
-                      QRIS
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    className="min-h-[44px] flex-1"
+                    variant={paymentMethod === "qris" ? "default" : "outline"}
+                    onClick={() => setPaymentMethod("qris")}
+                  >
+                    <QrCode className="mr-1.5 h-4 w-4" />
+                    QRIS Manual
+                  </Button>
                 </div>
 
                 {paymentMethod === "cash" && (
@@ -811,11 +804,14 @@ export function ManualOrderPos({
                   <div className="space-y-3 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-950/30 p-3 text-center">
                     <div className="space-y-0.5">
                       <p className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                        QRIS {qrisRenderData.merchantName}
+                        QRIS Manual &bull; {qrisRenderData.merchantName}
                       </p>
                       <p className="text-[11px] font-semibold text-sky-800 dark:text-sky-300">
-                        {qrisRenderData.label} &bull;{" "}
+                        Nominal tercatat ke laporan &amp; kas QRIS sebesar{" "}
                         {formatRupiah(totalsPreview.total)}
+                      </p>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Cocok untuk pembayaran via QRIS standee meja kasir atau EDC QRIS sebelum integrasi gateway otomatis aktif.
                       </p>
                     </div>
 
@@ -857,22 +853,23 @@ export function ManualOrderPos({
                   <Button
                     type="button"
                     disabled={isSubmitting || cart.length === 0}
-                    onClick={() => setShowQrisModal(true)}
-                    className="min-h-12 w-full bg-[#1E88E5] text-base font-bold text-white hover:bg-[#1976D2]"
+                    onClick={handleSubmitOrder}
+                    className="min-h-12 w-full bg-emerald-700 text-base font-bold text-white hover:bg-emerald-800"
                   >
-                    <QrCode className="mr-2 h-5 w-5" />
-                    Buka Popup QRIS &amp; Bayar ({formatRupiah(totalsPreview.total)})
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                    {isSubmitting
+                      ? "Memproses Order..."
+                      : `Simpan Bayar QRIS Manual & Buat Order (${formatRupiah(totalsPreview.total)})`}
                   </Button>
                   <Button
                     type="button"
+                    variant="outline"
                     disabled={isSubmitting || cart.length === 0}
-                    onClick={handleSubmitOrder}
-                    className="min-h-11 w-full bg-emerald-700 text-sm font-bold text-white hover:bg-emerald-800"
+                    onClick={() => setShowQrisModal(true)}
+                    className="min-h-11 w-full border-sky-300 text-sm font-semibold text-sky-900 hover:bg-sky-50 dark:border-sky-700 dark:text-sky-300 dark:hover:bg-sky-950/60"
                   >
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    {isSubmitting
-                      ? "Memproses Order..."
-                      : `Pembayaran QRIS Sudah Masuk — Buat Order (${formatRupiah(totalsPreview.total)})`}
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Tampilkan Popup QRIS untuk Pelanggan
                   </Button>
                 </div>
               ) : (
