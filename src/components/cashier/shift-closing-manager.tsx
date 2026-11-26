@@ -26,10 +26,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatDateTimeWIB, formatTimeWIB } from "@/lib/datetime";
 import { formatRupiah } from "@/lib/money";
+import { calculateShiftCashSummary } from "@/lib/shift-closing";
 import {
   getShiftClosingPreviewAction,
   saveShiftClosingReportAction,
   type SavedShiftClosingReport,
+  type ShiftCashIncomeItem,
   type ShiftClosingWorkspaceData,
   type ShiftExpenseItem,
   type ShiftTransactionMetrics,
@@ -83,6 +85,12 @@ export function ShiftClosingManager({
     "Laci kasir, tablet POS, dan area kasir diserahkan dalam kondisi baik."
   );
 
+  // Daftar pemasukan kas tambahan shift (contoh: Tambahan Modal, Uang Receh)
+  const [incomes, setIncomes] = React.useState<ShiftCashIncomeItem[]>([]);
+  const [newIncName, setNewIncName] = React.useState<string>("");
+  const [newIncQty, setNewIncQty] = React.useState<string>("");
+  const [newIncAmount, setNewIncAmount] = React.useState<string>("");
+
   // Daftar pengeluaran shift (contoh: Es Batu, Sayur, dll.)
   const [expenses, setExpenses] = React.useState<ShiftExpenseItem[]>([]);
   const [newExpName, setNewExpName] = React.useState<string>("");
@@ -97,27 +105,36 @@ export function ShiftClosingManager({
     return clean ? Number.parseInt(clean, 10) : 0;
   }, [openingCashInput]);
 
-  const totalExpenses = React.useMemo(
-    () => expenses.reduce((sum, item) => sum + item.amount, 0),
-    [expenses]
-  );
-
-  const expectedClosingCash = React.useMemo(
-    () =>
-      openingCash +
-      metrics.cashRevenue -
-      metrics.cashRefundTotal -
-      totalExpenses,
-    [openingCash, metrics.cashRevenue, metrics.cashRefundTotal, totalExpenses]
-  );
-
-  const actualClosingCash = React.useMemo(() => {
+  const actualClosingOverride = React.useMemo(() => {
     const clean = actualClosingCashInput.replace(/[^\d]/g, "");
-    if (!clean) return expectedClosingCash;
-    return Number.parseInt(clean, 10);
-  }, [actualClosingCashInput, expectedClosingCash]);
+    return clean ? Number.parseInt(clean, 10) : null;
+  }, [actualClosingCashInput]);
 
-  const cashDifference = actualClosingCash - expectedClosingCash;
+  const {
+    totalIncomes,
+    totalExpenses,
+    expectedClosingCash,
+    actualClosingCash,
+    cashDifference,
+  } = React.useMemo(
+    () =>
+      calculateShiftCashSummary({
+        openingCash,
+        cashRevenue: metrics.cashRevenue,
+        cashRefundTotal: metrics.cashRefundTotal,
+        incomes,
+        expenses,
+        actualClosingCash: actualClosingOverride,
+      }),
+    [
+      openingCash,
+      metrics.cashRevenue,
+      metrics.cashRefundTotal,
+      incomes,
+      expenses,
+      actualClosingOverride,
+    ]
+  );
 
   async function handleRefreshMetrics(
     customStartLocal?: string,
@@ -165,6 +182,40 @@ export function ShiftClosingManager({
     setShiftStartLocal(startStr);
     setShiftEndLocal(endStr);
     void handleRefreshMetrics(startStr, endStr);
+  }
+
+  function handleAddIncome() {
+    const name = newIncName.trim();
+    const qty = newIncQty.trim() || "1x";
+    const amt = Number.parseInt(newIncAmount.replace(/[^\d]/g, ""), 10) || 0;
+
+    if (!name) {
+      toast.error(
+        "Masukkan sumber/keterangan pemasukan kas terlebih dahulu (contoh: Tambahan Modal Receh)."
+      );
+      return;
+    }
+    if (amt <= 0) {
+      toast.error("Masukkan nominal pemasukan Rupiah yang valid (> Rp 0).");
+      return;
+    }
+
+    setIncomes((prev) => [
+      ...prev,
+      {
+        id: `inc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        itemName: name,
+        qtyLabel: qty,
+        amount: amt,
+      },
+    ]);
+    setNewIncName("");
+    setNewIncQty("");
+    setNewIncAmount("");
+  }
+
+  function handleRemoveIncome(id: string) {
+    setIncomes((prev) => prev.filter((item) => item.id !== id));
   }
 
   function handleAddExpense() {
@@ -217,6 +268,7 @@ export function ShiftClosingManager({
         openingCash,
         actualClosingCash,
         closingNotes: closingNotes.trim(),
+        incomes,
         expenses,
       });
 
@@ -248,7 +300,8 @@ export function ShiftClosingManager({
     setOpeningCashInput(String(report.openingCash));
     setActualClosingCashInput(String(report.actualClosingCash));
     setClosingNotes(report.closingNotes);
-    setExpenses(report.expenses);
+    setIncomes(Array.isArray(report.incomes) ? report.incomes : []);
+    setExpenses(Array.isArray(report.expenses) ? report.expenses : []);
     setMetrics(report.metrics);
     setActiveReportNo(report.reportNo);
     toast.info(`Laporan #${report.reportNo} dimuat ke pratinjau struk.`);
@@ -434,14 +487,136 @@ export function ShiftClosingManager({
             </CardContent>
           </Card>
 
-          {/* 2. PENGELUARAN OPERASIONAL SHIFT (ES BATU, SAYUR, DLL.) */}
+          {/* 2. PEMASUKAN KAS TAMBAHAN DI SHIFT INI */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Wallet className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+                    2. Pemasukan Kas di Shift Ini (Modal Tambahan, Kembalian, dll.)
+                  </CardTitle>
+                  <CardDescription>
+                    Catat uang tunai tambahan yang dimasukkan ke laci kasir di
+                    luar transaksi penjualan. Otomatis menambah kas akhir
+                    ekspektasi.
+                  </CardDescription>
+                </div>
+                <Badge variant="success">
+                  Total: +{formatRupiah(totalIncomes)}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Preset Cepat Pemasukan Kas */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  Isi Cepat:
+                </span>
+                {[
+                  { name: "Tambahan Modal / Uang Receh", qty: "1x", amount: "100000" },
+                  { name: "Sisa Kembalian Belanja", qty: "1x", amount: "15000" },
+                  { name: "Setoran Tunai Lainnya", qty: "1x", amount: "50000" },
+                  { name: "Pelunasan Titipan / Piutang", qty: "1x", amount: "25000" },
+                ].map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => {
+                      setNewIncName(preset.name);
+                      setNewIncQty(preset.qty);
+                      setNewIncAmount(preset.amount);
+                    }}
+                    className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                  >
+                    + {preset.name}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
+                <div className="sm:col-span-5">
+                  <Input
+                    placeholder="Keterangan pemasukan (cth: Tambahan Modal Receh)"
+                    value={newIncName}
+                    onChange={(e) => setNewIncName(e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <Input
+                    placeholder="Jml / Catatan (cth: 1x)"
+                    value={newIncQty}
+                    onChange={(e) => setNewIncQty(e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-4 flex gap-1.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    placeholder="Nominal Rp"
+                    value={newIncAmount}
+                    onChange={(e) => setNewIncAmount(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddIncome}
+                    className="min-h-11 shrink-0 bg-emerald-700 text-white hover:bg-emerald-800"
+                    aria-label="Tambah Pemasukan Kas"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {incomes.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 py-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                  Belum ada pemasukan kas tambahan di shift ini. Tambahkan di
+                  atas jika ada penambahan modal receh atau kas masuk lainnya.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  {incomes.map((inc, idx) => (
+                    <div
+                      key={inc.id}
+                      className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                    >
+                      <div>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">
+                          {idx + 1}. {inc.itemName}
+                        </span>
+                        <Badge variant="outline" className="ml-2 text-[11px]">
+                          {inc.qtyLabel}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                          + {formatRupiah(inc.amount)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveIncome(inc.id)}
+                          className="rounded p-1 text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-600 dark:hover:text-red-400"
+                          aria-label={`Hapus ${inc.itemName}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 3. PENGELUARAN OPERASIONAL SHIFT (ES BATU, SAYUR, DLL.) */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <FileText className="h-5 w-5 text-[#1B5E86]" />
-                    2. Pengeluaran Kas di Shift Ini (Es Batu, Sayur, dll.)
+                    3. Pengeluaran Kas di Shift Ini (Es Batu, Sayur, dll.)
                   </CardTitle>
                   <CardDescription>
                     Catat belanja mendadak dari laci kasir selama shift
@@ -555,12 +730,12 @@ export function ShiftClosingManager({
             </CardContent>
           </Card>
 
-          {/* 3. REKONSILIASI KAS AWAL, KAS AKHIR, SELISIH & CATATAN PENUTUP */}
+          {/* 4. REKONSILIASI KAS AWAL, KAS AKHIR, SELISIH & CATATAN PENUTUP */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Wallet className="h-5 w-5 text-[#1B5E86]" />
-                3. Perhitungan Kas Awal, Kas Akhir &amp; Catatan Penutup
+                4. Perhitungan Kas Awal, Kas Akhir &amp; Catatan Penutup
               </CardTitle>
               <CardDescription>
                 Masukkan modal kas awal dan uang tunai fisik di laci saat tutup
@@ -632,6 +807,14 @@ export function ShiftClosingManager({
                   </span>
                   <span className="font-semibold">
                     + {formatRupiah(metrics.cashRevenue)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
+                  <span>
+                    (+) Pemasukan Kas Shift ({incomes.length} item masuk)
+                  </span>
+                  <span className="font-semibold">
+                    + {formatRupiah(totalIncomes)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sky-700 dark:text-sky-400">
@@ -838,7 +1021,11 @@ export function ShiftClosingManager({
                 <span>{formatRupiah(metrics.cashRevenue)}</span>
               </div>
               <div className="flex justify-between">
-                <span>(+) Bayar QRIS ({metrics.qrisOrderCount}x):</span>
+                <span>(+) Pemasukan Kas Shift ({incomes.length}x):</span>
+                <span>{formatRupiah(totalIncomes)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>(i) Bayar QRIS ({metrics.qrisOrderCount}x):</span>
                 <span>{formatRupiah(metrics.qrisRevenue)}</span>
               </div>
               {metrics.cashRefundTotal > 0 && (
@@ -913,10 +1100,37 @@ export function ShiftClosingManager({
               </div>
             </div>
 
-            {/* BAGIAN 4: RINCIAN PENGELUARAN SHIFT (ES BATU, SAYUR, DLL.) */}
+            {/* BAGIAN 4A: RINCIAN PEMASUKAN KAS SHIFT */}
             <div className="space-y-1 border-b border-dashed border-black py-2.5 text-[11px]">
               <p className="font-black uppercase underline">
-                C. PENGELUARAN DI SHIFT INI ({expenses.length})
+                C. PEMASUKAN KAS DI SHIFT INI ({incomes.length})
+              </p>
+              {incomes.length === 0 ? (
+                <p className="text-[10px] italic">
+                  Tidak ada pemasukan kas tambahan di shift ini.
+                </p>
+              ) : (
+                <>
+                  {incomes.map((inc, idx) => (
+                    <div key={inc.id} className="flex justify-between">
+                      <span>
+                        {idx + 1}. {inc.itemName} ({inc.qtyLabel})
+                      </span>
+                      <span>+{formatRupiah(inc.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between border-t border-dotted border-black pt-1 font-bold">
+                    <span>Total Pemasukan Kas Shift:</span>
+                    <span>+{formatRupiah(totalIncomes)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* BAGIAN 4B: RINCIAN PENGELUARAN SHIFT (ES BATU, SAYUR, DLL.) */}
+            <div className="space-y-1 border-b border-dashed border-black py-2.5 text-[11px]">
+              <p className="font-black uppercase underline">
+                D. PENGELUARAN DI SHIFT INI ({expenses.length})
               </p>
               {expenses.length === 0 ? (
                 <p className="text-[10px] italic">
@@ -943,7 +1157,7 @@ export function ShiftClosingManager({
             {/* BAGIAN 5: RINGKASAN SEMUA TRANSAKSI SHIFT */}
             <div className="space-y-1 border-b border-dashed border-black py-2.5 text-[11px]">
               <p className="font-black uppercase underline">
-                D. RINGKASAN TRANSAKSI ({metrics.paidOrders.length} ORDER)
+                E. RINGKASAN TRANSAKSI ({metrics.paidOrders.length} ORDER)
               </p>
               {metrics.paidOrders.length === 0 ? (
                 <p className="text-[10px] italic">
@@ -976,7 +1190,7 @@ export function ShiftClosingManager({
             {/* BAGIAN 6: DAFTAR PEMBATALAN / REFUND (JIKA ADA) */}
             <div className="space-y-1 border-b border-dashed border-black py-2.5 text-[11px]">
               <p className="font-black uppercase underline">
-                E. PEMBATALAN &amp; REFUND ({metrics.cancelledOrders.length})
+                F. PEMBATALAN &amp; REFUND ({metrics.cancelledOrders.length})
               </p>
               {metrics.cancelledOrders.length === 0 ? (
                 <p className="text-[10px] italic">
@@ -1012,7 +1226,7 @@ export function ShiftClosingManager({
             <div className="space-y-2 pt-2.5 text-[11px]">
               <div>
                 <p className="font-black uppercase underline">
-                  F. CATATAN PENUTUP SHIFT:
+                  G. CATATAN PENUTUP SHIFT:
                 </p>
                 <p className="mt-0.5 text-[10px] leading-snug">
                   {closingNotes || "-"}

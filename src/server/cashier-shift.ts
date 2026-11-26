@@ -5,6 +5,10 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { formatRupiah } from "@/lib/money";
+import {
+  calculateShiftCashSummary,
+  type ShiftCashAdjustmentItem,
+} from "@/lib/shift-closing";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   OrderSource,
@@ -18,12 +22,8 @@ import { requireStaffRole, type ActionResult } from "@/server/auth";
 // TYPES UNTUK LAPORAN & STRUK TUTUPAN SHIFT KASIR
 // ============================================================================
 
-export interface ShiftExpenseItem {
-  id: string;
-  itemName: string;
-  qtyLabel: string;
-  amount: number;
-}
+export type ShiftExpenseItem = ShiftCashAdjustmentItem;
+export type ShiftCashIncomeItem = ShiftCashAdjustmentItem;
 
 export interface ShiftOrderSummaryItem {
   id: string;
@@ -102,11 +102,13 @@ export interface SavedShiftClosingReport {
   cashRevenue: number;
   qrisRevenue: number;
   cashRefundTotal: number;
+  totalIncomes?: number;
   totalExpenses: number;
   expectedClosingCash: number;
   actualClosingCash: number;
   cashDifference: number;
   closingNotes: string;
+  incomes?: ShiftCashIncomeItem[];
   expenses: ShiftExpenseItem[];
   metrics: ShiftTransactionMetrics;
 }
@@ -132,22 +134,22 @@ export interface ShiftClosingWorkspaceData {
 // ZOD SCHEMAS (Validasi Server sesuai AGENTS.md)
 // ============================================================================
 
-const shiftExpenseItemSchema = z.object({
+const shiftCashAdjustmentItemSchema = z.object({
   id: z.string().trim().min(1).max(80),
   itemName: z
     .string()
     .trim()
-    .min(1, "Nama barang pengeluaran wajib diisi (contoh: Es Batu, Sayur).")
+    .min(1, "Keterangan item kas shift wajib diisi.")
     .max(120),
   qtyLabel: z
     .string()
     .trim()
-    .min(1, "Jumlah/satuan wajib diisi (contoh: 3 bar, 2 ikat).")
+    .min(1, "Jumlah/catatan wajib diisi.")
     .max(60),
   amount: z
     .number()
-    .int("Nominal pengeluaran harus bilangan bulat Rupiah.")
-    .min(1, "Nominal pengeluaran harus lebih dari Rp 0.")
+    .int("Nominal kas harus bilangan bulat Rupiah.")
+    .min(1, "Nominal kas harus lebih dari Rp 0.")
     .max(100_000_000),
 });
 
@@ -175,7 +177,8 @@ const saveShiftClosingSchema = z.object({
     .min(0, "Kas akhir aktual tidak boleh negatif.")
     .max(500_000_000),
   closingNotes: z.string().trim().max(500).default(""),
-  expenses: z.array(shiftExpenseItemSchema).max(100).default([]),
+  incomes: z.array(shiftCashAdjustmentItemSchema).max(100).default([]),
+  expenses: z.array(shiftCashAdjustmentItemSchema).max(100).default([]),
 });
 
 // ============================================================================
@@ -202,7 +205,9 @@ export async function computeShiftTransactionMetrics(params: {
   const [ordersRes, tablesRes] = await Promise.all([
     admin
       .from("orders")
-      .select("*")
+      .select(
+        "id, order_no, status, source, order_type, table_id, subtotal, discount, service_amount, tax_amount, total, payment_choice, created_at, paid_at, cancelled_at, cancel_reason"
+      )
       .eq("outlet_id", params.outletId)
       .gte("created_at", params.shiftStartIso)
       .lte("created_at", params.shiftEndIso)
@@ -514,7 +519,21 @@ export async function getShiftClosingWorkspaceData(): Promise<ShiftClosingWorksp
       typeof afterObj === "object" &&
       afterObj.outletId === staff.outletId
     ) {
-      recentReports.push(afterObj);
+      const normalizedIncomes = Array.isArray(afterObj.incomes)
+        ? afterObj.incomes
+        : [];
+      const normalizedExpenses = Array.isArray(afterObj.expenses)
+        ? afterObj.expenses
+        : [];
+      recentReports.push({
+        ...afterObj,
+        incomes: normalizedIncomes,
+        totalIncomes:
+          typeof afterObj.totalIncomes === "number"
+            ? afterObj.totalIncomes
+            : normalizedIncomes.reduce((sum, item) => sum + item.amount, 0),
+        expenses: normalizedExpenses,
+      });
     }
   }
 
@@ -553,6 +572,7 @@ export async function saveShiftClosingReportAction(rawInput: {
   openingCash: number;
   actualClosingCash: number;
   closingNotes: string;
+  incomes?: ShiftCashIncomeItem[];
   expenses: ShiftExpenseItem[];
 }): Promise<ActionResult & { report?: SavedShiftClosingReport }> {
   const parsed = saveShiftClosingSchema.safeParse(rawInput);
@@ -586,16 +606,14 @@ export async function saveShiftClosingReportAction(rawInput: {
     shiftEndIso: parsed.data.shiftEndIso,
   });
 
-  const totalExpenses = parsed.data.expenses.reduce(
-    (sum, item) => sum + item.amount,
-    0
-  );
-  const expectedClosingCash =
-    parsed.data.openingCash +
-    metrics.cashRevenue -
-    metrics.cashRefundTotal -
-    totalExpenses;
-  const cashDifference = parsed.data.actualClosingCash - expectedClosingCash;
+  const cashSummary = calculateShiftCashSummary({
+    openingCash: parsed.data.openingCash,
+    cashRevenue: metrics.cashRevenue,
+    cashRefundTotal: metrics.cashRefundTotal,
+    incomes: parsed.data.incomes,
+    expenses: parsed.data.expenses,
+    actualClosingCash: parsed.data.actualClosingCash,
+  });
 
   const closedAtIso = new Date().toISOString();
   const reportId = crypto.randomUUID();
@@ -619,11 +637,13 @@ export async function saveShiftClosingReportAction(rawInput: {
     cashRevenue: metrics.cashRevenue,
     qrisRevenue: metrics.qrisRevenue,
     cashRefundTotal: metrics.cashRefundTotal,
-    totalExpenses,
-    expectedClosingCash,
-    actualClosingCash: parsed.data.actualClosingCash,
-    cashDifference,
+    totalIncomes: cashSummary.totalIncomes,
+    totalExpenses: cashSummary.totalExpenses,
+    expectedClosingCash: cashSummary.expectedClosingCash,
+    actualClosingCash: cashSummary.actualClosingCash,
+    cashDifference: cashSummary.cashDifference,
     closingNotes: parsed.data.closingNotes,
+    incomes: parsed.data.incomes,
     expenses: parsed.data.expenses,
     metrics,
   };
