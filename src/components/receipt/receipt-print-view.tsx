@@ -1,43 +1,69 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { ArrowLeft, ChefHat, Printer, Receipt } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Bluetooth,
+  BluetoothConnected,
+  BluetoothOff,
+  ChefHat,
+  Printer,
+  Receipt,
+  Smartphone,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  connectBluetoothPrinter,
+  disconnectBluetoothPrinter,
+  getBluetoothPrintCapabilities,
+  getBluetoothPrinterState,
+  printEscPosOverBluetooth,
+  subscribeBluetoothPrinterState,
+  triggerRawBtPrint,
+  tryReconnectSavedBluetoothPrinter,
+  type BluetoothPrintCapabilities,
+  type BluetoothPrinterState,
+} from "@/lib/bluetooth-printer";
 import { formatDateTimeWIB } from "@/lib/datetime";
+import {
+  buildBluetoothTestPrintEscPosBytes,
+  buildOrderReceiptEscPosBytes,
+  type ReceiptPaperSize,
+  type ReceiptPrintMode,
+} from "@/lib/escpos";
 import { formatRupiah } from "@/lib/money";
 import {
   recordReceiptReprintAction,
   type OrderReceiptDetail,
 } from "@/server/cashier";
 
+const PAPER_SIZE_STORAGE_KEY = "1621_receipt_paper_size";
+const PRINT_MODE_STORAGE_KEY = "1621_receipt_print_mode";
+
 export function ReceiptPrintView({
   receipt,
 }: {
   receipt: OrderReceiptDetail;
 }) {
-  const [paperSize, setPaperSize] = useState<"58mm" | "80mm">("80mm");
-  const [printMode, setPrintMode] = useState<"both" | "customer" | "kitchen">(
-    "both"
-  );
+  const [paperSize, setPaperSize] = useState<ReceiptPaperSize>("58mm");
+  const [printMode, setPrintMode] = useState<ReceiptPrintMode>("both");
   const [printCount, setPrintCount] = useState(0);
   const [auditNotice, setAuditNotice] = useState<string | null>(null);
+  const [printerState, setPrinterState] = useState<BluetoothPrinterState>({
+    status: "disconnected",
+    deviceId: null,
+    deviceName: null,
+  });
+  const [capabilities, setCapabilities] =
+    useState<BluetoothPrintCapabilities | null>(null);
+  const [printerError, setPrinterError] = useState<string | null>(null);
+  const [printerSuccess, setPrinterSuccess] = useState<string | null>(null);
+  const autoprintHandledRef = useRef(false);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const modeParam = params.get("mode");
-    if (modeParam === "kitchen" || modeParam === "customer") {
-      setPrintMode(modeParam);
-    }
-    if (params.get("autoprint") === "1") {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 350);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  async function handlePrint() {
+  async function recordPrintAudit(): Promise<void> {
     try {
       const res = await recordReceiptReprintAction({
         orderId: receipt.orderId,
@@ -46,59 +72,390 @@ export function ReceiptPrintView({
         setPrintCount((c) => c + 1);
         setAuditNotice(res.message);
       }
-    } finally {
-      window.print();
+    } catch {
+      // Tetap lanjutkan proses cetak meski audit UI gagal ter-update
     }
   }
 
+  function updatePaperSize(next: ReceiptPaperSize) {
+    setPaperSize(next);
+    try {
+      window.localStorage.setItem(PAPER_SIZE_STORAGE_KEY, next);
+    } catch {
+      // Abaikan error storage
+    }
+  }
+
+  function updatePrintMode(next: ReceiptPrintMode) {
+    setPrintMode(next);
+    try {
+      window.localStorage.setItem(PRINT_MODE_STORAGE_KEY, next);
+    } catch {
+      // Abaikan error storage
+    }
+  }
+
+  useEffect(() => {
+    setCapabilities(getBluetoothPrintCapabilities());
+    const unsubscribe = subscribeBluetoothPrinterState(setPrinterState);
+
+    let resolvedPaper: ReceiptPaperSize = "58mm";
+    let resolvedMode: ReceiptPrintMode = "both";
+
+    try {
+      const savedPaper = window.localStorage.getItem(PAPER_SIZE_STORAGE_KEY);
+      if (savedPaper === "58mm" || savedPaper === "80mm") {
+        resolvedPaper = savedPaper;
+        setPaperSize(savedPaper);
+      }
+      const savedMode = window.localStorage.getItem(PRINT_MODE_STORAGE_KEY);
+      if (
+        savedMode === "both" ||
+        savedMode === "customer" ||
+        savedMode === "kitchen"
+      ) {
+        resolvedMode = savedMode;
+        setPrintMode(savedMode);
+      }
+    } catch {
+      // Gunakan default
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const modeParam = params.get("mode");
+    if (
+      modeParam === "both" ||
+      modeParam === "kitchen" ||
+      modeParam === "customer"
+    ) {
+      resolvedMode = modeParam;
+      setPrintMode(modeParam);
+    }
+
+    const sizeParam = params.get("size");
+    if (sizeParam === "58mm" || sizeParam === "80mm") {
+      resolvedPaper = sizeParam;
+      setPaperSize(sizeParam);
+    }
+
+    let cancelled = false;
+    const isAutoprint = params.get("autoprint") === "1";
+
+    void (async () => {
+      await tryReconnectSavedBluetoothPrinter();
+      if (cancelled || !isAutoprint || autoprintHandledRef.current) return;
+      autoprintHandledRef.current = true;
+
+      const currentBt = getBluetoothPrinterState();
+      if (currentBt.status === "connected") {
+        try {
+          const payload = buildOrderReceiptEscPosBytes(receipt, {
+            paperSize: resolvedPaper,
+            mode: resolvedMode,
+          });
+          const result = await printEscPosOverBluetooth(payload);
+          if (!cancelled) {
+            setPrinterSuccess(
+              `Struk #${receipt.orderNo} otomatis dicetak ke Bluetooth (${result.deviceName}).`
+            );
+            toast.success(
+              `Struk dikirim ke printer Bluetooth (${result.deviceName}).`
+            );
+            await recordPrintAudit();
+          }
+          return;
+        } catch {
+          // Jatuhkan ke window.print() bila auto Bluetooth gagal
+        }
+      }
+
+      setTimeout(() => {
+        if (!cancelled) {
+          window.print();
+        }
+      }, 300);
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receipt.orderId]);
+
+  async function handleConnectBluetooth() {
+    setPrinterError(null);
+    setPrinterSuccess(null);
+    try {
+      const state = await connectBluetoothPrinter();
+      const label = state.deviceName ?? "Printer Thermal Bluetooth";
+      setPrinterSuccess(`Berhasil terhubung ke ${label}.`);
+      toast.success(`Terhubung ke printer ${label}`);
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Gagal menghubungkan printer Bluetooth.";
+      setPrinterError(msg);
+      toast.error(msg);
+    }
+  }
+
+  function handleDisconnectBluetooth() {
+    disconnectBluetoothPrinter();
+    setPrinterError(null);
+    setPrinterSuccess("Koneksi printer Bluetooth diputuskan.");
+  }
+
+  async function handlePrintBluetooth() {
+    setPrinterError(null);
+    setPrinterSuccess(null);
+    try {
+      const payload = buildOrderReceiptEscPosBytes(receipt, {
+        paperSize,
+        mode: printMode,
+      });
+      const result = await printEscPosOverBluetooth(payload);
+      await recordPrintAudit();
+      const msg = `Struk #${receipt.orderNo} berhasil dicetak ke ${result.deviceName} (${paperSize}).`;
+      setPrinterSuccess(msg);
+      toast.success(msg);
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Gagal mencetak ke printer Bluetooth.";
+      setPrinterError(msg);
+      toast.error(msg);
+    }
+  }
+
+  async function handleTestPrintBluetooth() {
+    setPrinterError(null);
+    setPrinterSuccess(null);
+    try {
+      const payload = buildBluetoothTestPrintEscPosBytes(
+        paperSize,
+        printerState.deviceName ?? undefined
+      );
+      const result = await printEscPosOverBluetooth(payload);
+      const msg = `Tes cetak (${paperSize}) berhasil dikirim ke ${result.deviceName}.`;
+      setPrinterSuccess(msg);
+      toast.success(msg);
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Gagal mengirim tes cetak ke printer Bluetooth.";
+      setPrinterError(msg);
+      toast.error(msg);
+    }
+  }
+
+  async function handleRawBtPrint() {
+    setPrinterError(null);
+    setPrinterSuccess(null);
+    const payload = buildOrderReceiptEscPosBytes(receipt, {
+      paperSize,
+      mode: printMode,
+    });
+    triggerRawBtPrint(payload);
+    await recordPrintAudit();
+    setPrinterSuccess(
+      `Perintah cetak ESC/POS (${paperSize}) dikirim ke aplikasi RawBT Android.`
+    );
+  }
+
+  async function handleBrowserPrint() {
+    await recordPrintAudit();
+    window.print();
+  }
+
   const totalQty = receipt.items.reduce((acc, item) => acc + item.qty, 0);
+  const isBtBusy =
+    printerState.status === "connecting" || printerState.status === "printing";
+  const isBtConnected = printerState.status === "connected";
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 px-4 py-6 print:max-w-none print:p-0">
-      {/* Toolbar (Disembunyikan saat print) */}
-      <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-3.5 shadow-sm print:hidden">
+    <div className="mx-auto max-w-2xl space-y-4 px-4 py-6 print:max-w-none print:p-0">
+      <style>{`
+        @media print {
+          @page {
+            size: ${paperSize} auto;
+            margin: 0;
+          }
+        }
+      `}</style>
+
+      {/* Toolbar (Disembunyikan saat print browser) */}
+      <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Link href="/kasir">
-            <Button type="button" variant="outline" size="sm">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px]"
+            >
               <ArrowLeft className="mr-1.5 h-4 w-4" />
               Kembali ke Kasir
             </Button>
           </Link>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Button
               type="button"
-              size="sm"
               variant={paperSize === "58mm" ? "default" : "outline"}
-              onClick={() => setPaperSize("58mm")}
+              className="min-h-[44px]"
+              onClick={() => updatePaperSize("58mm")}
             >
               58mm
             </Button>
             <Button
               type="button"
-              size="sm"
               variant={paperSize === "80mm" ? "default" : "outline"}
-              onClick={() => setPaperSize("80mm")}
+              className="min-h-[44px]"
+              onClick={() => updatePaperSize("80mm")}
             >
               80mm
             </Button>
-            <Button type="button" size="sm" onClick={handlePrint}>
+            <Button
+              type="button"
+              className="min-h-[44px] bg-blue-600 text-white hover:bg-blue-700"
+              disabled={isBtBusy}
+              onClick={handlePrintBluetooth}
+            >
+              <Bluetooth className="mr-1.5 h-4 w-4" />
+              {printerState.status === "printing"
+                ? "Mencetak..."
+                : isBtConnected
+                  ? printCount > 0
+                    ? "Cetak Ulang Bluetooth"
+                    : "Cetak Bluetooth"
+                  : "Hubungkan & Cetak Bluetooth"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={handleBrowserPrint}
+            >
               <Printer className="mr-1.5 h-4 w-4" />
-              {printCount > 0 ? "Cetak Ulang" : "Cetak Sekarang"}
+              Cetak Browser / PDF
             </Button>
           </div>
         </div>
 
+        {/* Panel Koneksi Printer Thermal Bluetooth */}
+        <div className="space-y-2.5 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/60">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-medium">
+              {isBtConnected ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  <BluetoothConnected className="h-3.5 w-3.5" />
+                  Terhubung: {printerState.deviceName ?? "Printer Thermal"}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  <BluetoothOff className="h-3.5 w-3.5" />
+                  {printerState.status === "connecting"
+                    ? "Menghubungkan Bluetooth..."
+                    : "Printer Bluetooth belum terhubung"}
+                </span>
+              )}
+              <span className="text-slate-500 dark:text-slate-400">
+                ESC/POS ({paperSize === "58mm" ? "32 kolom" : "48 kolom"})
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-[44px]"
+                disabled={isBtBusy}
+                onClick={handleConnectBluetooth}
+              >
+                <Bluetooth className="mr-1.5 h-3.5 w-3.5" />
+                {isBtConnected ? "Ganti Printer" : "Pilih Printer Bluetooth"}
+              </Button>
+
+              {isBtConnected && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-[44px]"
+                    disabled={isBtBusy}
+                    onClick={handleTestPrintBluetooth}
+                  >
+                    Test Print
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-[44px] text-rose-600 hover:text-rose-700"
+                    disabled={isBtBusy}
+                    onClick={handleDisconnectBluetooth}
+                  >
+                    Putuskan
+                  </Button>
+                </>
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-[44px]"
+                onClick={handleRawBtPrint}
+                title="Untuk printer thermal Bluetooth Classic (SPP) di perangkat Android via aplikasi RawBT"
+              >
+                <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+                Cetak via RawBT (Android)
+              </Button>
+            </div>
+          </div>
+
+          {capabilities && !capabilities.isSecureContext && (
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Web Bluetooth membutuhkan koneksi HTTPS atau localhost. Di perangkat
+              Android, Anda tetap bisa memakai tombol <strong>Cetak via RawBT</strong> atau{" "}
+              <strong>Cetak Browser / PDF</strong>.
+            </p>
+          )}
+
+          {capabilities?.isIos && !capabilities.webBluetoothSupported && (
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Catatan iPhone/iPad: Safari iOS belum mendukung Web Bluetooth secara
+              langsung. Gunakan <strong>Cetak Browser / PDF</strong> (AirPrint/printer
+              Wi-Fi) atau buka halaman kasir melalui aplikasi browser{" "}
+              <strong>Bluefy</strong> untuk cetak Bluetooth BLE langsung.
+            </p>
+          )}
+
+          {capabilities && !capabilities.isIos && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Mendukung pairing langsung printer thermal BLE (58mm/80mm) lewat
+              Chrome/Edge, serta fallback <strong>RawBT</strong> untuk printer
+              Android Bluetooth Classic (SPP).
+            </p>
+          )}
+        </div>
+
         {/* Pilihan Mode Slip Cetak: Struk Harga + Struk Antrean Kitchen */}
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
-          <span className="mr-1 text-xs font-semibold text-slate-500">
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+          <span className="mr-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
             Bagian Cetak:
           </span>
           <Button
             type="button"
             size="sm"
             variant={printMode === "both" ? "default" : "outline"}
-            onClick={() => setPrintMode("both")}
+            className="min-h-[44px]"
+            onClick={() => updatePrintMode("both")}
           >
             <Printer className="mr-1.5 h-3.5 w-3.5" />
             Struk Harga + Antrean Kitchen
@@ -107,7 +464,8 @@ export function ReceiptPrintView({
             type="button"
             size="sm"
             variant={printMode === "customer" ? "default" : "outline"}
-            onClick={() => setPrintMode("customer")}
+            className="min-h-[44px]"
+            onClick={() => updatePrintMode("customer")}
           >
             <Receipt className="mr-1.5 h-3.5 w-3.5" />
             Struk Harga Saja
@@ -116,7 +474,8 @@ export function ReceiptPrintView({
             type="button"
             size="sm"
             variant={printMode === "kitchen" ? "default" : "outline"}
-            onClick={() => setPrintMode("kitchen")}
+            className="min-h-[44px]"
+            onClick={() => updatePrintMode("kitchen")}
           >
             <ChefHat className="mr-1.5 h-3.5 w-3.5" />
             Tiket Kitchen Saja
@@ -124,8 +483,21 @@ export function ReceiptPrintView({
         </div>
       </div>
 
+      {printerError && (
+        <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200 print:hidden">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{printerError}</span>
+        </div>
+      )}
+
+      {printerSuccess && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 print:hidden">
+          {printerSuccess}
+        </div>
+      )}
+
       {auditNotice && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 print:hidden">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200 print:hidden">
           {auditNotice}
         </div>
       )}

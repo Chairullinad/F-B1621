@@ -44,7 +44,7 @@ export default async function StrukOrderPage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-100 print:bg-white">
+    <main className="min-h-screen bg-zinc-100 dark:bg-slate-950 print:min-h-0 print:bg-white">
       <ReceiptPrintView receipt={receipt} />
     </main>
   );
