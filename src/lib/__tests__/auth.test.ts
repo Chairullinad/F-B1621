@@ -1,10 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildArchivedStaffEmail,
   canOwnerAccessWithoutOutlet,
   canRoleAccessPathname,
   getDefaultRouteForRole,
   isPublicPathname,
+  validateStaffDeletion,
 } from "../auth.ts";
 
 describe("src/lib/auth.ts", () => {
@@ -109,6 +111,40 @@ describe("src/lib/auth.ts", () => {
     assert.equal(
       canRoleAccessPathname("cashier", "/kasir", promotedCashier),
       true
+    );
+  });
+
+  it("menolak hapus akun sendiri atau satu-satunya Owner aktif, dan mengizinkan hapus staf tidak terpakai", () => {
+    const selfRes = validateStaffDeletion({
+      targetUserId: "owner-1",
+      currentOwnerId: "owner-1",
+      targetRole: "owner",
+      targetIsActive: true,
+      activeOwnerCount: 2,
+    });
+    assert.equal(selfRes.ok, false);
+
+    const lastOwnerRes = validateStaffDeletion({
+      targetUserId: "owner-2",
+      currentOwnerId: "owner-1",
+      targetRole: "owner",
+      targetIsActive: true,
+      activeOwnerCount: 1,
+    });
+    assert.equal(lastOwnerRes.ok, false);
+
+    const validCashierRes = validateStaffDeletion({
+      targetUserId: "cashier-1",
+      currentOwnerId: "owner-1",
+      targetRole: "cashier",
+      targetIsActive: true,
+      activeOwnerCount: 1,
+    });
+    assert.equal(validCashierRes.ok, true);
+
+    assert.equal(
+      buildArchivedStaffEmail("a1b2c3d4-9999", 1700000000000),
+      "deleted-a1b2c3d4-1700000000000@archived.fnb1621.local"
     );
   });
 });

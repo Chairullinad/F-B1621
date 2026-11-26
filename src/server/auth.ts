@@ -7,10 +7,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
   ALL_PERMISSION_KEYS,
+  buildArchivedStaffEmail,
   getDefaultRouteForUser,
   hasUserPermission,
   ROLE_DEFAULT_PERMISSIONS,
   sanitizeCustomPermissions,
+  validateStaffDeletion,
 } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -71,6 +73,10 @@ const resetStaffPasswordInputSchema = z.object({
 const toggleStaffActiveInputSchema = z.object({
   profileId: z.string().uuid("ID profil staf tidak valid."),
   isActive: z.boolean(),
+});
+
+const deleteStaffUserInputSchema = z.object({
+  profileId: z.string().uuid("ID profil staf tidak valid."),
 });
 
 export interface AuthenticatedStaff {
@@ -824,6 +830,114 @@ export async function toggleStaffActiveAction(rawInput: {
     message: isActive
       ? "Akun staf berhasil diaktifkan."
       : "Akun staf berhasil dinonaktifkan.",
+  };
+}
+
+/**
+ * Server Action (Khusus Owner): Menghapus (soft-delete) akun user yang tidak dipakai lagi.
+ * Data histori di tabel transaksi/audit tetap utuh, akses login diblokir, dan email dibebaskan.
+ */
+export async function deleteStaffUserAction(rawInput: {
+  profileId: string;
+}): Promise<ActionResult> {
+  const owner = await requireStaffRole(["owner"]);
+  const parsed = deleteStaffUserInputSchema.safeParse(rawInput);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "ID profil staf tidak valid.",
+    };
+  }
+
+  const { profileId } = parsed.data;
+  const admin = createSupabaseAdminClient();
+
+  const [targetRes, activeOwnersRes, authUserRes] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("id, full_name, role, is_active, outlet_id")
+      .eq("id", profileId)
+      .is("deleted_at", null)
+      .maybeSingle(),
+    admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "owner")
+      .eq("is_active", true)
+      .is("deleted_at", null),
+    admin.auth.admin.getUserById(profileId).catch(() => ({ data: { user: null } })),
+  ]);
+
+  if (targetRes.error || !targetRes.data) {
+    return {
+      ok: false,
+      message: "Akun user tidak ditemukan atau sudah dihapus sebelumnya.",
+    };
+  }
+
+  const targetProfile = targetRes.data as {
+    id: string;
+    full_name: string;
+    role: UserRole;
+    is_active: boolean;
+    outlet_id: string;
+  };
+
+  const validation = validateStaffDeletion({
+    targetUserId: targetProfile.id,
+    currentOwnerId: owner.userId,
+    targetRole: targetProfile.role,
+    targetIsActive: Boolean(targetProfile.is_active),
+    activeOwnerCount: activeOwnersRes.count ?? 0,
+  });
+
+  if (!validation.ok) {
+    return validation;
+  }
+
+  const targetEmail = authUserRes?.data?.user?.email ?? "-";
+  const { ip, device } = await getRequestAuditMeta();
+  await admin.rpc("set_audit_context", {
+    p_user_id: owner.userId,
+    p_role: owner.role,
+    p_device: device,
+    p_ip: ip,
+    p_reason: `Hapus (soft delete) akun user ${targetProfile.full_name} (${targetEmail}, role: ${targetProfile.role})`,
+  });
+
+  const nowIso = new Date().toISOString();
+  const { error: deleteErr } = await admin
+    .from("profiles")
+    .update({
+      is_active: false,
+      deleted_at: nowIso,
+    })
+    .eq("id", profileId)
+    .is("deleted_at", null);
+
+  if (deleteErr) {
+    return {
+      ok: false,
+      message: `Gagal menghapus akun staf: ${deleteErr.message}`,
+    };
+  }
+
+  // Blokir login dan arsipkan email di Supabase Auth agar email asli bisa dipakai ulang bila diperlukan
+  try {
+    await admin.auth.admin.updateUserById(profileId, {
+      ban_duration: "876000h",
+      email: buildArchivedStaffEmail(profileId),
+    });
+  } catch (authErr) {
+    console.error("[deleteStaffUserAction] gagal memblokir user di Auth:", authErr);
+  }
+
+  revalidateTag("staff_profiles");
+  revalidatePath("/dashboard/staf");
+  return {
+    ok: true,
+    message: `Akun ${targetProfile.full_name} (${targetEmail}) berhasil dihapus dari daftar aktif.`,
   };
 }
 

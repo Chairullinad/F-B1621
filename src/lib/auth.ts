@@ -547,3 +547,45 @@ export function getNavItemsForRole(
   return STAFF_NAV_ITEMS.filter((item) => item.allowedRoles.includes(role));
 }
 
+/**
+ * Memvalidasi kelayakan penghapusan (soft-delete) akun user oleh Owner.
+ * Mencegah penghapusan akun milik sendiri atau satu-satunya Owner aktif.
+ */
+export function validateStaffDeletion(params: {
+  targetUserId: string;
+  currentOwnerId: string;
+  targetRole: UserRole;
+  targetIsActive: boolean;
+  activeOwnerCount: number;
+}): { ok: true } | { ok: false; message: string } {
+  if (params.targetUserId === params.currentOwnerId) {
+    return {
+      ok: false,
+      message: "Anda tidak dapat menghapus akun Owner yang sedang digunakan.",
+    };
+  }
+  if (
+    params.targetRole === "owner" &&
+    params.targetIsActive &&
+    params.activeOwnerCount <= 1
+  ) {
+    return {
+      ok: false,
+      message: "Minimal harus ada 1 akun Owner aktif yang tersisa.",
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Membentuk alamat email arsip unik agar email lama staf yang dihapus
+ * dapat digunakan kembali bila suatu saat dibuat akun baru.
+ */
+export function buildArchivedStaffEmail(
+  userId: string,
+  timestampMs = Date.now()
+): string {
+  const safePrefix = userId.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 8) || "user";
+  return `deleted-${safePrefix}-${timestampMs}@archived.fnb1621.local`;
+}
+

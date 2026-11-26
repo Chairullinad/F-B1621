@@ -10,6 +10,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Store,
+  Trash2,
   UserPlus,
   Users,
   XCircle,
@@ -35,6 +36,7 @@ import type { OutletView } from "@/lib/outlets";
 import type { PermissionKey, UserRole } from "@/lib/types/database";
 import {
   createStaffUserAction,
+  deleteStaffUserAction,
   resetStaffPasswordAction,
   toggleStaffActiveAction,
   updateStaffMemberAction,
@@ -290,6 +292,9 @@ export function StaffManagement({
     React.useState<StaffMemberWithEmail | null>(null);
   const [newPassword, setNewPassword] = React.useState("");
 
+  const [deletingMember, setDeletingMember] =
+    React.useState<StaffMemberWithEmail | null>(null);
+
   const [isPending, startTransition] = React.useTransition();
 
   const filteredStaff = React.useMemo(() => {
@@ -457,6 +462,23 @@ export function StaffManagement({
         toast.error(res.message);
         return;
       }
+      toast.success(res.message);
+    });
+  }
+
+  function handleConfirmDeleteMember() {
+    if (!deletingMember) return;
+    const targetId = deletingMember.id;
+    startTransition(async () => {
+      const res = await deleteStaffUserAction({ profileId: targetId });
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      if (editingMember?.id === targetId) setEditingMember(null);
+      if (resettingMember?.id === targetId) setResettingMember(null);
+      if (permissionMember?.id === targetId) setPermissionMember(null);
+      setDeletingMember(null);
       toast.success(res.message);
     });
   }
@@ -1093,6 +1115,20 @@ export function StaffManagement({
                       >
                         {member.is_active ? "Nonaktifkan" : "Aktifkan"}
                       </Button>
+
+                      {!isSelf && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isPending}
+                          onClick={() => setDeletingMember(member)}
+                          className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/50"
+                        >
+                          <Trash2 className="mr-1 h-3.5 w-3.5" />
+                          Hapus
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1171,6 +1207,69 @@ export function StaffManagement({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Modal Konfirmasi Hapus Akun Staf */}
+      {deletingMember && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs"
+          onClick={() => {
+            if (!isPending) setDeletingMember(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                  Hapus Akun User?
+                </h3>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Akun{" "}
+                  <strong className="text-slate-900 dark:text-slate-100">
+                    {deletingMember.full_name}
+                  </strong>{" "}
+                  ({deletingMember.email}) —{" "}
+                  <strong>{ROLE_LABELS_ID[deletingMember.role]}</strong> di cabang{" "}
+                  <strong>{deletingMember.outletName ?? "LATTESPACE"}</strong>{" "}
+                  akan dihapus dari daftar aktif dan tidak dapat login lagi.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-3 text-xs text-slate-600 dark:text-slate-400">
+              Riwayat transaksi, stok, dan Jejak Audit yang pernah tercatat oleh
+              akun ini tetap aman tersimpan di sistem.
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending}
+                onClick={() => setDeletingMember(null)}
+                className="min-h-11"
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isPending}
+                onClick={handleConfirmDeleteMember}
+                className="min-h-11 font-bold"
+              >
+                <Trash2 className="mr-1.5 h-4 w-4" />
+                {isPending ? "Menghapus..." : "Ya, Hapus Akun"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
