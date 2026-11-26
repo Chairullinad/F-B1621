@@ -9,6 +9,8 @@ import {
   BluetoothConnected,
   BluetoothOff,
   ChefHat,
+  ChevronDown,
+  ChevronUp,
   Printer,
   Receipt,
   Smartphone,
@@ -70,6 +72,7 @@ export function ReceiptPrintView({
     useState<BluetoothPrintCapabilities | null>(null);
   const [printerError, setPrinterError] = useState<string | null>(null);
   const [printerSuccess, setPrinterSuccess] = useState<string | null>(null);
+  const [showBluetoothPanel, setShowBluetoothPanel] = useState(false);
   const autoprintHandledRef = useRef(false);
 
   async function recordPrintAudit(): Promise<void> {
@@ -361,103 +364,138 @@ export function ReceiptPrintView({
           </div>
         </div>
 
-        {/* Panel Koneksi Printer Thermal Bluetooth */}
-        <div className="space-y-2.5 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/60">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-medium">
-              {isBtConnected ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  <BluetoothConnected className="h-3.5 w-3.5" />
-                  Terhubung: {printerState.deviceName ?? "Printer Thermal"}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  <BluetoothOff className="h-3.5 w-3.5" />
-                  {printerState.status === "connecting"
-                    ? "Menghubungkan Bluetooth..."
-                    : "Printer Bluetooth belum terhubung"}
-                </span>
-              )}
-              <span className="text-slate-500 dark:text-slate-400">
-                ESC/POS ({paperSize === "58mm" ? "32 kolom" : "48 kolom"})
+        {/* Panel Koneksi Printer Thermal Bluetooth (Default: Tersembunyi / Collapse) */}
+        <div className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60">
+          <button
+            type="button"
+            aria-expanded={showBluetoothPanel}
+            onClick={() => setShowBluetoothPanel((prev) => !prev)}
+            className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900 cursor-pointer"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Bluetooth className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+              <span>Pengaturan Printer Bluetooth &amp; RawBT</span>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  isBtConnected
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                    : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                }`}
+              >
+                {isBtConnected
+                  ? printerState.deviceName ?? "Terhubung"
+                  : "Belum terhubung"}
               </span>
             </div>
+            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              <span>{showBluetoothPanel ? "Sembunyikan" : "Extend"}</span>
+              {showBluetoothPanel ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </span>
+          </button>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-[44px]"
-                disabled={isBtBusy}
-                onClick={handleConnectBluetooth}
-              >
-                <Bluetooth className="mr-1.5 h-3.5 w-3.5" />
-                {isBtConnected ? "Ganti Printer" : "Pilih Printer Bluetooth"}
-              </Button>
+          {showBluetoothPanel && (
+            <div className="space-y-2.5 border-t border-slate-200 p-3 dark:border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-medium">
+                  {isBtConnected ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      <BluetoothConnected className="h-3.5 w-3.5" />
+                      Terhubung: {printerState.deviceName ?? "Printer Thermal"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <BluetoothOff className="h-3.5 w-3.5" />
+                      {printerState.status === "connecting"
+                        ? "Menghubungkan Bluetooth..."
+                        : "Printer Bluetooth belum terhubung"}
+                    </span>
+                  )}
+                  <span className="text-slate-500 dark:text-slate-400">
+                    ESC/POS ({paperSize === "58mm" ? "32 kolom" : "48 kolom"})
+                  </span>
+                </div>
 
-              {isBtConnected && (
-                <>
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="min-h-[44px]"
                     disabled={isBtBusy}
-                    onClick={handleTestPrintBluetooth}
+                    onClick={handleConnectBluetooth}
                   >
-                    Test Print
+                    <Bluetooth className="mr-1.5 h-3.5 w-3.5" />
+                    {isBtConnected ? "Ganti Printer" : "Pilih Printer Bluetooth"}
                   </Button>
+
+                  {isBtConnected && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[44px]"
+                        disabled={isBtBusy}
+                        onClick={handleTestPrintBluetooth}
+                      >
+                        Test Print
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-[44px] text-rose-600 hover:text-rose-700"
+                        disabled={isBtBusy}
+                        onClick={handleDisconnectBluetooth}
+                      >
+                        Putuskan
+                      </Button>
+                    </>
+                  )}
+
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="min-h-[44px] text-rose-600 hover:text-rose-700"
-                    disabled={isBtBusy}
-                    onClick={handleDisconnectBluetooth}
+                    className="min-h-[44px]"
+                    onClick={handleRawBtPrint}
+                    title="Untuk printer thermal Bluetooth Classic (SPP) di perangkat Android via aplikasi RawBT"
                   >
-                    Putuskan
+                    <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+                    Cetak via RawBT (Android)
                   </Button>
-                </>
+                </div>
+              </div>
+
+              {capabilities && !capabilities.isSecureContext && (
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  Web Bluetooth membutuhkan koneksi HTTPS atau localhost. Di perangkat
+                  Android, Anda tetap bisa memakai tombol <strong>Cetak via RawBT</strong> atau{" "}
+                  <strong>Cetak Browser / PDF</strong>.
+                </p>
               )}
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-[44px]"
-                onClick={handleRawBtPrint}
-                title="Untuk printer thermal Bluetooth Classic (SPP) di perangkat Android via aplikasi RawBT"
-              >
-                <Smartphone className="mr-1.5 h-3.5 w-3.5" />
-                Cetak via RawBT (Android)
-              </Button>
+              {capabilities?.isIos && !capabilities.webBluetoothSupported && (
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Catatan iPhone/iPad: Safari iOS belum mendukung Web Bluetooth secara
+                  langsung. Gunakan <strong>Cetak Browser / PDF</strong> (AirPrint/printer
+                  Wi-Fi) atau buka halaman kasir melalui aplikasi browser{" "}
+                  <strong>Bluefy</strong> untuk cetak Bluetooth BLE langsung.
+                </p>
+              )}
+
+              {capabilities && !capabilities.isIos && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Mendukung pairing langsung printer thermal BLE (58mm/80mm) lewat
+                  Chrome/Edge, serta fallback <strong>RawBT</strong> untuk printer
+                  Android Bluetooth Classic (SPP).
+                </p>
+              )}
             </div>
-          </div>
-
-          {capabilities && !capabilities.isSecureContext && (
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              Web Bluetooth membutuhkan koneksi HTTPS atau localhost. Di perangkat
-              Android, Anda tetap bisa memakai tombol <strong>Cetak via RawBT</strong> atau{" "}
-              <strong>Cetak Browser / PDF</strong>.
-            </p>
-          )}
-
-          {capabilities?.isIos && !capabilities.webBluetoothSupported && (
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Catatan iPhone/iPad: Safari iOS belum mendukung Web Bluetooth secara
-              langsung. Gunakan <strong>Cetak Browser / PDF</strong> (AirPrint/printer
-              Wi-Fi) atau buka halaman kasir melalui aplikasi browser{" "}
-              <strong>Bluefy</strong> untuk cetak Bluetooth BLE langsung.
-            </p>
-          )}
-
-          {capabilities && !capabilities.isIos && (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Mendukung pairing langsung printer thermal BLE (58mm/80mm) lewat
-              Chrome/Edge, serta fallback <strong>RawBT</strong> untuk printer
-              Android Bluetooth Classic (SPP).
-            </p>
           )}
         </div>
 
