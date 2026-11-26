@@ -668,6 +668,26 @@ export function ReceiptPrintView({
               </div>
             )}
 
+            {/* Informasi WiFi Pelanggan (jika diatur per outlet) */}
+            {(receipt.wifiName || receipt.wifiPassword) && (
+              <div className="border-t border-dashed border-zinc-400 pt-2 pb-1 text-center text-[11px]">
+                <p className="font-bold uppercase tracking-wide">
+                  WiFi Pelanggan
+                </p>
+                {receipt.wifiName && (
+                  <p>
+                    SSID: <span className="font-bold">{receipt.wifiName}</span>
+                  </p>
+                )}
+                {receipt.wifiPassword && (
+                  <p>
+                    Password:{" "}
+                    <span className="font-bold">{receipt.wifiPassword}</span>
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Footer Struk */}
             <div className="pt-2.5 text-center text-[10px] leading-relaxed text-zinc-700">
               <p>

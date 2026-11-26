@@ -64,10 +64,13 @@ const KNOWN_THERMAL_SERVICE_UUIDS: string[] = [
   "6e400001-b5a3-f393-e0a9-e50e24dcca9e", // Nordic UART Service (NUS)
   "e7810a71-73ae-499d-8c15-faa9aef0c3f2", // Custom serial printer BLE
   "0000ff00-0000-1000-8000-00805f9b34fb", // Generic serial printer FF00
+  "0000ff10-0000-1000-8000-00805f9b34fb", // Generic serial printer FF10
+  "0000fff0-0000-1000-8000-00805f9b34fb", // Generic serial printer FFF0 (iWare / mini thermal)
   "0000ffe0-0000-1000-8000-00805f9b34fb", // HM-10 / JDY serial BLE
+  "0000fee0-0000-1000-8000-00805f9b34fb", // FEE0 serial variant
+  "0000fee7-0000-1000-8000-00805f9b34fb", // FEE7 thermal BLE variant
   "0000ae30-0000-1000-8000-00805f9b34fb", // AE30 thermal BLE variant
   "0000af30-0000-1000-8000-00805f9b34fb", // AF30 thermal BLE variant
-  "0000fee7-0000-1000-8000-00805f9b34fb", // FEE7 thermal BLE variant
 ];
 
 const PREFERRED_WRITE_CHAR_UUIDS = new Set<string>([
@@ -76,6 +79,8 @@ const PREFERRED_WRITE_CHAR_UUIDS = new Set<string>([
   "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
   "bef8d6c9-9c21-4c9e-b632-bd58c1009f9f",
   "0000ff02-0000-1000-8000-00805f9b34fb",
+  "0000fff2-0000-1000-8000-00805f9b34fb",
+  "0000fff1-0000-1000-8000-00805f9b34fb",
   "0000ffe1-0000-1000-8000-00805f9b34fb",
   "0000ae01-0000-1000-8000-00805f9b34fb",
 ]);

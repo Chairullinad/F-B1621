@@ -4,6 +4,7 @@ import {
   buildBluetoothTestPrintEscPosBytes,
   buildOrderReceiptEscPosBytes,
   buildOrderReceiptTextLines,
+  buildShiftClosingEscPosBytes,
   encodeEscPosBytesToBase64,
   formatEscPosColumns,
   getEscPosColumnWidth,
@@ -120,5 +121,62 @@ describe("src/lib/escpos.ts", () => {
     const testBytes = buildBluetoothTestPrintEscPosBytes("58mm", "RPP02N");
     const base64 = encodeEscPosBytesToBase64(testBytes);
     assert.deepEqual(new Uint8Array(Buffer.from(base64, "base64")), testBytes);
+  });
+
+  it("mencantumkan WiFi & Password pada struk pelanggan dan membentuk struk Tutupan Shift ESC/POS", () => {
+    const receiptWithWifi: OrderReceiptDetail = {
+      ...SAMPLE_RECEIPT,
+      wifiName: "1621-Guest",
+      wifiPassword: "kopienak1621",
+    };
+
+    const customerBytes = buildOrderReceiptEscPosBytes(receiptWithWifi, {
+      paperSize: "58mm",
+      mode: "customer",
+    });
+    const customerAscii = Buffer.from(customerBytes).toString("ascii");
+    assert.ok(customerAscii.includes("WIFI PELANGGAN"));
+    assert.ok(customerAscii.includes("1621-Guest"));
+    assert.ok(customerAscii.includes("kopienak1621"));
+
+    const kitchenBytes = buildOrderReceiptEscPosBytes(receiptWithWifi, {
+      paperSize: "58mm",
+      mode: "kitchen",
+    });
+    const kitchenAscii = Buffer.from(kitchenBytes).toString("ascii");
+    assert.ok(!kitchenAscii.includes("kopienak1621"));
+
+    const shiftBytes = buildShiftClosingEscPosBytes({
+      paperSize: "58mm",
+      reportNo: "SHIFT-20261126-1001",
+      outletName: "LATTESPACE",
+      outletAddress: "Jl. Merdeka No. 16",
+      shiftInCashierName: "Kasir A",
+      shiftOutCashierName: "Kasir B",
+      shiftStartIso: "2026-11-26T00:00:00.000Z",
+      shiftEndIso: "2026-11-26T08:00:00.000Z",
+      openingCash: 200000,
+      cashRevenue: 300000,
+      qrisRevenue: 150000,
+      cashRefundTotal: 0,
+      totalIncomes: 50000,
+      totalExpenses: 20000,
+      expectedClosingCash: 530000,
+      actualClosingCash: 530000,
+      cashDifference: 0,
+      paidOrdersCount: 12,
+      netSales: 450000,
+      incomes: [
+        { id: "inc-1", itemName: "Modal Receh", qtyLabel: "1x", amount: 50000 },
+      ],
+      expenses: [
+        { id: "exp-1", itemName: "Es Batu", qtyLabel: "2 bar", amount: 20000 },
+      ],
+      closingNotes: "Laci aman",
+    });
+    const shiftAscii = Buffer.from(shiftBytes).toString("ascii");
+    assert.ok(shiftAscii.includes("STRUK LAPORAN TUTUPAN SHIFT"));
+    assert.ok(shiftAscii.includes("Rp 530.000"));
+    assert.ok(shiftAscii.includes("Modal Receh"));
   });
 });

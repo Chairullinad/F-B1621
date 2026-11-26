@@ -10,6 +10,7 @@ import {
   formatRupiah,
   type TaxAndServiceConfig,
 } from "@/lib/money";
+import { stripUnwantedBrandSlogan } from "@/lib/outlets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   CategoryRow,
@@ -195,6 +196,8 @@ export interface OrderReceiptDetail {
   outletName: string;
   outletAddress: string | null;
   receiptFooter: string | null;
+  wifiName?: string | null;
+  wifiPassword?: string | null;
   orderType: OrderType;
   tableName: string;
   status: OrderStatus;
@@ -1835,12 +1838,26 @@ export async function getOrderReceiptDetail(
     }
   }
 
+  cleanReceiptFooter =
+    stripUnwantedBrandSlogan(cleanReceiptFooter) ??
+    `Terima kasih atas kunjungan Anda di ${resolvedOutletName} (1621 Group)!`;
+
   return {
     orderId,
     orderNo: String(orderRow.order_no),
     outletName: resolvedOutletName,
     outletAddress: (outletRow?.address as string | null) ?? null,
     receiptFooter: cleanReceiptFooter,
+    wifiName:
+      typeof outletRow?.wifi_name === "string" &&
+      outletRow.wifi_name.trim().length > 0
+        ? outletRow.wifi_name.trim()
+        : null,
+    wifiPassword:
+      typeof outletRow?.wifi_password === "string" &&
+      outletRow.wifi_password.trim().length > 0
+        ? outletRow.wifi_password.trim()
+        : null,
     orderType: (orderRow.order_type as OrderType) ?? "dine_in",
     tableName:
       tableRow?.name ??

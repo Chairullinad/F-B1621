@@ -73,6 +73,8 @@ export interface OutletRow {
   name: string;
   address: string | null;
   receipt_footer: string | null;
+  wifi_name?: string | null;
+  wifi_password?: string | null;
   order_expiry_minutes: number;
   tax_enabled: boolean;
   tax_percent: number | null;

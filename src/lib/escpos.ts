@@ -1,5 +1,6 @@
 import { formatDateTimeWIB } from "./datetime.ts";
 import { formatRupiah } from "./money.ts";
+import type { ShiftCashAdjustmentItem } from "./shift-closing.ts";
 import type { OrderReceiptDetail } from "../server/cashier.ts";
 
 export type ReceiptPaperSize = "58mm" | "80mm";
@@ -18,7 +19,10 @@ const CMD_BOLD_OFF = [0x1b, 0x45, 0x00] as const;
 const CMD_SIZE_NORMAL = [0x1d, 0x21, 0x00] as const;
 const CMD_SIZE_DOUBLE_HEIGHT = [0x1d, 0x21, 0x01] as const;
 const CMD_SIZE_DOUBLE_BOTH = [0x1d, 0x21, 0x11] as const;
-const CMD_FEED_AND_CUT = [0x0a, 0x0a, 0x0a, 0x1d, 0x56, 0x42, 0x00] as const;
+const CMD_FEED_AND_CUT = [
+  0x1b, 0x64, 0x03, // ESC d 3 (feed 3 baris aman untuk printer non-cutter)
+  0x1d, 0x56, 0x42, 0x00, // GS V B 0 (cut bila didukung printer)
+] as const;
 const CMD_NEWLINE = [0x0a] as const;
 
 export function getEscPosColumnWidth(paperSize: ReceiptPaperSize): number {
@@ -314,6 +318,19 @@ export function buildOrderReceiptTextLines(
       lines.push(...wrapEscPosText(`Alasan: ${receipt.refund.reason}`, width));
     }
 
+    if (receipt.wifiName || receipt.wifiPassword) {
+      lines.push(formatDivider("-", width));
+      lines.push(...centerText("WIFI PELANGGAN", width));
+      if (receipt.wifiName) {
+        lines.push(...formatEscPosColumns("WiFi", receipt.wifiName, width));
+      }
+      if (receipt.wifiPassword) {
+        lines.push(
+          ...formatEscPosColumns("Password", receipt.wifiPassword, width)
+        );
+      }
+    }
+
     lines.push(formatDivider("-", width));
     lines.push(
       ...centerText(
@@ -474,6 +491,20 @@ export function buildOrderReceiptEscPosBytes(
       });
     }
 
+    if (receipt.wifiName || receipt.wifiPassword) {
+      builder.appendDivider("-", width);
+      builder.appendWrappedLines("WIFI PELANGGAN", width, {
+        align: "center",
+        bold: true,
+      });
+      if (receipt.wifiName) {
+        builder.appendColumns("WiFi", receipt.wifiName, width);
+      }
+      if (receipt.wifiPassword) {
+        builder.appendColumns("Password", receipt.wifiPassword, width);
+      }
+    }
+
     builder.appendDivider("-", width);
     builder.appendWrappedLines(
       receipt.receiptFooter ?? "Terima kasih atas kunjungan Anda di 1621 Group!",
@@ -588,6 +619,153 @@ export function buildBluetoothTestPrintEscPosBytes(
     .appendWrappedLines("Koneksi printer thermal siap digunakan!", width, {
       align: "center",
       bold: true,
+    })
+    .appendBytes(CMD_FEED_AND_CUT);
+
+  return builder.toUint8Array();
+}
+
+export interface ShiftClosingEscPosInput {
+  paperSize: ReceiptPaperSize;
+  reportNo: string;
+  outletName: string;
+  outletAddress: string | null;
+  shiftInCashierName: string;
+  shiftOutCashierName: string;
+  shiftStartIso: string;
+  shiftEndIso: string;
+  openingCash: number;
+  cashRevenue: number;
+  qrisRevenue: number;
+  cashRefundTotal: number;
+  totalIncomes: number;
+  totalExpenses: number;
+  expectedClosingCash: number;
+  actualClosingCash: number;
+  cashDifference: number;
+  paidOrdersCount: number;
+  netSales: number;
+  incomes: ReadonlyArray<ShiftCashAdjustmentItem>;
+  expenses: ReadonlyArray<ShiftCashAdjustmentItem>;
+  closingNotes: string;
+}
+
+/**
+ * Mengonversi laporan Tutupan Shift Kasir menjadi byte ESC/POS untuk printer thermal Bluetooth.
+ */
+export function buildShiftClosingEscPosBytes(
+  input: ShiftClosingEscPosInput
+): Uint8Array {
+  const width = getEscPosColumnWidth(input.paperSize);
+  const builder = new EscPosBufferBuilder();
+
+  builder
+    .appendBytes(CMD_INIT)
+    .appendBytes(CMD_SIZE_NORMAL)
+    .appendWrappedLines(input.outletName.toUpperCase(), width, {
+      align: "center",
+      bold: true,
+    });
+  if (input.outletAddress) {
+    builder.appendWrappedLines(input.outletAddress, width, {
+      align: "center",
+    });
+  }
+  builder
+    .appendWrappedLines("STRUK LAPORAN TUTUPAN SHIFT", width, {
+      align: "center",
+      bold: true,
+    })
+    .appendWrappedLines(`No: #${input.reportNo}`, width, { align: "center" })
+    .appendDivider("=", width)
+    .appendColumns("Shift In", input.shiftInCashierName || "-", width)
+    .appendColumns("Shift Out", input.shiftOutCashierName || "-", width)
+    .appendColumns("Mulai", formatDateTimeWIB(input.shiftStartIso), width)
+    .appendColumns("Tutup", formatDateTimeWIB(input.shiftEndIso), width)
+    .appendDivider("-", width)
+    .appendWrappedLines("PERHITUNGAN KAS LACI", width, { bold: true })
+    .appendColumns("Kas Awal", formatRupiah(input.openingCash), width)
+    .appendColumns("(+) Tunai Order", formatRupiah(input.cashRevenue), width)
+    .appendColumns(
+      `(+) Kas Masuk (${input.incomes.length}x)`,
+      formatRupiah(input.totalIncomes),
+      width
+    )
+    .appendColumns("(i) QRIS (Non-Laci)", formatRupiah(input.qrisRevenue), width);
+
+  if (input.cashRefundTotal > 0) {
+    builder.appendColumns(
+      "(-) Refund Tunai",
+      `-${formatRupiah(input.cashRefundTotal)}`,
+      width
+    );
+  }
+
+  builder
+    .appendColumns(
+      `(-) Pengeluaran (${input.expenses.length}x)`,
+      `-${formatRupiah(input.totalExpenses)}`,
+      width
+    )
+    .appendDivider("=", width)
+    .appendColumns("Kas Akhir Sistem", formatRupiah(input.expectedClosingCash), width, {
+      bold: true,
+    })
+    .appendColumns("Kas Akhir Aktual", formatRupiah(input.actualClosingCash), width, {
+      bold: true,
+    })
+    .appendColumns(
+      "Selisih Laci",
+      input.cashDifference === 0
+        ? "PAS (Rp 0)"
+        : input.cashDifference > 0
+          ? `+${formatRupiah(input.cashDifference)}`
+          : `-${formatRupiah(Math.abs(input.cashDifference))}`,
+      width,
+      { bold: true }
+    )
+    .appendDivider("-", width)
+    .appendColumns(
+      `Omzet Bersih (${input.paidOrdersCount} trx)`,
+      formatRupiah(input.netSales),
+      width,
+      { bold: true }
+    );
+
+  if (input.incomes.length > 0) {
+    builder.appendDivider("-", width);
+    builder.appendWrappedLines("PEMASUKAN KAS SHIFT:", width, { bold: true });
+    input.incomes.forEach((inc, idx) => {
+      builder.appendColumns(
+        `${idx + 1}. ${inc.itemName} (${inc.qtyLabel})`,
+        `+${formatRupiah(inc.amount)}`,
+        width
+      );
+    });
+  }
+
+  if (input.expenses.length > 0) {
+    builder.appendDivider("-", width);
+    builder.appendWrappedLines("PENGELUARAN KAS SHIFT:", width, { bold: true });
+    input.expenses.forEach((exp, idx) => {
+      builder.appendColumns(
+        `${idx + 1}. ${exp.itemName} (${exp.qtyLabel})`,
+        `-${formatRupiah(exp.amount)}`,
+        width
+      );
+    });
+  }
+
+  if (input.closingNotes.trim()) {
+    builder
+      .appendDivider("-", width)
+      .appendWrappedLines(`Catatan: ${input.closingNotes}`, width);
+  }
+
+  builder
+    .appendDivider("-", width)
+    .appendWrappedLines(`Dicetak: ${formatDateTimeWIB(new Date())}`, width, {
+      align: "center",
     })
     .appendBytes(CMD_FEED_AND_CUT);
 

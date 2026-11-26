@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  Bluetooth,
   CheckCircle2,
   ClipboardCheck,
   Clock,
@@ -10,6 +11,7 @@ import {
   Plus,
   Printer,
   RefreshCw,
+  Smartphone,
   Trash2,
   Wallet,
 } from "lucide-react";
@@ -24,7 +26,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  getBluetoothPrinterState,
+  printEscPosOverBluetooth,
+  subscribeBluetoothPrinterState,
+  triggerRawBtPrint,
+  tryReconnectSavedBluetoothPrinter,
+  type BluetoothPrinterState,
+} from "@/lib/bluetooth-printer";
 import { formatDateTimeWIB, formatTimeWIB } from "@/lib/datetime";
+import {
+  buildShiftClosingEscPosBytes,
+  type ReceiptPaperSize,
+} from "@/lib/escpos";
 import { formatRupiah } from "@/lib/money";
 import { calculateShiftCashSummary } from "@/lib/shift-closing";
 import {
@@ -99,6 +113,16 @@ export function ShiftClosingManager({
 
   const [isLoadingMetrics, setIsLoadingMetrics] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [btPaperSize, setBtPaperSize] =
+    React.useState<ReceiptPaperSize>("58mm");
+  const [btPrinterState, setBtPrinterState] =
+    React.useState<BluetoothPrinterState>(() => getBluetoothPrinterState());
+
+  React.useEffect(() => {
+    const unsub = subscribeBluetoothPrinterState(setBtPrinterState);
+    void tryReconnectSavedBluetoothPrinter();
+    return unsub;
+  }, []);
 
   const openingCash = React.useMemo(() => {
     const clean = openingCashInput.replace(/[^\d]/g, "");
@@ -305,6 +329,55 @@ export function ShiftClosingManager({
     setMetrics(report.metrics);
     setActiveReportNo(report.reportNo);
     toast.info(`Laporan #${report.reportNo} dimuat ke pratinjau struk.`);
+  }
+
+  function buildCurrentShiftEscPosPayload() {
+    return buildShiftClosingEscPosBytes({
+      paperSize: btPaperSize,
+      reportNo: activeReportNo,
+      outletName: initialData.outlet.name,
+      outletAddress: initialData.outlet.address,
+      shiftInCashierName: shiftInCashierName.trim() || "-",
+      shiftOutCashierName: shiftOutCashierName.trim() || "-",
+      shiftStartIso: metrics.shiftStartIso,
+      shiftEndIso: metrics.shiftEndIso,
+      openingCash,
+      cashRevenue: metrics.cashRevenue,
+      qrisRevenue: metrics.qrisRevenue,
+      cashRefundTotal: metrics.cashRefundTotal,
+      totalIncomes,
+      totalExpenses,
+      expectedClosingCash,
+      actualClosingCash,
+      cashDifference,
+      paidOrdersCount: metrics.paidOrders.length,
+      netSales: metrics.netSales,
+      incomes,
+      expenses,
+      closingNotes: closingNotes.trim(),
+    });
+  }
+
+  async function handlePrintShiftBluetooth() {
+    try {
+      const payload = buildCurrentShiftEscPosPayload();
+      const res = await printEscPosOverBluetooth(payload);
+      toast.success(
+        `Struk Tutupan Shift (${btPaperSize}) dikirim ke printer Bluetooth ${res.deviceName}.`
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Gagal mencetak struk Tutupan Shift via Bluetooth."
+      );
+    }
+  }
+
+  function handlePrintShiftRawBt() {
+    const payload = buildCurrentShiftEscPosPayload();
+    triggerRawBtPrint(payload);
+    toast.success(`Struk Tutupan Shift (${btPaperSize}) dikirim ke RawBT Android.`);
   }
 
   return (
@@ -886,28 +959,85 @@ export function ShiftClosingManager({
                 />
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => void handleSaveAndPrint(true)}
-                  className="min-h-12 flex-1 bg-emerald-700 text-sm font-bold text-white hover:bg-emerald-800"
-                >
-                  <Printer className="mr-2 h-4 w-4" />
-                  {isSaving
-                    ? "Menyimpan..."
-                    : "Simpan Tutupan Shift & Cetak Struk"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isSaving}
-                  onClick={() => window.print()}
-                  className="min-h-12"
-                >
-                  <Printer className="mr-1.5 h-4 w-4" />
-                  Cetak Pratinjau Sekarang
-                </Button>
+              <div className="space-y-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => void handleSaveAndPrint(true)}
+                    className="min-h-12 flex-1 bg-emerald-700 text-sm font-bold text-white hover:bg-emerald-800"
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    {isSaving
+                      ? "Menyimpan..."
+                      : "Simpan Tutupan Shift & Cetak Struk"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSaving}
+                    onClick={() => window.print()}
+                    className="min-h-12"
+                  >
+                    <Printer className="mr-1.5 h-4 w-4" />
+                    Cetak Browser / PDF
+                  </Button>
+                </div>
+
+                {/* Cetak Thermal Bluetooth & RawBT untuk Struk Tutupan Shift */}
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={btPaperSize === "58mm" ? "default" : "outline"}
+                      className="min-h-10"
+                      onClick={() => setBtPaperSize("58mm")}
+                    >
+                      58mm
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={btPaperSize === "80mm" ? "default" : "outline"}
+                      className="min-h-10"
+                      onClick={() => setBtPaperSize("80mm")}
+                    >
+                      80mm
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={
+                        isSaving ||
+                        btPrinterState.status === "connecting" ||
+                        btPrinterState.status === "printing"
+                      }
+                      onClick={() => void handlePrintShiftBluetooth()}
+                      className="min-h-10 bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      <Bluetooth className="mr-1.5 h-4 w-4" />
+                      {btPrinterState.status === "printing"
+                        ? "Mencetak..."
+                        : btPrinterState.status === "connected"
+                          ? `Cetak Bluetooth (${btPrinterState.deviceName})`
+                          : "Hubungkan & Cetak Bluetooth"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isSaving}
+                      onClick={handlePrintShiftRawBt}
+                      className="min-h-10"
+                    >
+                      <Smartphone className="mr-1.5 h-4 w-4" />
+                      RawBT (Android)
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

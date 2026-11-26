@@ -584,6 +584,8 @@ export async function getKitchenTicketPrintDetail(
     outletName: String(outletRes.data?.name ?? "1621 GROUP"),
     outletAddress: (outletRes.data?.address as string | null) ?? null,
     receiptFooter: null,
+    wifiName: null,
+    wifiPassword: null,
     orderType: (orderRow.order_type as OrderType) ?? "dine_in",
     tableName:
       tableRes.data?.name ??

@@ -31,6 +31,18 @@ const createOutletSchema = z.object({
     .max(300)
     .optional()
     .default("Terima kasih atas kunjungan Anda!"),
+  wifiName: z
+    .string()
+    .trim()
+    .max(80, "Nama WiFi maksimal 80 karakter.")
+    .optional()
+    .default(""),
+  wifiPassword: z
+    .string()
+    .trim()
+    .max(80, "Password WiFi maksimal 80 karakter.")
+    .optional()
+    .default(""),
   logoUrl: z
     .string()
     .trim()
@@ -60,6 +72,18 @@ const updateOutletSchema = z.object({
   phone: z.string().trim().max(30).optional().default(""),
   description: z.string().trim().max(250).optional().default(""),
   receiptFooter: z.string().trim().max(300).optional().default(""),
+  wifiName: z
+    .string()
+    .trim()
+    .max(80, "Nama WiFi maksimal 80 karakter.")
+    .optional()
+    .default(""),
+  wifiPassword: z
+    .string()
+    .trim()
+    .max(80, "Password WiFi maksimal 80 karakter.")
+    .optional()
+    .default(""),
   logoUrl: z
     .string()
     .trim()
@@ -355,26 +379,49 @@ export async function createOutletAction(
   const cleanDescription = parsed.data.description || "Kafe & Resto Modern";
   const cleanFooter =
     parsed.data.receiptFooter || `Terima kasih telah berkunjung ke ${parsed.data.name}!`;
+  const cleanWifiName = parsed.data.wifiName || null;
+  const cleanWifiPassword = parsed.data.wifiPassword || null;
 
-  const { data: newOutlet, error: insErr } = await admin
+  const baseInsertPayload = {
+    name: parsed.data.name,
+    address: parsed.data.address || null,
+    phone: parsed.data.phone || null,
+    description: cleanDescription,
+    logo_url: cleanLogoUrl,
+    theme_color: cleanThemeColor,
+    receipt_footer: cleanFooter,
+    order_expiry_minutes: 15,
+    tax_enabled: false,
+    tax_percent: null,
+    service_enabled: false,
+    service_percent: null,
+    price_includes_tax: false,
+  };
+
+  let { data: newOutlet, error: insErr } = await admin
     .from("outlets")
     .insert({
-      name: parsed.data.name,
-      address: parsed.data.address || null,
-      phone: parsed.data.phone || null,
-      description: cleanDescription,
-      logo_url: cleanLogoUrl,
-      theme_color: cleanThemeColor,
-      receipt_footer: cleanFooter,
-      order_expiry_minutes: 15,
-      tax_enabled: false,
-      tax_percent: null,
-      service_enabled: false,
-      service_percent: null,
-      price_includes_tax: false,
+      ...baseInsertPayload,
+      wifi_name: cleanWifiName,
+      wifi_password: cleanWifiPassword,
     })
     .select("*")
     .single();
+
+  if (
+    insErr &&
+    (insErr.message.includes("wifi_name") ||
+      insErr.message.includes("wifi_password") ||
+      insErr.message.includes("schema cache"))
+  ) {
+    const fallbackInsert = await admin
+      .from("outlets")
+      .insert(baseInsertPayload)
+      .select("*")
+      .single();
+    newOutlet = fallbackInsert.data;
+    insErr = fallbackInsert.error;
+  }
 
   if (insErr || !newOutlet) {
     return { ok: false, message: `Gagal membuat outlet baru: ${insErr?.message}` };
@@ -478,22 +525,53 @@ export async function updateOutletCustomizationAction(
     }
   }
 
-  const { error: updErr } = await admin
+  const cleanWifiName = parsed.data.wifiName.trim() || null;
+  const cleanWifiPassword = parsed.data.wifiPassword.trim() || null;
+  const baseUpdatePayload = {
+    name: parsed.data.name,
+    address: parsed.data.address || null,
+    phone: parsed.data.phone || null,
+    description: parsed.data.description || null,
+    logo_url: parsed.data.logoUrl || "/logo-1621group-stacked.png",
+    theme_color: parsed.data.themeColor || "#0284C7",
+    receipt_footer: resolvedFooter,
+    updated_at: new Date().toISOString(),
+  };
+
+  let { error: updErr } = await admin
     .from("outlets")
     .update({
-      name: parsed.data.name,
-      address: parsed.data.address || null,
-      phone: parsed.data.phone || null,
-      description: parsed.data.description || null,
-      logo_url: parsed.data.logoUrl || "/logo-1621group-stacked.png",
-      theme_color: parsed.data.themeColor || "#0284C7",
-      receipt_footer: resolvedFooter,
-      updated_at: new Date().toISOString(),
+      ...baseUpdatePayload,
+      wifi_name: cleanWifiName,
+      wifi_password: cleanWifiPassword,
     })
     .eq("id", parsed.data.id);
 
+  let wifiMigrationMissing = false;
+  if (
+    updErr &&
+    (updErr.message.includes("wifi_name") ||
+      updErr.message.includes("wifi_password") ||
+      updErr.message.includes("schema cache"))
+  ) {
+    wifiMigrationMissing = Boolean(cleanWifiName || cleanWifiPassword);
+    const fallbackUpd = await admin
+      .from("outlets")
+      .update(baseUpdatePayload)
+      .eq("id", parsed.data.id);
+    updErr = fallbackUpd.error;
+  }
+
   if (updErr) {
     return { ok: false, message: `Gagal memperbarui profil outlet: ${updErr.message}` };
+  }
+
+  if (wifiMigrationMissing) {
+    return {
+      ok: false,
+      message:
+        "Profil outlet disimpan, tetapi kolom wifi_name / wifi_password belum ada di database. Jalankan migrasi 0012 di Supabase SQL Editor terlebih dahulu.",
+    };
   }
 
   await admin.from("audit_logs").insert({
@@ -513,6 +591,8 @@ export async function updateOutletCustomizationAction(
       description: parsed.data.description || null,
       theme_color: parsed.data.themeColor,
       receipt_footer: resolvedFooter,
+      wifi_name: cleanWifiName,
+      wifi_password: cleanWifiPassword,
       ...(parsed.data.tableCount !== undefined
         ? { table_count: parsed.data.tableCount }
         : {}),

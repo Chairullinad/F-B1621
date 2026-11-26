@@ -49,6 +49,8 @@ interface OutletFormState {
   phone: string;
   description: string;
   receiptFooter: string;
+  wifiName: string;
+  wifiPassword: string;
   logoUrl: string;
   themeColor: string;
   tableCount: number;
@@ -67,6 +69,8 @@ function makeEmptyFormState(indexOffset: number): OutletFormState {
     phone: "",
     description: "",
     receiptFooter: "Terima kasih atas kunjungan Anda!",
+    wifiName: "",
+    wifiPassword: "",
     logoUrl: DEFAULT_LOGO_PATH,
     themeColor: paletteColor,
     tableCount: DEFAULT_OUTLET_TABLE_COUNT,
@@ -80,6 +84,8 @@ function makeEditFormState(outlet: OutletView): OutletFormState {
     phone: outlet.phone ?? "",
     description: outlet.description ?? "",
     receiptFooter: outlet.receiptFooter ?? "",
+    wifiName: outlet.wifiName ?? "",
+    wifiPassword: outlet.wifiPassword ?? "",
     logoUrl: outlet.logoUrl || DEFAULT_LOGO_PATH,
     themeColor: outlet.themeColor || "#0284C7",
     tableCount:
@@ -315,6 +321,8 @@ export function OutletManager({
         phone: addForm.phone,
         description: addForm.description,
         receiptFooter: addForm.receiptFooter,
+        wifiName: addForm.wifiName,
+        wifiPassword: addForm.wifiPassword,
         logoUrl: addForm.logoUrl,
         themeColor: addForm.themeColor,
         tableCount: addForm.tableCount,
@@ -343,6 +351,8 @@ export function OutletManager({
         phone: editForm.phone,
         description: editForm.description,
         receiptFooter: editForm.receiptFooter,
+        wifiName: editForm.wifiName,
+        wifiPassword: editForm.wifiPassword,
         logoUrl: editForm.logoUrl,
         themeColor: editForm.themeColor,
         tableCount: editForm.tableCount,
@@ -595,6 +605,42 @@ export function OutletManager({
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                Nama WiFi Pelanggan (Opsional, Tampil di Struk)
+              </label>
+              <input
+                type="text"
+                value={addForm.wifiName}
+                onChange={(e) =>
+                  setAddForm((prev) => ({
+                    ...prev,
+                    wifiName: e.target.value,
+                  }))
+                }
+                placeholder="Contoh: 1621-Guest-WiFi"
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm focus:border-[#1E88E5] focus:bg-white dark:focus:bg-slate-900 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                Password WiFi Pelanggan (Opsional, Tampil di Struk)
+              </label>
+              <input
+                type="text"
+                value={addForm.wifiPassword}
+                onChange={(e) =>
+                  setAddForm((prev) => ({
+                    ...prev,
+                    wifiPassword: e.target.value,
+                  }))
+                }
+                placeholder="Kosongkan jika tanpa password"
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm focus:border-[#1E88E5] focus:bg-white dark:focus:bg-slate-900 focus:outline-none"
+              />
+            </div>
+
             <div className="md:col-span-2">
               <OutletLogoAndColorFields
                 form={addForm}
@@ -747,6 +793,11 @@ export function OutletManager({
                               : "Nonaktif"}
                           </strong>
                         </span>
+                        {outlet.wifiName && (
+                          <span className="text-[11px] text-sky-600 dark:text-sky-400 truncate max-w-[180px]">
+                            WiFi: {outlet.wifiName}
+                          </span>
+                        )}
                         {outlet.receiptFooter && (
                           <span className="text-[11px] text-slate-400 truncate max-w-[180px]">
                             Struk: {outlet.receiptFooter}
@@ -979,6 +1030,42 @@ export function OutletManager({
                       }))
                     }
                     placeholder="Terima kasih telah berkunjung!"
+                    className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm focus:border-[#1E88E5] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                    Nama WiFi Pelanggan (Opsional, Tampil di Struk)
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.wifiName}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        wifiName: e.target.value,
+                      }))
+                    }
+                    placeholder="Contoh: 1621-Guest-WiFi"
+                    className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm focus:border-[#1E88E5] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                    Password WiFi Pelanggan (Opsional, Tampil di Struk)
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.wifiPassword}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        wifiPassword: e.target.value,
+                      }))
+                    }
+                    placeholder="Kosongkan jika tanpa password"
                     className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm focus:border-[#1E88E5] focus:outline-none"
                   />
                 </div>

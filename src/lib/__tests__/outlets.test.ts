@@ -10,6 +10,7 @@ import {
   mapOutletRowToView,
   parseLandingBanners,
   planOutletTableCountSync,
+  stripUnwantedBrandSlogan,
 } from "../outlets.ts";
 
 describe("src/lib/outlets.ts", () => {
@@ -37,7 +38,9 @@ describe("src/lib/outlets.ts", () => {
       landing_news_title: "INFO KEDAI",
       landing_news_banner_url: "/news-1.png",
       operating_hours: "08.00 - 23.00 WIB",
-      landing_tagline: "Ngopi santai setiap hari",
+      landing_tagline: "Ngopi santai setiap hari Take a Break, Enjoy the Brew",
+      wifi_name: "Kopi1621-VIP",
+      wifi_password: "secret1621",
       partnership_url: "https://wa.me/628123456789",
       reservation_url: "https://forms.gle/reservasi",
       feedback_url: "mailto:halo@kopi1621.id",
@@ -56,6 +59,9 @@ describe("src/lib/outlets.ts", () => {
     assert.equal(direct.landingNewsBannerUrl, "/news-1.png");
     assert.equal(direct.operatingHours, "08.00 - 23.00 WIB");
     assert.equal(direct.landingTagline, "Ngopi santai setiap hari");
+    assert.equal(direct.wifiName, "Kopi1621-VIP");
+    assert.equal(direct.wifiPassword, "secret1621");
+    assert.equal(stripUnwantedBrandSlogan("Take a Break, Enjoy the Brew"), null);
     assert.equal(direct.partnershipUrl, "https://wa.me/628123456789");
     assert.equal(direct.reservationUrl, "https://forms.gle/reservasi");
     assert.equal(direct.feedbackUrl, "mailto:halo@kopi1621.id");

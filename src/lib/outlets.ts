@@ -13,6 +13,8 @@ export interface OutletView {
   phone: string | null;
   description: string | null;
   receiptFooter: string | null;
+  wifiName: string | null;
+  wifiPassword: string | null;
   logoUrl: string;
   themeColor: string;
   isActive: boolean;
@@ -57,6 +59,21 @@ interface LegacyReceiptMeta {
   logoUrl?: string;
   phone?: string | null;
   receiptFooter?: string | null;
+  wifiName?: string | null;
+  wifiPassword?: string | null;
+}
+
+const UNWANTED_SLOGAN_REGEX = /take\s+a\s+break,?\s*enjoy\s+the\s+brew\.?/gi;
+
+/**
+ * Menghapus slogan lama ("Take a Break, Enjoy the Brew") dari teks outlet/struk bila masih tersimpan di database.
+ */
+export function stripUnwantedBrandSlogan(
+  value: string | null | undefined
+): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.replace(UNWANTED_SLOGAN_REGEX, "").replace(/\s{2,}/g, " ").trim();
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 /**
@@ -166,6 +183,14 @@ export function mapOutletRowToView(raw: Record<string, unknown>): OutletView {
     typeof raw.phone === "string" && raw.phone.trim().length > 0
       ? raw.phone.trim()
       : null;
+  const rawWifiName =
+    typeof raw.wifi_name === "string" && raw.wifi_name.trim().length > 0
+      ? raw.wifi_name.trim()
+      : null;
+  const rawWifiPassword =
+    typeof raw.wifi_password === "string" && raw.wifi_password.trim().length > 0
+      ? raw.wifi_password.trim()
+      : null;
 
   const rawNewsTitle =
     typeof raw.landing_news_title === "string" &&
@@ -182,11 +207,9 @@ export function mapOutletRowToView(raw: Record<string, unknown>): OutletView {
     raw.operating_hours.trim().length > 0
       ? raw.operating_hours.trim()
       : "08.00 - 22.00 WIB";
-  const rawTagline =
-    typeof raw.landing_tagline === "string" &&
-    raw.landing_tagline.trim().length > 0
-      ? raw.landing_tagline.trim()
-      : null;
+  const rawTagline = stripUnwantedBrandSlogan(
+    typeof raw.landing_tagline === "string" ? raw.landing_tagline : null
+  );
 
   return {
     id: String(raw.id),
@@ -194,8 +217,12 @@ export function mapOutletRowToView(raw: Record<string, unknown>): OutletView {
     address: typeof raw.address === "string" ? raw.address : null,
     phone: rawPhone ?? legacyMeta.phone ?? null,
     description:
-      rawDesc ?? legacyMeta.description ?? "Usaha Kuliner F&B",
-    receiptFooter: cleanFooter,
+      stripUnwantedBrandSlogan(rawDesc) ??
+      stripUnwantedBrandSlogan(legacyMeta.description) ??
+      "Usaha Kuliner F&B",
+    receiptFooter: stripUnwantedBrandSlogan(cleanFooter),
+    wifiName: rawWifiName ?? legacyMeta.wifiName ?? null,
+    wifiPassword: rawWifiPassword ?? legacyMeta.wifiPassword ?? null,
     logoUrl: rawLogo ?? legacyMeta.logoUrl ?? "/logo-1621group-stacked.png",
     themeColor: rawTheme ?? legacyMeta.themeColor ?? "#0284C7",
     isActive: raw.deleted_at == null && raw.is_active !== false,
