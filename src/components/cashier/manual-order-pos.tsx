@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -97,30 +97,6 @@ export function ManualOrderPos({
     orderId?: string;
     orderNo?: string;
   } | null>(null);
-  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (paymentResultModal?.status !== "success") {
-      return;
-    }
-    redirectTimerRef.current = setTimeout(() => {
-      router.push("/kasir");
-    }, 1500);
-
-    return () => {
-      if (redirectTimerRef.current) {
-        clearTimeout(redirectTimerRef.current);
-        redirectTimerRef.current = null;
-      }
-    };
-  }, [paymentResultModal, router]);
-
-  function cancelPendingRedirect() {
-    if (redirectTimerRef.current) {
-      clearTimeout(redirectTimerRef.current);
-      redirectTimerRef.current = null;
-    }
-  }
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1100,8 +1076,9 @@ export function ManualOrderPos({
               </p>
 
               {paymentResultModal.status === "success" && (
-                <p className="mt-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                  Otomatis dialihkan ke menu Pesanan Layar Kasir...
+                <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                  Pilih <strong>Lanjut</strong> untuk masuk ke Pesanan Layar Kasir, atau{" "}
+                  <strong>Kembali</strong> untuk tetap di Order Manual.
                 </p>
               )}
             </div>
@@ -1109,22 +1086,32 @@ export function ManualOrderPos({
             <div className="mt-5 flex flex-col gap-2">
               {paymentResultModal.status === "success" ? (
                 <>
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      cancelPendingRedirect();
-                      router.push("/kasir");
-                    }}
-                    className="min-h-11 w-full bg-emerald-700 font-bold text-white hover:bg-emerald-800"
-                  >
-                    Ke Menu Pesanan Layar Kasir Sekarang
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setPaymentResultModal(null)}
+                      className="min-h-11 flex-1 font-semibold"
+                    >
+                      Kembali
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setPaymentResultModal(null);
+                        router.push("/kasir");
+                      }}
+                      className="min-h-11 flex-1 bg-emerald-700 font-bold text-white hover:bg-emerald-800"
+                    >
+                      Lanjut
+                    </Button>
+                  </div>
                   {paymentResultModal.orderId && (
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => {
-                        cancelPendingRedirect();
+                        setPaymentResultModal(null);
                         router.push(
                           `/struk/${paymentResultModal.orderId}?autoprint=1`
                         );
