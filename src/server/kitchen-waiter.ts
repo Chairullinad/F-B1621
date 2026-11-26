@@ -262,6 +262,7 @@ export async function startOrderCookingAction(rawInput: {
   }
 
   revalidatePath("/dapur");
+  revalidatePath("/kasir");
   return {
     ok: true,
     message: "Status tiket diubah menjadi Sedang Dimasak.",

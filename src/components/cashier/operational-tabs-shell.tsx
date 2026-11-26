@@ -39,6 +39,18 @@ export function OperationalTabsShell({
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  function handleSelectTab(nextTab: "kasir" | "kitchen" | "antar" | "shift") {
+    setActiveTab(nextTab);
+    try {
+      const nextUrl = nextTab === "kasir" ? "/kasir" : `/kasir?tab=${nextTab}`;
+      if (window.location.pathname === "/kasir") {
+        window.history.replaceState(null, "", nextUrl);
+      }
+    } catch {
+      // Abaikan jika browser membatasi history API
+    }
+  }
+
   const pendingCount = cashierData.pendingOrders.length;
   const kitchenCount = kitchenData.paidTickets.length;
   const waiterCount = waiterData.readyTickets.length;
@@ -50,7 +62,7 @@ export function OperationalTabsShell({
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setActiveTab("kasir")}
+            onClick={() => handleSelectTab("kasir")}
             className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
               activeTab === "kasir"
                 ? "bg-[#1B5E86] text-white shadow-xs"
@@ -74,7 +86,7 @@ export function OperationalTabsShell({
 
           <button
             type="button"
-            onClick={() => setActiveTab("kitchen")}
+            onClick={() => handleSelectTab("kitchen")}
             className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
               activeTab === "kitchen"
                 ? "bg-[#1B5E86] text-white shadow-xs"
@@ -98,7 +110,7 @@ export function OperationalTabsShell({
 
           <button
             type="button"
-            onClick={() => setActiveTab("antar")}
+            onClick={() => handleSelectTab("antar")}
             className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
               activeTab === "antar"
                 ? "bg-[#1B5E86] text-white shadow-xs"
@@ -122,7 +134,7 @@ export function OperationalTabsShell({
 
           <button
             type="button"
-            onClick={() => setActiveTab("shift")}
+            onClick={() => handleSelectTab("shift")}
             className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
               activeTab === "shift"
                 ? "bg-emerald-700 text-white shadow-xs"
@@ -141,7 +153,12 @@ export function OperationalTabsShell({
 
       {/* Konten Tab Aktif */}
       {activeTab === "kasir" && <CashierWorkspace initialData={cashierData} />}
-      {activeTab === "kitchen" && <KitchenBoard initialData={kitchenData} />}
+      {activeTab === "kitchen" && (
+        <KitchenBoard
+          initialData={kitchenData}
+          receiptReturnTo="/kasir?tab=kitchen"
+        />
+      )}
       {activeTab === "antar" && <WaiterBoard initialData={waiterData} />}
       {activeTab === "shift" && <ShiftClosingManager initialData={shiftData} />}
     </div>

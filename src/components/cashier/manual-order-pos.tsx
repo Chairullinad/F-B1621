@@ -1098,7 +1098,7 @@ export function ManualOrderPos({
                     type="button"
                     onClick={() => {
                       setPaymentResultModal(null);
-                      router.push("/kasir");
+                      router.push("/kasir?tab=kitchen");
                     }}
                     className="min-h-11 flex-1 bg-emerald-700 font-bold text-white hover:bg-emerald-800"
                   >

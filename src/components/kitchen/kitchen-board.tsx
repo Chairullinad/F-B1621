@@ -60,8 +60,10 @@ function getElapsedMinutes(isoTimestamp: string, nowMs: number): number {
 
 export function KitchenBoard({
   initialData,
+  receiptReturnTo,
 }: {
   initialData: KitchenWorkspaceData;
+  receiptReturnTo?: string;
 }) {
   const router = useRouter();
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -416,12 +418,22 @@ export function KitchenBoard({
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Link href={`/dapur/struk/${ticket.id}`}>
+                    <Link
+                      href={
+                        receiptReturnTo
+                          ? `/struk/${ticket.id}?mode=both&backTo=${encodeURIComponent(receiptReturnTo)}`
+                          : `/dapur/struk/${ticket.id}`
+                      }
+                    >
                       <Button
                         type="button"
                         variant="outline"
                         className="min-h-11 px-3 text-sm font-semibold"
-                        title="Cetak tiket antrean kitchen (Bluetooth / Browser)"
+                        title={
+                          receiptReturnTo
+                            ? "Cetak struk lengkap & tiket antrean kitchen (Bluetooth / Browser)"
+                            : "Cetak tiket antrean kitchen (Bluetooth / Browser)"
+                        }
                       >
                         <Printer className="mr-1.5 h-4 w-4" />
                         Cetak Struk
