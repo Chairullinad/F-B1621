@@ -90,7 +90,7 @@ export function LoginForm() {
 
   return (
     <div className="space-y-4">
-      {/* Header Kartu: Logo 1621 Group Besar (Tanpa Tulisan Sign In) */}
+      {/* Header Kartu: Logo 1621 Group Besar & Bersih (Tanpa Tulisan Sign In) */}
       <div className="flex flex-col items-center justify-center space-y-2 text-center">
         <div className="relative h-24 w-56 sm:h-28 sm:w-64 flex items-center justify-center">
           <Image
@@ -279,7 +279,7 @@ export function LoginForm() {
             className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Kembali ke Sign In</span>
+            <span>Kembali ke Halaman Login</span>
           </button>
         </form>
       )}
