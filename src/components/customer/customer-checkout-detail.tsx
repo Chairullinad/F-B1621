@@ -16,10 +16,18 @@ import {
   Wrench,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/money";
-import type { PaymentMethod, ProductRow } from "@/lib/types/database";
+import type {
+  OrderItemAddonSnapshot,
+  PaymentMethod,
+  ProductRow,
+} from "@/lib/types/database";
 
 export interface CustomerCartItem {
+  cartItemId: string;
   product: ProductRow;
+  selectedOptionIds: string[];
+  selectedAddons: OrderItemAddonSnapshot[];
+  unitPrice: number;
   qty: number;
   note: string;
 }
@@ -41,9 +49,9 @@ interface CustomerCheckoutDetailProps {
   isQrisUnderMaintenance: boolean;
   isPending: boolean;
   onBackToMenu: () => void;
-  onChangeQty: (productId: string, delta: number) => void;
-  onRemoveItem: (productId: string) => void;
-  onChangeNote: (productId: string, note: string) => void;
+  onChangeQty: (cartItemId: string, delta: number) => void;
+  onRemoveItem: (cartItemId: string) => void;
+  onChangeNote: (cartItemId: string, note: string) => void;
   onSelectPayment: (choice: PaymentMethod) => void;
   onSubmitOrder: () => void;
 }
@@ -115,7 +123,7 @@ export function CustomerCheckoutDetail({
 
           <div className="divide-y divide-slate-100">
             {cart.map((item) => (
-              <div key={item.product.id} className="py-3.5 first:pt-1 last:pb-1 space-y-2.5">
+              <div key={item.cartItemId} className="py-3.5 first:pt-1 last:pb-1 space-y-2.5">
                 <div className="flex items-start gap-3">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
                     {item.product.image_url ? (
@@ -136,18 +144,34 @@ export function CustomerCheckoutDetail({
                         {item.product.name}
                       </h3>
                       <span className="text-sm font-extrabold text-slate-900 shrink-0 tabular-nums">
-                        {formatRupiah(item.product.price * item.qty)}
+                        {formatRupiah(item.unitPrice * item.qty)}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {formatRupiah(item.product.price)} / porsi
+                      {formatRupiah(item.unitPrice)} / porsi
                     </p>
+
+                    {item.selectedAddons.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {item.selectedAddons.map((ad) => (
+                          <span
+                            key={`${item.cartItemId}-${ad.optionId}`}
+                            className="inline-flex items-center rounded-full border border-sky-200/80 bg-[#EBF5FF] px-2 py-0.5 text-[10px] font-bold text-[#1976D2]"
+                          >
+                            {ad.groupName}: {ad.optionName}
+                            {ad.priceDelta > 0
+                              ? ` (+${formatRupiah(ad.priceDelta)})`
+                              : ""}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="mt-2.5 flex items-center justify-between gap-2">
                       <div className="inline-flex h-10 items-center rounded-full border border-slate-200 bg-slate-50 px-1">
                         <button
                           type="button"
-                          onClick={() => onChangeQty(item.product.id, -1)}
+                          onClick={() => onChangeQty(item.cartItemId, -1)}
                           aria-label={`Kurangi ${item.product.name}`}
                           className="flex h-8 w-8 items-center justify-center rounded-full text-slate-700 hover:bg-white cursor-pointer"
                         >
@@ -158,7 +182,7 @@ export function CustomerCheckoutDetail({
                         </span>
                         <button
                           type="button"
-                          onClick={() => onChangeQty(item.product.id, 1)}
+                          onClick={() => onChangeQty(item.cartItemId, 1)}
                           aria-label={`Tambah ${item.product.name}`}
                           className="flex h-8 w-8 items-center justify-center rounded-full text-[#1E88E5] hover:bg-white cursor-pointer"
                         >
@@ -168,7 +192,7 @@ export function CustomerCheckoutDetail({
 
                       <button
                         type="button"
-                        onClick={() => onRemoveItem(item.product.id)}
+                        onClick={() => onRemoveItem(item.cartItemId)}
                         aria-label={`Hapus ${item.product.name}`}
                         className="inline-flex h-10 items-center gap-1 rounded-xl px-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                       >
@@ -186,7 +210,7 @@ export function CustomerCheckoutDetail({
                     type="text"
                     maxLength={160}
                     value={item.note}
-                    onChange={(e) => onChangeNote(item.product.id, e.target.value)}
+                    onChange={(e) => onChangeNote(item.cartItemId, e.target.value)}
                     placeholder="Catatan dapur (opsional, misal: tidak pedas, es sedikit)"
                     className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#1E88E5] focus:bg-white focus:outline-none"
                   />

@@ -206,15 +206,21 @@ const loadCurrentStaffSessionCached = cache(
     try {
       const supabase = await createSupabaseServerClient();
       const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
+        data: claimsData,
+        error: claimsErr,
+      } = await supabase.auth.getClaims();
 
-      if (userErr || !user) {
+      const userId = !claimsErr ? claimsData?.claims?.sub : undefined;
+      if (!userId) {
         return null;
       }
 
-      const profile = await getCachedStaffProfileById(user.id);
+      const userEmail =
+        typeof claimsData?.claims?.email === "string"
+          ? claimsData.claims.email
+          : "";
+
+      const profile = await getCachedStaffProfileById(userId);
 
       if (!profile || !profile.is_active) {
         return null;
@@ -249,7 +255,7 @@ const loadCurrentStaffSessionCached = cache(
 
       return {
         userId: profile.id,
-        email: user.email ?? "",
+        email: userEmail,
         outletId: resolvedOutletId,
         selectedOutletId,
         fullName: profile.full_name,

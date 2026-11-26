@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDateTimeWIB, formatTimeWIB } from "@/lib/datetime";
+import { playToneSequence } from "@/lib/audio";
 import { formatRupiah } from "@/lib/money";
 import { generateQrSvgString } from "@/lib/qrcode";
 import { DEFAULT_FALLBACK_STATIC_QRIS } from "@/lib/qris";
@@ -78,45 +79,25 @@ const STATUS_VARIANTS: Record<
 };
 
 function playNotificationBeep(isQrisClaim: boolean) {
-  try {
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
-    }
-
-    const playTone = (freq: number, startDelay: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = isQrisClaim ? "triangle" : "sine";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + startDelay);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime + startDelay);
-      gain.gain.exponentialRampToValueAtTime(
-        0.001,
-        ctx.currentTime + startDelay + duration
-      );
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + startDelay);
-      osc.stop(ctx.currentTime + startDelay + duration);
-    };
-
-    if (isQrisClaim) {
-      // 3 nada ceria untuk konfirmasi pembayaran QRIS: C5 -> E5 -> G5
-      playTone(523.25, 0, 0.22);
-      playTone(659.25, 0.16, 0.22);
-      playTone(783.99, 0.32, 0.38);
-    } else {
-      // 2 nada ding-dong untuk pesanan baru: D5 -> A5
-      playTone(587.33, 0, 0.22);
-      playTone(880.0, 0.18, 0.35);
-    }
-  } catch {
-    // Abaikan jika browser memblokir autoplay audio sebelum interaksi
+  if (isQrisClaim) {
+    // 3 nada ceria untuk konfirmasi pembayaran QRIS: C5 -> E5 -> G5
+    playToneSequence(
+      [
+        { freq: 523.25, delaySec: 0, durationSec: 0.22 },
+        { freq: 659.25, delaySec: 0.16, durationSec: 0.22 },
+        { freq: 783.99, delaySec: 0.32, durationSec: 0.38 },
+      ],
+      { type: "triangle", gain: 0.25 }
+    );
+  } else {
+    // 2 nada ding-dong untuk pesanan baru: D5 -> A5
+    playToneSequence(
+      [
+        { freq: 587.33, delaySec: 0, durationSec: 0.22 },
+        { freq: 880.0, delaySec: 0.18, durationSec: 0.35 },
+      ],
+      { type: "sine", gain: 0.25 }
+    );
   }
 }
 
@@ -329,12 +310,31 @@ export function CashierWorkspace({
     selectOrder,
   ]);
 
+  const selectedOrderIdRef = useRef<string | null>(selectedOrderId);
+  const presenceChannelRef = useRef<ReturnType<
+    ReturnType<typeof createSupabaseBrowserClient>["channel"]
+  > | null>(null);
+  const presenceSubscribedRef = useRef(false);
+
+  useEffect(() => {
+    selectedOrderIdRef.current = selectedOrderId;
+    if (!presenceSubscribedRef.current || !presenceChannelRef.current) return;
+    void presenceChannelRef.current.track({
+      userId: initialData.staff.userId,
+      fullName: initialData.staff.fullName,
+      selectedOrderId,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [selectedOrderId, initialData.staff.userId, initialData.staff.fullName]);
+
   // Langganan Supabase Realtime (orders + audit_logs + presence antar kasir)
+  // Tanpa memasukkan selectedOrderId agar perpindahan klik order tidak memutus & menyambung ulang WebSocket
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleRefresh = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       if (debounceTimer) return;
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
@@ -380,6 +380,8 @@ export function CashierWorkspace({
         },
       }
     );
+    presenceChannelRef.current = presenceChannel;
+    presenceSubscribedRef.current = false;
 
     presenceChannel
       .on("presence", { event: "sync" }, () => {
@@ -401,10 +403,11 @@ export function CashierWorkspace({
       })
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
+          presenceSubscribedRef.current = true;
           await presenceChannel.track({
             userId: initialData.staff.userId,
             fullName: initialData.staff.fullName,
-            selectedOrderId,
+            selectedOrderId: selectedOrderIdRef.current,
             updatedAt: new Date().toISOString(),
           });
         }
@@ -417,9 +420,19 @@ export function CashierWorkspace({
       }
     }, 15_000);
 
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        scheduleRefresh();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      presenceSubscribedRef.current = false;
+      presenceChannelRef.current = null;
       supabase.removeChannel(dbChannel);
       supabase.removeChannel(presenceChannel);
     };
@@ -427,7 +440,6 @@ export function CashierWorkspace({
     initialData.outlet.id,
     initialData.staff.userId,
     initialData.staff.fullName,
-    selectedOrderId,
     router,
   ]);
 
@@ -458,6 +470,19 @@ export function CashierWorkspace({
     initialData.recentOrders,
     searchQuery,
   ]);
+
+  const qrisPopupSvgMarkup = useMemo(() => {
+    const raw = (initialData.outlet.qrisRawPayload ?? "").trim();
+    if (raw.startsWith("data:image/")) return null;
+    const source = raw.startsWith("000201")
+      ? raw
+      : DEFAULT_FALLBACK_STATIC_QRIS;
+    try {
+      return generateQrSvgString(source, 2);
+    } catch {
+      return generateQrSvgString(DEFAULT_FALLBACK_STATIC_QRIS, 2);
+    }
+  }, [initialData.outlet.qrisRawPayload]);
 
   const parsedCashReceived = useMemo(() => {
     const clean = cashReceivedInput.replace(/[^\d]/g, "");
@@ -2020,9 +2045,7 @@ export function CashierWorkspace({
               </div>
 
               <div className="mx-auto flex w-fit flex-col items-center justify-center rounded-2xl border-2 border-slate-900 bg-white p-4 shadow-sm">
-                {(initialData.outlet.qrisRawPayload ?? "")
-                  .trim()
-                  .startsWith("data:image/") ? (
+                {qrisPopupSvgMarkup === null ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={(initialData.outlet.qrisRawPayload ?? "").trim()}
@@ -2033,22 +2056,7 @@ export function CashierWorkspace({
                   <div
                     className="h-64 w-64"
                     dangerouslySetInnerHTML={{
-                      __html: (() => {
-                        const raw = (
-                          initialData.outlet.qrisRawPayload ?? ""
-                        ).trim();
-                        const source = raw.startsWith("000201")
-                          ? raw
-                          : DEFAULT_FALLBACK_STATIC_QRIS;
-                        try {
-                          return generateQrSvgString(source, 2);
-                        } catch {
-                          return generateQrSvgString(
-                            DEFAULT_FALLBACK_STATIC_QRIS,
-                            2
-                          );
-                        }
-                      })(),
+                      __html: qrisPopupSvgMarkup,
                     }}
                   />
                 )}

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
+import type { ProductAddonGroupWithOptions } from "@/lib/addons";
 import {
   calculateCashChange,
   calculateDiscountAmount,
@@ -23,6 +24,11 @@ import type {
   TableRow,
   UserRole,
 } from "@/lib/types/database";
+import {
+  insertOrderItemsWithAddonFallback,
+  loadOutletAddonCatalog,
+  resolveServerOrderItemsWithAddons,
+} from "@/server/addon-helpers";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 import type { CashierOrderItemView } from "@/server/cashier";
 import { recordOrderPaidInventoryAndAccounting } from "@/server/inventory";
@@ -41,6 +47,10 @@ const createManualOrderSchema = z
           productId: z.string().uuid("ID produk tidak valid."),
           qty: z.number().int().min(1).max(100),
           note: z.string().trim().max(160).nullable().optional(),
+          addonOptionIds: z
+            .array(z.string().uuid("ID opsi add-on tidak valid."))
+            .max(40)
+            .optional(),
         })
       )
       .min(1, "Pilih minimal 1 item menu.")
@@ -88,6 +98,7 @@ export interface ManualOrderWorkspaceData {
   };
   categories: CategoryRow[];
   products: ProductRow[];
+  addonsByProduct: Record<string, ProductAddonGroupWithOptions[]>;
   tables: Array<Pick<TableRow, "id" | "table_no" | "name" | "is_active">>;
 }
 
@@ -206,8 +217,14 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
   const staff = await requireStaffRole(["owner", "cashier"], "order_manual");
   const admin = createSupabaseAdminClient();
 
-  const [outletRes, catRes, prodRes, tablesRes] = await Promise.all([
-    admin.from("outlets").select("*").eq("id", staff.outletId).single(),
+  const [outletRes, catRes, prodRes, tablesRes, addonCatalog] = await Promise.all([
+    admin
+      .from("outlets")
+      .select(
+        "id, name, tax_enabled, tax_percent, service_enabled, service_percent, price_includes_tax, max_cashier_discount_percent, max_cashier_discount_amount, qris_enabled, qris_merchant_name, qris_raw_payload"
+      )
+      .eq("id", staff.outletId)
+      .single(),
     admin
       .from("categories")
       .select("*")
@@ -229,6 +246,7 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
       .eq("is_active", true)
       .is("deleted_at", null)
       .order("table_no", { ascending: true }),
+    loadOutletAddonCatalog(staff.outletId),
   ]);
 
   const rawOutlet = (outletRes.data ?? {}) as Record<string, unknown>;
@@ -277,6 +295,7 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
     },
     categories: (catRes.data ?? []) as CategoryRow[],
     products: (prodRes.data ?? []) as ProductRow[],
+    addonsByProduct: addonCatalog.addonsByProduct,
     tables: (tablesRes.data ?? []) as Array<
       Pick<TableRow, "id" | "table_no" | "name" | "is_active">
     >,
@@ -291,7 +310,12 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
 export async function createManualCashierOrderAction(rawInput: {
   orderType: OrderType;
   tableId?: string | null;
-  items: Array<{ productId: string; qty: number; note?: string | null }>;
+  items: Array<{
+    productId: string;
+    qty: number;
+    note?: string | null;
+    addonOptionIds?: string[];
+  }>;
   discountType?: "none" | "amount" | "percent";
   discountValue?: number;
   discountReason?: string;
@@ -374,15 +398,22 @@ export async function createManualCashierOrderAction(rawInput: {
     resolvedTableId = String(tbl.id);
   }
 
-  // 3. Ambil produk dari DB untuk harga snapshot yang sah
+  // 3. Ambil produk dan katalog add-on dari DB untuk harga snapshot yang sah
   const productIds = Array.from(new Set(items.map((i) => i.productId)));
-  const [{ data: dbProducts }, { data: outletRow }] = await Promise.all([
+  const [{ data: dbProducts }, { data: outletRow }, addonCatalog] = await Promise.all([
     admin
       .from("products")
       .select("id, name, price, is_available, is_active, deleted_at")
       .eq("outlet_id", staff.outletId)
       .in("id", productIds),
-    admin.from("outlets").select("*").eq("id", staff.outletId).single(),
+    admin
+      .from("outlets")
+      .select(
+        "id, tax_enabled, tax_percent, service_enabled, service_percent, price_includes_tax, max_cashier_discount_percent, max_cashier_discount_amount"
+      )
+      .eq("id", staff.outletId)
+      .single(),
+    loadOutletAddonCatalog(staff.outletId),
   ]);
 
   const prodMap = new Map<
@@ -399,38 +430,20 @@ export async function createManualCashierOrderAction(rawInput: {
     }
   }
 
-  const verifiedItems: Array<{
-    productId: string;
-    productName: string;
-    unitPrice: number;
-    qty: number;
-    note: string | null;
-    lineTotal: number;
-  }> = [];
+  const resolvedOrderItems = resolveServerOrderItemsWithAddons({
+    items,
+    productMap: prodMap,
+    addonsByProduct: addonCatalog.addonsByProduct,
+  });
 
-  for (const item of items) {
-    const prod = prodMap.get(item.productId);
-    if (!prod) {
-      return {
-        ok: false,
-        message: "Salah satu produk tidak ditemukan atau sudah tidak aktif.",
-      };
-    }
-    if (!prod.isAvailable) {
-      return {
-        ok: false,
-        message: `Menu "${prod.name}" sedang habis dan tidak bisa dipesan.`,
-      };
-    }
-    verifiedItems.push({
-      productId: item.productId,
-      productName: prod.name,
-      unitPrice: prod.price,
-      qty: item.qty,
-      note: item.note && item.note.length > 0 ? item.note : null,
-      lineTotal: prod.price * item.qty,
-    });
+  if (!resolvedOrderItems.ok) {
+    return {
+      ok: false,
+      message: resolvedOrderItems.message,
+    };
   }
+
+  const verifiedItems = resolvedOrderItems.items;
 
   const subtotal = verifiedItems.reduce((acc, i) => acc + i.lineTotal, 0);
 
@@ -566,17 +579,10 @@ export async function createManualCashierOrderAction(rawInput: {
 
   const orderId = String(createdOrder.id);
 
-  // 7. Simpan snapshot order_items
-  const { error: itemsErr } = await admin.from("order_items").insert(
-    verifiedItems.map((item) => ({
-      order_id: orderId,
-      product_id: item.productId,
-      product_name: item.productName,
-      unit_price: item.unitPrice,
-      qty: item.qty,
-      note: item.note,
-      line_total: item.lineTotal,
-    }))
+  // 7. Simpan snapshot order_items + add-on
+  const { error: itemsErr } = await insertOrderItemsWithAddonFallback(
+    orderId,
+    verifiedItems
   );
 
   if (itemsErr) {

@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import { BatchTableQrPrintGrid } from "@/components/dashboard/batch-table-qr-print-grid";
 import { DownloadAllQrPngButton } from "@/components/dashboard/download-all-qr-png-button";
 import { DownloadQrPngButton } from "@/components/dashboard/download-qr-png-button";
 import { PrintTriggerButton } from "@/components/dashboard/print-trigger-button";
-import { TableQrStandeeCard } from "@/components/dashboard/table-qr-standee-card";
 import { Button } from "@/components/ui/button";
-import { generateQrSvgString } from "@/lib/qrcode";
 import {
-  getOutletAndNotificationSettings,
+  getOutletBrandSummaryForOwner,
   listTablesForOwner,
 } from "@/server/master-data";
 
@@ -16,11 +15,11 @@ export default async function CetakQrMejaPage({
 }: {
   searchParams: Promise<{ table?: string }>;
 }) {
-  const [{ table: tableFilter }, tables, { outletView }, hdrs] =
+  const [{ table: tableFilter }, tables, outletBrand, hdrs] =
     await Promise.all([
       searchParams,
       listTablesForOwner(),
-      getOutletAndNotificationSettings(),
+      getOutletBrandSummaryForOwner(),
       headers(),
     ]);
 
@@ -41,12 +40,12 @@ export default async function CetakQrMejaPage({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 print:hidden">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            Cetak Standee QR Meja — {outletView.name} ({activeTables.length} Meja)
+            Cetak Standee QR Meja — {outletBrand.name} ({activeTables.length} Meja)
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Klik <strong>Cetak / Simpan PDF</strong> di kanan, lalu pastikan opsi{" "}
             <strong>Background graphics / Grafis latar belakang</strong> dicentang pada dialog cetak agar warna{" "}
-            <span className="font-mono font-semibold">{outletView.themeColor.toUpperCase()}</span> ikut tercetak.
+            <span className="font-mono font-semibold">{outletBrand.themeColor.toUpperCase()}</span> ikut tercetak.
           </p>
         </div>
 
@@ -61,9 +60,9 @@ export default async function CetakQrMejaPage({
           ) : null}
           {activeTables.length === 1 && activeTables[0] ? (
             <DownloadQrPngButton
-              outletName={outletView.name}
-              outletLogoUrl={outletView.logoUrl}
-              outletThemeColor={outletView.themeColor}
+              outletName={outletBrand.name}
+              outletLogoUrl={outletBrand.logoUrl}
+              outletThemeColor={outletBrand.themeColor}
               tableNo={activeTables[0].table_no}
               qrToken={activeTables[0].qr_token}
               variant="default"
@@ -71,9 +70,9 @@ export default async function CetakQrMejaPage({
             />
           ) : activeTables.length > 1 ? (
             <DownloadAllQrPngButton
-              outletName={outletView.name}
-              outletLogoUrl={outletView.logoUrl}
-              outletThemeColor={outletView.themeColor}
+              outletName={outletBrand.name}
+              outletLogoUrl={outletBrand.logoUrl}
+              outletThemeColor={outletBrand.themeColor}
               tables={activeTables.map((t) => ({
                 tableNo: t.table_no,
                 qrToken: t.qr_token,
@@ -84,43 +83,18 @@ export default async function CetakQrMejaPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-2 print:gap-5">
-        {activeTables.map((table) => {
-          const qrUrl = `${baseUrl}/m/${table.qr_token}`;
-          const svgMarkup = generateQrSvgString(qrUrl, 2);
-
-          return (
-            <div
-              key={table.id}
-              className="break-inside-avoid flex flex-col items-center gap-2.5 [content-visibility:auto] [contain-intrinsic-size:330px_420px] print:[content-visibility:visible]"
-            >
-              <div className="w-full max-w-[330px]">
-                <TableQrStandeeCard
-                  outletName={outletView.name}
-                  outletLogoUrl={outletView.logoUrl}
-                  outletThemeColor={outletView.themeColor}
-                  tableNo={table.table_no}
-                  qrSvg={svgMarkup}
-                  compact={true}
-                />
-              </div>
-              <div className="w-full max-w-[330px] print:hidden">
-                <DownloadQrPngButton
-                  outletName={outletView.name}
-                  outletLogoUrl={outletView.logoUrl}
-                  outletThemeColor={outletView.themeColor}
-                  tableNo={table.table_no}
-                  qrToken={table.qr_token}
-                  label={`Simpan PNG (${table.name})`}
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-10"
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <BatchTableQrPrintGrid
+        tables={activeTables.map((t) => ({
+          id: t.id,
+          tableNo: t.table_no,
+          name: t.name,
+          qrToken: t.qr_token,
+        }))}
+        outletName={outletBrand.name}
+        outletLogoUrl={outletBrand.logoUrl}
+        outletThemeColor={outletBrand.themeColor}
+        baseUrl={baseUrl}
+      />
     </div>
   );
 }

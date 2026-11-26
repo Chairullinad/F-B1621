@@ -12,35 +12,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  isOperationalOrderRealtimeEvent,
+  useDebouncedOrdersRealtime,
+} from "@/hooks/use-debounced-orders-realtime";
+import { playToneSequence } from "@/lib/audio";
 import { formatTimeWIB } from "@/lib/datetime";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   markOrderServedAction,
   type WaiterWorkspaceData,
 } from "@/server/kitchen-waiter";
 
 function playWaiterChime() {
-  try {
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(659.25, ctx.currentTime);
-    osc.frequency.setValueAtTime(987.77, ctx.currentTime + 0.14);
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.38);
-  } catch {
-    // Abaikan bila browser belum mengizinkan audio otomatis
-  }
+  playToneSequence(
+    [
+      { freq: 659.25, delaySec: 0, durationSec: 0.2 },
+      { freq: 987.77, delaySec: 0.14, durationSec: 0.38 },
+    ],
+    { type: "sine", gain: 0.2 }
+  );
 }
 
 export function WaiterBoard({
@@ -77,29 +67,13 @@ export function WaiterBoard({
     prevReadyIdsRef.current = currentReady;
   }, [initialData.readyTickets, soundEnabled]);
 
-  // Langganan Supabase Realtime untuk tabel orders
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    const channel = supabase
-      .channel(`waiter-orders-${initialData.staff.outletId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `outlet_id=eq.${initialData.staff.outletId}`,
-        },
-        () => {
-          router.refresh();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [initialData.staff.outletId, router]);
+  // Langganan Supabase Realtime untuk tabel orders (ter-debounce & abaikan order pending/expired)
+  useDebouncedOrdersRealtime({
+    channelName: `waiter-orders-${initialData.staff.outletId}`,
+    outletId: initialData.staff.outletId,
+    debounceMs: 450,
+    shouldRefreshOnOrderEvent: isOperationalOrderRealtimeEvent,
+  });
 
   async function handleMarkServed(orderId: string, expectedVersion: number) {
     setProcessingOrderId(orderId);

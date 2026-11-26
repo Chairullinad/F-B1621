@@ -28,12 +28,16 @@ import {
   createManualAccountingEntryAction,
   type FinancialReportData,
 } from "@/server/accounting";
-import type { DailyHoldingReportPreview } from "@/server/holding-reports";
+import {
+  getDailyEmailTemplatePreview,
+  type DailyHoldingReportPreview,
+} from "@/server/holding-reports";
 
 interface FinancialReportTabsProps {
   initialData: FinancialReportData;
   initialTab?: string;
   dailyEmailPreview?: DailyHoldingReportPreview;
+  initialEmailDate?: string;
 }
 
 type TabKey = "aruskas" | "jurnal" | "labarugi" | "neraca" | "pajak";
@@ -50,6 +54,7 @@ export function FinancialReportTabs({
   initialData,
   initialTab,
   dailyEmailPreview,
+  initialEmailDate,
 }: FinancialReportTabsProps) {
   const router = useRouter();
   const safeInitialTab: TabKey = VALID_TABS.includes(initialTab as TabKey)
@@ -57,7 +62,10 @@ export function FinancialReportTabs({
     : "aruskas";
   const [activeTab, setActiveTab] = useState<TabKey>(safeInitialTab);
   const [showEmailTemplatePreview, setShowEmailTemplatePreview] =
-    useState(false);
+    useState(Boolean(dailyEmailPreview));
+  const [loadedEmailPreview, setLoadedEmailPreview] =
+    useState<DailyHoldingReportPreview | null>(dailyEmailPreview ?? null);
+  const [isLoadingPreview, startPreviewTransition] = useTransition();
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{
     ok: boolean;
@@ -147,6 +155,36 @@ export function FinancialReportTabs({
     });
   }
 
+  function loadEmailPreview(dateWib?: string) {
+    startPreviewTransition(async () => {
+      try {
+        const preview = await getDailyEmailTemplatePreview(dateWib);
+        setLoadedEmailPreview(preview);
+        setShowEmailTemplatePreview(true);
+      } catch (err) {
+        setFeedback({
+          ok: false,
+          message:
+            err instanceof Error
+              ? err.message
+              : "Gagal memuat preview template email harian.",
+        });
+      }
+    });
+  }
+
+  function handleToggleEmailPreview() {
+    if (showEmailTemplatePreview) {
+      setShowEmailTemplatePreview(false);
+      return;
+    }
+    if (loadedEmailPreview) {
+      setShowEmailTemplatePreview(true);
+      return;
+    }
+    loadEmailPreview(initialEmailDate);
+  }
+
   function handleExportCsv() {
     const headers = [
       "No. Jurnal",
@@ -223,24 +261,25 @@ export function FinancialReportTabs({
               <Download className="h-4 w-4 text-slate-500" />
               <span>Export CSV</span>
             </button>
-            {dailyEmailPreview && (
-              <button
-                type="button"
-                onClick={() => setShowEmailTemplatePreview((v) => !v)}
-                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                {showEmailTemplatePreview ? (
-                  <EyeOff className="h-4 w-4 text-slate-500" />
-                ) : (
-                  <Eye className="h-4 w-4 text-slate-500" />
-                )}
-                <span>
-                  {showEmailTemplatePreview
+            <button
+              type="button"
+              disabled={isLoadingPreview}
+              onClick={handleToggleEmailPreview}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-60"
+            >
+              {showEmailTemplatePreview ? (
+                <EyeOff className="h-4 w-4 text-slate-500" />
+              ) : (
+                <Eye className="h-4 w-4 text-slate-500" />
+              )}
+              <span>
+                {isLoadingPreview
+                  ? "Memuat Template..."
+                  : showEmailTemplatePreview
                     ? "Tutup Template Email"
                     : "Template Email Harian"}
-                </span>
-              </button>
-            )}
+              </span>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -388,11 +427,13 @@ export function FinancialReportTabs({
         </div>
       </div>
 
-      {/* Template Report Harian Email (Tersembunyi secara default; dibuka hanya bila Owner ingin melihat preview template email) */}
-      {showEmailTemplatePreview && dailyEmailPreview && (
+      {/* Template Report Harian Email (Dimuat lazy on-demand saat Owner membuka preview) */}
+      {showEmailTemplatePreview && loadedEmailPreview && (
         <DailyEmailReportTemplate
-          preview={dailyEmailPreview}
+          preview={loadedEmailPreview}
           dateQueryBasePath={buildReportUrl({})}
+          onDateChange={(nextDate) => loadEmailPreview(nextDate)}
+          isUpdating={isLoadingPreview}
         />
       )}
 

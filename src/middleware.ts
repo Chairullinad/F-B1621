@@ -55,10 +55,13 @@ export async function middleware(request: NextRequest) {
   });
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: claimsData,
+    error: claimsErr,
+  } = await supabase.auth.getClaims();
 
-  if (!user) {
+  const userId = !claimsErr ? claimsData?.claims?.sub : undefined;
+
+  if (!userId) {
     if (isProtected) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/login";
@@ -79,14 +82,14 @@ export async function middleware(request: NextRequest) {
   const { data: profileWithPerms, error: profilePermsErr } = await supabase
     .from("profiles")
     .select("role, is_active, deleted_at, custom_permissions")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   if (profilePermsErr && profilePermsErr.message.includes("custom_permissions")) {
     const { data: fallbackProfile } = await supabase
       .from("profiles")
       .select("role, is_active, deleted_at")
-      .eq("id", user.id)
+      .eq("id", userId)
       .maybeSingle();
     profile = fallbackProfile;
   } else {
@@ -141,7 +144,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest|sw\\.js|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
 

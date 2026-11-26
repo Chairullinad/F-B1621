@@ -87,14 +87,46 @@ export function StaffSidebarShell({
   const [confirmNextPw, setConfirmNextPw] = React.useState("");
   const [isUpdatingPw, startPwTransition] = React.useTransition();
   const prefetchedHrefsRef = React.useRef<Set<string>>(new Set());
+  const prefetchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const cancelPendingPrefetch = React.useCallback(() => {
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current);
+      prefetchTimerRef.current = null;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    return () => cancelPendingPrefetch();
+  }, [cancelPendingPrefetch]);
 
   const prefetchRouteOnce = React.useCallback(
     (href: string) => {
-      if (prefetchedHrefsRef.current.has(href)) return;
+      const cleanPath = href.split("?")[0] ?? href;
+      if (cleanPath === pathname || prefetchedHrefsRef.current.has(href)) {
+        return;
+      }
       prefetchedHrefsRef.current.add(href);
       router.prefetch(href);
     },
-    [router]
+    [pathname, router]
+  );
+
+  const scheduleHoverPrefetch = React.useCallback(
+    (href: string) => {
+      cancelPendingPrefetch();
+      const cleanPath = href.split("?")[0] ?? href;
+      if (cleanPath === pathname || prefetchedHrefsRef.current.has(href)) {
+        return;
+      }
+      prefetchTimerRef.current = setTimeout(() => {
+        prefetchTimerRef.current = null;
+        prefetchRouteOnce(href);
+      }, 100);
+    },
+    [cancelPendingPrefetch, pathname, prefetchRouteOnce]
   );
 
   const [optimisticOutletId, setOptimisticOutletId] = React.useState<
@@ -620,10 +652,12 @@ export function StaffSidebarShell({
                           key={item.href + item.label}
                           href={item.href}
                           prefetch={false}
-                          onMouseEnter={() => prefetchRouteOnce(item.href)}
+                          onMouseEnter={() => scheduleHoverPrefetch(item.href)}
+                          onMouseLeave={cancelPendingPrefetch}
                           onFocus={() => prefetchRouteOnce(item.href)}
                           onTouchStart={() => prefetchRouteOnce(item.href)}
                           onClick={() => {
+                            cancelPendingPrefetch();
                             setPendingHref(item.href);
                             setMobileOpen(false);
                           }}

@@ -260,9 +260,6 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
   const staff = await requireStaffRole(["owner", "cashier"], "kasir");
   const admin = createSupabaseAdminClient();
 
-  // 1. Kedaluwarsakan order PENDING yang sudah melewati expires_at lewat job server
-  await runExpireOverdueOrdersJob();
-
   const [
     outletRes,
     pendingRes,
@@ -271,7 +268,13 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
     catRes,
     prodRes,
   ] = await Promise.all([
-    admin.from("outlets").select("*").eq("id", staff.outletId).single(),
+    admin
+      .from("outlets")
+      .select(
+        "id, name, address, receipt_footer, tax_enabled, tax_percent, service_enabled, service_percent, price_includes_tax, max_cashier_discount_percent, max_cashier_discount_amount, qris_enabled, qris_merchant_name, qris_raw_payload"
+      )
+      .eq("id", staff.outletId)
+      .single(),
     admin
       .from("orders")
       .select("*")
@@ -316,10 +319,41 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
     });
   }
 
-  const allRawOrders = [
-    ...((pendingRes.data ?? []) as Array<Record<string, unknown>>),
-    ...((recentRes.data ?? []) as Array<Record<string, unknown>>),
-  ];
+  // Kedaluwarsakan order PENDING hanya jika di hasil query memang ada yang sudah lewat expires_at
+  const nowMs = Date.now();
+  const rawPendingRows = (pendingRes.data ?? []) as Array<
+    Record<string, unknown>
+  >;
+  let pendingRows = rawPendingRows;
+  let recentRows = (recentRes.data ?? []) as Array<Record<string, unknown>>;
+
+  const hasOverduePending = rawPendingRows.some((row) => {
+    const exp = row.expires_at ? Date.parse(String(row.expires_at)) : NaN;
+    return Number.isFinite(exp) && exp <= nowMs;
+  });
+
+  if (hasOverduePending) {
+    const expiryResult = await runExpireOverdueOrdersJob();
+    if (expiryResult.expiredCount > 0) {
+      const expiredSet = new Set(expiryResult.expiredOrderIds);
+      pendingRows = rawPendingRows.filter(
+        (row) => !expiredSet.has(String(row.id))
+      );
+      const { data: refreshedRecent } = await admin
+        .from("orders")
+        .select("*")
+        .eq("outlet_id", staff.outletId)
+        .in("status", ["paid", "ready", "served", "cancelled", "expired"])
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      if (refreshedRecent) {
+        recentRows = refreshedRecent as Array<Record<string, unknown>>;
+      }
+    }
+  }
+
+  const allRawOrders = [...pendingRows, ...recentRows];
   const allOrderIds = allRawOrders.map((o) => String(o.id));
 
   const [itemsRes, paymentsRes, refundsRes, auditsRes] =
@@ -529,12 +563,8 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
       ),
       qrisRawPayload: (rawOutlet.qris_raw_payload as string | null) ?? null,
     },
-    pendingOrders: ((pendingRes.data ?? []) as Array<Record<string, unknown>>).map(
-      mapOrderToCardView
-    ),
-    recentOrders: ((recentRes.data ?? []) as Array<Record<string, unknown>>).map(
-      mapOrderToCardView
-    ),
+    pendingOrders: pendingRows.map(mapOrderToCardView),
+    recentOrders: recentRows.map(mapOrderToCardView),
     categories: (catRes.data ?? []) as CategoryRow[],
     products: (prodRes.data ?? []) as ProductRow[],
   };
@@ -806,7 +836,13 @@ export async function applyOrderDiscountAction(rawInput: {
         .eq("outlet_id", staff.outletId)
         .is("deleted_at", null)
         .maybeSingle(),
-      admin.from("outlets").select("*").eq("id", staff.outletId).single(),
+      admin
+      .from("outlets")
+      .select(
+        "id, name, address, receipt_footer, tax_enabled, tax_percent, service_enabled, service_percent, price_includes_tax, max_cashier_discount_percent, max_cashier_discount_amount, qris_enabled, qris_merchant_name, qris_raw_payload"
+      )
+      .eq("id", staff.outletId)
+      .single(),
       admin
         .from("order_items")
         .select("unit_price, qty")

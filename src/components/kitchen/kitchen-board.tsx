@@ -18,8 +18,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  isOperationalOrderRealtimeEvent,
+  useDebouncedOrdersRealtime,
+} from "@/hooks/use-debounced-orders-realtime";
+import { playToneSequence } from "@/lib/audio";
 import { formatTimeWIB } from "@/lib/datetime";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   markOrderReadyAction,
   startOrderCookingAction,
@@ -27,33 +31,24 @@ import {
 } from "@/server/kitchen-waiter";
 
 function playKitchenBell(isCancelledAlert: boolean) {
-  try {
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = isCancelledAlert ? "sawtooth" : "triangle";
-    osc.frequency.setValueAtTime(
-      isCancelledAlert ? 330 : 783.99,
-      ctx.currentTime
-    );
-    osc.frequency.setValueAtTime(
-      isCancelledAlert ? 220 : 1046.5,
-      ctx.currentTime + 0.16
-    );
-    gain.gain.setValueAtTime(0.22, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.42);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.42);
-  } catch {
-    // Abaikan jika browser memblokir autoplay sebelum interaksi
-  }
+  playToneSequence(
+    [
+      {
+        freq: isCancelledAlert ? 330 : 783.99,
+        delaySec: 0,
+        durationSec: 0.22,
+      },
+      {
+        freq: isCancelledAlert ? 220 : 1046.5,
+        delaySec: 0.16,
+        durationSec: 0.42,
+      },
+    ],
+    {
+      type: isCancelledAlert ? "sawtooth" : "triangle",
+      gain: 0.22,
+    }
+  );
 }
 
 function getElapsedMinutes(isoTimestamp: string, nowMs: number): number {
@@ -120,34 +115,25 @@ export function KitchenBoard({
     soundEnabled,
   ]);
 
-  // Langganan Supabase Realtime untuk perubahan tabel orders
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    const channel = supabase
-      .channel(`kitchen-orders-${initialData.staff.outletId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `outlet_id=eq.${initialData.staff.outletId}`,
-        },
-        () => {
-          router.refresh();
-        }
-      )
-      .subscribe();
+  // Langganan Supabase Realtime untuk perubahan tabel orders (ter-debounce & abaikan order pending/expired)
+  useDebouncedOrdersRealtime({
+    channelName: `kitchen-orders-${initialData.staff.outletId}`,
+    outletId: initialData.staff.outletId,
+    debounceMs: 450,
+    shouldRefreshOnOrderEvent: isOperationalOrderRealtimeEvent,
+  });
 
+  useEffect(() => {
     const timer = setInterval(() => {
-      setNowMs(Date.now());
+      if (!document.hidden) {
+        setNowMs(Date.now());
+      }
     }, 15000);
 
     return () => {
       clearInterval(timer);
-      supabase.removeChannel(channel);
     };
-  }, [initialData.staff.outletId, router]);
+  }, []);
 
   const visibleCancelledTickets = useMemo(
     () =>
