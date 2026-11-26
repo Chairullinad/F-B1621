@@ -40,6 +40,13 @@ export function OperationalTabsShell({
   const [loadedShiftData, setLoadedShiftData] =
     React.useState<ShiftClosingWorkspaceData | null>(shiftData);
   const [isLoadingShift, setIsLoadingShift] = React.useState(false);
+  const [livePendingCount, setLivePendingCount] = React.useState(
+    cashierData.pendingOrders.length
+  );
+
+  React.useEffect(() => {
+    setLivePendingCount(cashierData.pendingOrders.length);
+  }, [cashierData.pendingOrders.length]);
 
   React.useEffect(() => {
     setActiveTab(initialTab);
@@ -85,7 +92,7 @@ export function OperationalTabsShell({
     }
   }
 
-  const pendingCount = cashierData.pendingOrders.length;
+  const pendingCount = livePendingCount;
   const kitchenCount = kitchenData.paidTickets.length;
   const waiterCount = waiterData.readyTickets.length;
 
@@ -190,6 +197,7 @@ export function OperationalTabsShell({
         initialData={cashierData}
         isActiveTab={activeTab === "kasir"}
         onSwitchToKasirTab={() => handleSelectTab("kasir")}
+        onPendingCountChange={setLivePendingCount}
       />
       {activeTab === "kitchen" && (
         <KitchenBoard

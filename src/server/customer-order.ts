@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import type { ProductAddonGroupWithOptions } from "@/lib/addons";
@@ -761,6 +762,7 @@ export async function createCustomerOrderAction(rawInput: {
     source: "customer_qr",
     status: "pending",
   });
+  revalidatePath("/kasir");
 
   const view = await buildCustomerOrderTrackingView({
     orderRecord: insertedOrder,
@@ -870,6 +872,7 @@ export async function confirmCustomerQrisPaidAction(rawInput: {
     source: "customer_qr",
     status: "pending",
   });
+  revalidatePath("/kasir");
 
   const outletRow = await getCachedCustomerOutletRow(String(tableRow.outlet_id));
 

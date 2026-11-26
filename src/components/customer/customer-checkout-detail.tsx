@@ -8,17 +8,14 @@ import {
   MessageSquareText,
   Minus,
   Plus,
-  QrCode,
   ReceiptText,
   ShoppingBag,
   Trash2,
   UtensilsCrossed,
-  Wrench,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/money";
 import type {
   OrderItemAddonSnapshot,
-  PaymentMethod,
   ProductRow,
 } from "@/lib/types/database";
 
@@ -45,14 +42,11 @@ interface CustomerCheckoutDetailProps {
     priceIncludesTax: boolean;
     total: number;
   };
-  paymentChoice: PaymentMethod;
-  isQrisUnderMaintenance: boolean;
   isPending: boolean;
   onBackToMenu: () => void;
   onChangeQty: (cartItemId: string, delta: number) => void;
   onRemoveItem: (cartItemId: string) => void;
   onChangeNote: (cartItemId: string, note: string) => void;
-  onSelectPayment: (choice: PaymentMethod) => void;
   onSubmitOrder: () => void;
 }
 
@@ -61,14 +55,11 @@ export function CustomerCheckoutDetail({
   tableName,
   cart,
   totals,
-  paymentChoice,
-  isQrisUnderMaintenance,
   isPending,
   onBackToMenu,
   onChangeQty,
   onRemoveItem,
   onChangeNote,
-  onSelectPayment,
   onSubmitOrder,
 }: CustomerCheckoutDetailProps) {
   const totalItems = cart.reduce((acc, item) => acc + item.qty, 0);
@@ -241,23 +232,9 @@ export function CustomerCheckoutDetail({
           </div>
 
           <div className="space-y-2.5">
-            {/* Opsi 1: Bayar Tunai di Kasir (Aktif) */}
-            <button
-              type="button"
-              onClick={() => onSelectPayment("cash")}
-              className={`flex w-full items-start gap-3.5 rounded-2xl border-2 p-4 text-left transition cursor-pointer ${
-                paymentChoice === "cash"
-                  ? "border-[#1E88E5] bg-[#EBF5FF]/70 shadow-2xs"
-                  : "border-slate-200 bg-white hover:border-slate-300"
-              }`}
-            >
-              <div
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                  paymentChoice === "cash"
-                    ? "bg-[#1E88E5] text-white"
-                    : "bg-slate-100 text-slate-600"
-                }`}
-              >
+            {/* Bayar Tunai / Langsung di Kasir */}
+            <div className="flex w-full items-start gap-3.5 rounded-2xl border-2 border-[#1E88E5] bg-[#EBF5FF]/70 p-4 text-left shadow-2xs">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1E88E5] text-white">
                 <Banknote className="h-5 w-5" />
               </div>
 
@@ -276,49 +253,7 @@ export function CustomerCheckoutDetail({
                   di meja Kasir maksimal 15 menit setelah pesanan dikirim.
                 </p>
               </div>
-            </button>
-
-            {/* Opsi 2: QRIS di Meja (Sementara Nonaktif / Sedang Dalam Perbaikan) */}
-            <button
-              type="button"
-              disabled={isQrisUnderMaintenance}
-              aria-disabled={isQrisUnderMaintenance}
-              onClick={() => {
-                if (!isQrisUnderMaintenance) {
-                  onSelectPayment("qris");
-                }
-              }}
-              className={`flex w-full items-start gap-3.5 rounded-2xl border p-4 text-left transition ${
-                isQrisUnderMaintenance
-                  ? "border-amber-200/90 bg-amber-50/45 opacity-90 cursor-not-allowed"
-                  : paymentChoice === "qris"
-                    ? "border-2 border-[#1E88E5] bg-[#EBF5FF]/70 cursor-pointer"
-                    : "border-slate-200 bg-white hover:border-slate-300 cursor-pointer"
-              }`}
-            >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100/80 text-amber-700">
-                <QrCode className="h-5 w-5" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-slate-700">
-                    QRIS di Meja
-                  </span>
-                  {isQrisUnderMaintenance ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
-                      <Wrench className="h-3 w-3" />
-                      <span>Sedang dalam perbaikan</span>
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                  {isQrisUnderMaintenance
-                    ? "Pembayaran QRIS di meja sedang dalam perbaikan. Sementara ini mohon selesaikan pembayaran langsung di kasir."
-                    : "Scan QRIS toko dan konfirmasi pembayaran langsung dari meja."}
-                </p>
-              </div>
-            </button>
+            </div>
           </div>
         </section>
 

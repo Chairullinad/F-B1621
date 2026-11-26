@@ -584,6 +584,14 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
   };
 }
 
+/**
+ * Server Action ringan untuk sinkronisasi langsung state Layar Kasir dari klien
+ * saat sinyal Realtime tiba, tanpa harus menunggu reload / SSR penuh halaman.
+ */
+export async function syncCashierWorkspaceAction(): Promise<CashierWorkspaceData> {
+  return getCashierWorkspaceData();
+}
+
 interface InsertOrderVoidRowInput {
   outlet_id: string;
   order_id: string;

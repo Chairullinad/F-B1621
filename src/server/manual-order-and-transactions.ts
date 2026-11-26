@@ -616,6 +616,7 @@ export async function createManualCashierOrderAction(rawInput: {
   }
 
   const orderId = String(createdOrder.id);
+  const orderNo = String(createdOrder.order_no);
 
   // 7. Simpan snapshot order_items + add-on
   const { error: itemsErr } = await insertOrderItemsWithAddonFallback(

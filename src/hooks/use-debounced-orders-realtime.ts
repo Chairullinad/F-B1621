@@ -39,7 +39,7 @@ export function isOperationalOrderRealtimeEvent(
 export function useDebouncedOrdersRealtime({
   channelName,
   outletId,
-  debounceMs = 250,
+  debounceMs = 200,
   shouldRefreshOnOrderEvent,
 }: UseDebouncedOrdersRealtimeOptions): void {
   const router = useRouter();
@@ -60,10 +60,15 @@ export function useDebouncedOrdersRealtime({
     let isSubscribed = false;
     let activeDbChannel: ReturnType<typeof supabase.channel> | null = null;
     let activeBroadcastChannel: ReturnType<typeof supabase.channel> | null = null;
+    let pendingRefreshOnVisible = false;
 
     const triggerRefreshNow = () => {
       if (disposed) return;
-      if (typeof document !== "undefined" && document.hidden) return;
+      if (typeof document !== "undefined" && document.hidden) {
+        pendingRefreshOnVisible = true;
+        return;
+      }
+      pendingRefreshOnVisible = false;
       startTransition(() => {
         router.refresh();
       });
@@ -71,7 +76,10 @@ export function useDebouncedOrdersRealtime({
 
     const scheduleRefresh = () => {
       if (disposed) return;
-      if (typeof document !== "undefined" && document.hidden) return;
+      if (typeof document !== "undefined" && document.hidden) {
+        pendingRefreshOnVisible = true;
+        return;
+      }
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
@@ -79,15 +87,15 @@ export function useDebouncedOrdersRealtime({
       }, debounceMs);
     };
 
-    const cleanupChannels = () => {
-      if (activeDbChannel) {
-        void supabase.removeChannel(activeDbChannel);
-        activeDbChannel = null;
-      }
-      if (activeBroadcastChannel) {
-        void supabase.removeChannel(activeBroadcastChannel);
-        activeBroadcastChannel = null;
-      }
+    const cleanupChannels = async () => {
+      const dbCh = activeDbChannel;
+      const bcCh = activeBroadcastChannel;
+      activeDbChannel = null;
+      activeBroadcastChannel = null;
+      await Promise.all([
+        dbCh ? supabase.removeChannel(dbCh) : Promise.resolve(),
+        bcCh ? supabase.removeChannel(bcCh) : Promise.resolve(),
+      ]);
     };
 
     const scheduleReconnect = () => {
@@ -96,13 +104,14 @@ export function useDebouncedOrdersRealtime({
       reconnectAttempt += 1;
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
-        connectChannels();
+        void connectChannels();
       }, delayMs);
     };
 
-    const connectChannels = () => {
+    const connectChannels = async () => {
       if (disposed) return;
-      cleanupChannels();
+      await cleanupChannels();
+      if (disposed) return;
 
       const suffix = reconnectAttempt > 0 ? `-r${reconnectAttempt}` : "";
 
@@ -142,11 +151,13 @@ export function useDebouncedOrdersRealtime({
         });
 
       const broadcastChannel = supabase
-        .channel(`${getOutletOrdersLiveTopic(outletId)}${suffix}`, {
+        .channel(getOutletOrdersLiveTopic(outletId), {
           config: { broadcast: { self: false } },
         })
         .on("broadcast", { event: ORDER_REALTIME_EVENT }, ({ payload }) => {
-          const typed = payload as Partial<OrderRealtimeBroadcastPayload> | undefined;
+          const typed = payload as
+            | Partial<OrderRealtimeBroadcastPayload>
+            | undefined;
           if (predicateRef.current && !isOperationalBroadcastEvent(typed)) {
             return;
           }
@@ -164,7 +175,7 @@ export function useDebouncedOrdersRealtime({
       activeBroadcastChannel = broadcastChannel;
     };
 
-    connectChannels();
+    void connectChannels();
 
     // Polling adaptif: 4 detik saat WebSocket belum SUBSCRIBED, 25 detik saat WebSocket sehat
     let tickCount = 0;
@@ -181,9 +192,13 @@ export function useDebouncedOrdersRealtime({
     const handleVisibilityOrOnline = () => {
       if (typeof document !== "undefined" && document.hidden) return;
       if (!isSubscribed) {
-        connectChannels();
+        void connectChannels();
       }
-      scheduleRefresh();
+      if (pendingRefreshOnVisible) {
+        triggerRefreshNow();
+      } else {
+        scheduleRefresh();
+      }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityOrOnline);
@@ -196,7 +211,7 @@ export function useDebouncedOrdersRealtime({
       if (fallbackPollTimer) clearInterval(fallbackPollTimer);
       document.removeEventListener("visibilitychange", handleVisibilityOrOnline);
       window.removeEventListener("online", handleVisibilityOrOnline);
-      cleanupChannels();
+      void cleanupChannels();
     };
   }, [channelName, outletId, debounceMs, router]);
 }

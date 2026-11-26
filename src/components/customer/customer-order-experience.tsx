@@ -181,9 +181,6 @@ export function CustomerOrderExperience({
     React.useState<string>("ALL");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [cart, setCart] = React.useState<CustomerCartItem[]>([]);
-  const [paymentChoice, setPaymentChoice] = React.useState<PaymentMethod>(() =>
-    data.outlet.isQrisUnderMaintenance ? "cash" : "qris"
-  );
   const [idempotencyKey, setIdempotencyKey] = React.useState<string>(() =>
     generateClientIdempotencyKey(data.table.tableNo)
   );
@@ -593,8 +590,7 @@ export function CustomerOrderExperience({
       return;
     }
 
-    const effectivePaymentChoice: PaymentMethod =
-      data.outlet.isQrisUnderMaintenance ? "cash" : paymentChoice;
+    const effectivePaymentChoice: PaymentMethod = "cash";
 
     startTransition(async () => {
       const res = await createCustomerOrderAction({
@@ -1080,14 +1076,11 @@ export function CustomerOrderExperience({
         tableName={data.table.name}
         cart={cart}
         totals={cartTotals}
-        paymentChoice={paymentChoice}
-        isQrisUnderMaintenance={data.outlet.isQrisUnderMaintenance}
         isPending={isPending}
         onBackToMenu={() => setViewStep("menu")}
         onChangeQty={updateCartQty}
         onRemoveItem={removeFromCart}
         onChangeNote={updateCartNote}
-        onSelectPayment={setPaymentChoice}
         onSubmitOrder={handleSubmitOrder}
       />
     );

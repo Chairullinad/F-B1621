@@ -63,6 +63,7 @@ import {
   processOrderPaymentAction,
   rebillOrderAction,
   revisePendingOrderItemsAction,
+  syncCashierWorkspaceAction,
   type CashierOrderCardView,
   type CashierWorkspaceData,
 } from "@/server/cashier";
@@ -193,16 +194,32 @@ function writeAckIdSet(
 }
 
 export function CashierWorkspace({
-  initialData,
+  initialData: propData,
   isActiveTab = true,
   onSwitchToKasirTab,
+  onPendingCountChange,
 }: {
   initialData: CashierWorkspaceData;
   isActiveTab?: boolean;
   onSwitchToKasirTab?: () => void;
+  onPendingCountChange?: (count: number) => void;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [initialData, setLiveData] = useState<CashierWorkspaceData>(propData);
+  const onPendingCountChangeRef = useRef(onPendingCountChange);
+  onPendingCountChangeRef.current = onPendingCountChange;
+  const syncInFlightRef = useRef(false);
+  const syncQueuedRef = useRef(false);
+
+  useEffect(() => {
+    setLiveData(propData);
+  }, [propData]);
+
+  useEffect(() => {
+    onPendingCountChangeRef.current?.(initialData.pendingOrders.length);
+  }, [initialData.pendingOrders.length]);
+
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
@@ -535,7 +552,7 @@ export function CashierWorkspace({
   }, [selectedOrderId, initialData.staff.userId, initialData.staff.fullName]);
 
   // Langganan Supabase Realtime (Postgres Changes orders + Broadcast instan + Presence antar kasir)
-  // Dilengkapi pemantauan status WebSocket, auto-reconnect, dan polling adaptif
+  // Dilengkapi sync langsung state klien tanpa refresh penuh, pemantauan WebSocket, auto-reconnect, & polling adaptif
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -546,23 +563,57 @@ export function CashierWorkspace({
     let broadcastSubscribed = false;
     let activeDbChannel: ReturnType<typeof supabase.channel> | null = null;
     let activeBroadcastChannel: ReturnType<typeof supabase.channel> | null = null;
+    let pendingSyncOnVisible = false;
 
-    const triggerRefreshNow = () => {
+    const syncCashierNow = async (alsoRefreshRouter = false) => {
       if (disposed) return;
-      if (typeof document !== "undefined" && document.hidden) return;
-      startTransition(() => {
-        router.refresh();
-      });
+      if (typeof document !== "undefined" && document.hidden) {
+        pendingSyncOnVisible = true;
+        return;
+      }
+      pendingSyncOnVisible = false;
+      if (syncInFlightRef.current) {
+        syncQueuedRef.current = true;
+        return;
+      }
+      syncInFlightRef.current = true;
+      try {
+        const latest = await syncCashierWorkspaceAction();
+        if (!disposed) {
+          setLiveData(latest);
+          onPendingCountChangeRef.current?.(latest.pendingOrders.length);
+        }
+        if (alsoRefreshRouter && !disposed) {
+          startTransition(() => {
+            router.refresh();
+          });
+        }
+      } catch {
+        if (alsoRefreshRouter && !disposed) {
+          startTransition(() => {
+            router.refresh();
+          });
+        }
+      } finally {
+        syncInFlightRef.current = false;
+        if (syncQueuedRef.current && !disposed) {
+          syncQueuedRef.current = false;
+          void syncCashierNow(false);
+        }
+      }
     };
 
     const scheduleRefresh = () => {
       if (disposed) return;
-      if (typeof document !== "undefined" && document.hidden) return;
+      if (typeof document !== "undefined" && document.hidden) {
+        pendingSyncOnVisible = true;
+        return;
+      }
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        triggerRefreshNow();
-      }, 120);
+        void syncCashierNow(true);
+      }, 100);
     };
 
     const syncConnectionStatus = () => {
@@ -576,15 +627,15 @@ export function CashierWorkspace({
       }
     };
 
-    const cleanupLiveChannels = () => {
-      if (activeDbChannel) {
-        void supabase.removeChannel(activeDbChannel);
-        activeDbChannel = null;
-      }
-      if (activeBroadcastChannel) {
-        void supabase.removeChannel(activeBroadcastChannel);
-        activeBroadcastChannel = null;
-      }
+    const cleanupLiveChannels = async () => {
+      const dbCh = activeDbChannel;
+      const bcCh = activeBroadcastChannel;
+      activeDbChannel = null;
+      activeBroadcastChannel = null;
+      await Promise.all([
+        dbCh ? supabase.removeChannel(dbCh) : Promise.resolve(),
+        bcCh ? supabase.removeChannel(bcCh) : Promise.resolve(),
+      ]);
     };
 
     const scheduleReconnect = () => {
@@ -594,13 +645,14 @@ export function CashierWorkspace({
       syncConnectionStatus();
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
-        connectLiveChannels();
+        void connectLiveChannels();
       }, delayMs);
     };
 
-    const connectLiveChannels = () => {
+    const connectLiveChannels = async () => {
       if (disposed) return;
-      cleanupLiveChannels();
+      await cleanupLiveChannels();
+      if (disposed) return;
       dbSubscribed = false;
       broadcastSubscribed = false;
       syncConnectionStatus();
@@ -641,7 +693,7 @@ export function CashierWorkspace({
         });
 
       const broadcastChannel = supabase
-        .channel(`${getOutletOrdersLiveTopic(initialData.outlet.id)}${suffix}`, {
+        .channel(getOutletOrdersLiveTopic(initialData.outlet.id), {
           config: { broadcast: { self: false } },
         })
         .on("broadcast", { event: ORDER_REALTIME_EVENT }, () => {
@@ -670,7 +722,7 @@ export function CashierWorkspace({
       activeBroadcastChannel = broadcastChannel;
     };
 
-    connectLiveChannels();
+    void connectLiveChannels();
 
     const presenceChannel = supabase.channel(
       `cashier-presence-${initialData.outlet.id}`,
@@ -715,26 +767,31 @@ export function CashierWorkspace({
         }
       });
 
-    // Polling adaptif: setiap 3.5 detik jika WebSocket putus/belum siap, atau heartbeat 25 detik saat WebSocket sehat
+    // Polling ringan cadangan: tiap 2 detik jika WebSocket putus, atau tiap 4 detik saat aktif untuk sinkronisasi instan
     let pollTick = 0;
     const interval = setInterval(() => {
       if (disposed || document.hidden) return;
       pollTick += 1;
       const isLiveHealthy = dbSubscribed || broadcastSubscribed;
-      if (!isLiveHealthy || pollTick % 7 === 0) {
-        triggerRefreshNow();
+      if (!isLiveHealthy || pollTick % 2 === 0) {
+        void syncCashierNow(false);
       }
-    }, 3500);
+    }, 2000);
 
     const handleVisibilityOrOnline = () => {
       if (document.hidden) return;
       if (!dbSubscribed && !broadcastSubscribed) {
-        connectLiveChannels();
+        void connectLiveChannels();
       }
-      scheduleRefresh();
+      if (pendingSyncOnVisible) {
+        void syncCashierNow(true);
+      } else {
+        scheduleRefresh();
+      }
     };
     document.addEventListener("visibilitychange", handleVisibilityOrOnline);
     window.addEventListener("online", handleVisibilityOrOnline);
+    window.addEventListener("focus", handleVisibilityOrOnline);
 
     return () => {
       disposed = true;
@@ -743,9 +800,10 @@ export function CashierWorkspace({
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibilityOrOnline);
       window.removeEventListener("online", handleVisibilityOrOnline);
+      window.removeEventListener("focus", handleVisibilityOrOnline);
       presenceSubscribedRef.current = false;
       presenceChannelRef.current = null;
-      cleanupLiveChannels();
+      void cleanupLiveChannels();
       void supabase.removeChannel(presenceChannel);
     };
   }, [
