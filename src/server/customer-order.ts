@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import type { ProductAddonGroupWithOptions } from "@/lib/addons";
 import {
-  CUSTOMER_QRIS_UNDER_MAINTENANCE,
+  isOutletQrisDisabled,
   resolveCustomerPaymentChoice,
 } from "@/lib/customer-order";
 import { getTodayPrefixWIB } from "@/lib/datetime";
@@ -256,7 +256,7 @@ export async function getCustomerTableMenuByToken(
           rawOutlet.name ??
           "1621 GROUP"
       ),
-      isQrisUnderMaintenance: CUSTOMER_QRIS_UNDER_MAINTENANCE,
+      isQrisUnderMaintenance: isOutletQrisDisabled(rawOutlet),
       landingBanners: outletView.landingBanners,
       landingNewsTitle: outletView.landingNewsTitle,
       landingNewsBannerUrl: outletView.landingNewsBannerUrl,
@@ -482,14 +482,6 @@ export async function createCustomerOrderAction(rawInput: {
   const admin = createSupabaseAdminClient();
   const { qrToken, paymentChoice, idempotencyKey, items } = parsed.data;
 
-  const paymentValidation = resolveCustomerPaymentChoice(paymentChoice);
-  if (!paymentValidation.ok) {
-    return {
-      ok: false,
-      message: paymentValidation.message,
-    };
-  }
-
   // 1. Validasi Meja dari qr_token
   const { data: tableRow, error: tableErr } = await admin
     .from("tables")
@@ -520,6 +512,16 @@ export async function createCustomerOrderAction(rawInput: {
   }
 
   const rawOutlet = outletRow as Record<string, unknown>;
+  const paymentValidation = resolveCustomerPaymentChoice(
+    paymentChoice,
+    isOutletQrisDisabled(rawOutlet)
+  );
+  if (!paymentValidation.ok) {
+    return {
+      ok: false,
+      message: paymentValidation.message,
+    };
+  }
 
   // 3. Cek Idempotency Key (Anti-duplikat saat sinyal pelanggan jelek)
   const { data: existingOrder } = await admin

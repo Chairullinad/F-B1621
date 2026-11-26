@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import jsQR from "jsqr";
-import { Upload, QrCode, CheckCircle2, Sparkles, Mail } from "lucide-react";
+import { Upload, QrCode, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,31 +21,36 @@ import {
   extractMerchantInfoFromQris,
   generateDynamicQrisPayload,
 } from "@/lib/qris";
-import type {
-  InstantNotificationEvents,
-  NotificationSettingsRow,
-  OutletRow,
-} from "@/lib/types/database";
+import type { OutletRow } from "@/lib/types/database";
 import {
-  updateNotificationSettingsAction,
   updateOutletProfileSettingsAction,
   updateQrisSettingsAction,
   updateTaxAndServiceSettingsAction,
 } from "@/server/master-data";
-import { triggerManualMonthlyReportAction } from "@/server/owner-notifications";
+
+function parsePercentValue(raw: string): number | null {
+  const normalized = raw.trim().replace(",", ".");
+  if (!normalized) return null;
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : null;
+}
 
 export function OutletSettingsManager({
   initialOutlet,
-  initialNotification,
 }: {
   initialOutlet: OutletRow;
-  initialNotification: NotificationSettingsRow;
 }) {
-  // 1. State Profil Outlet & Batas Diskon Kasir
+  const router = useRouter();
+
+  // 1. State Profil Outlet, WiFi Struk & Batas Diskon Kasir
   const [name, setName] = React.useState(initialOutlet.name);
   const [address, setAddress] = React.useState(initialOutlet.address ?? "");
   const [receiptFooter, setReceiptFooter] = React.useState(
     initialOutlet.receipt_footer ?? ""
+  );
+  const [wifiName, setWifiName] = React.useState(initialOutlet.wifi_name ?? "");
+  const [wifiPassword, setWifiPassword] = React.useState(
+    initialOutlet.wifi_password ?? ""
   );
   const [expiryMinutes, setExpiryMinutes] = React.useState(
     String(initialOutlet.order_expiry_minutes)
@@ -103,33 +109,55 @@ export function OutletSettingsManager({
   );
   const [isScanningQrisImage, setIsScanningQrisImage] = React.useState(false);
 
-  // 4. State Notifikasi Email Owner
-  const [ownerEmail, setOwnerEmail] = React.useState(
-    initialNotification.owner_email ?? ""
-  );
-  const [monthlyReportEnabled, setMonthlyReportEnabled] = React.useState(
-    initialNotification.monthly_report_enabled
-  );
-  const [instantEvents, setInstantEvents] =
-    React.useState<InstantNotificationEvents>(
-      initialNotification.instant_events
-    );
-
   const [isPending, startTransition] = React.useTransition();
+  const taxPercentInputRef = React.useRef<HTMLInputElement | null>(null);
+  const servicePercentInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const parsedTaxPercent =
-    taxPercentStr.trim().length > 0 ? Number(taxPercentStr) : null;
+  // Sinkronkan ulang state saat berpindah outlet atau setelah router.refresh()
+  React.useEffect(() => {
+    setName(initialOutlet.name);
+    setAddress(initialOutlet.address ?? "");
+    setReceiptFooter(initialOutlet.receipt_footer ?? "");
+    setWifiName(initialOutlet.wifi_name ?? "");
+    setWifiPassword(initialOutlet.wifi_password ?? "");
+    setExpiryMinutes(String(initialOutlet.order_expiry_minutes));
+    setMaxDiscountPercent(
+      initialOutlet.max_cashier_discount_percent !== null
+        ? String(initialOutlet.max_cashier_discount_percent)
+        : ""
+    );
+    setMaxDiscountAmount(
+      initialOutlet.max_cashier_discount_amount !== null
+        ? String(initialOutlet.max_cashier_discount_amount)
+        : ""
+    );
+    setTaxPercentStr(
+      initialOutlet.tax_percent !== null ? String(initialOutlet.tax_percent) : ""
+    );
+    setTaxEnabled(initialOutlet.tax_enabled);
+    setServicePercentStr(
+      initialOutlet.service_percent !== null
+        ? String(initialOutlet.service_percent)
+        : ""
+    );
+    setServiceEnabled(initialOutlet.service_enabled);
+    setPriceIncludesTax(initialOutlet.price_includes_tax);
+    setQrisRawPayload(initialOutlet.qris_raw_payload ?? "");
+    setQrisEnabled(initialOutlet.qris_enabled);
+    setQrisImagePreview(
+      initialOutlet.qris_raw_payload?.startsWith("data:image/")
+        ? initialOutlet.qris_raw_payload
+        : null
+    );
+  }, [initialOutlet]);
+
+  const parsedTaxPercent = parsePercentValue(taxPercentStr);
   const canEnableTax =
-    parsedTaxPercent !== null &&
-    Number.isFinite(parsedTaxPercent) &&
-    parsedTaxPercent > 0 &&
-    parsedTaxPercent <= 100;
+    parsedTaxPercent !== null && parsedTaxPercent > 0 && parsedTaxPercent <= 100;
 
-  const parsedServicePercent =
-    servicePercentStr.trim().length > 0 ? Number(servicePercentStr) : null;
+  const parsedServicePercent = parsePercentValue(servicePercentStr);
   const canEnableService =
     parsedServicePercent !== null &&
-    Number.isFinite(parsedServicePercent) &&
     parsedServicePercent > 0 &&
     parsedServicePercent <= 100;
 
@@ -141,8 +169,7 @@ export function OutletSettingsManager({
   function handleSaveOutletProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const exp = Number.parseInt(expiryMinutes, 10);
-    const maxPct =
-      maxDiscountPercent.trim().length > 0 ? Number(maxDiscountPercent) : null;
+    const maxPct = parsePercentValue(maxDiscountPercent);
     const maxAmt =
       maxDiscountAmount.trim().length > 0
         ? Number.parseInt(maxDiscountAmount, 10)
@@ -153,6 +180,8 @@ export function OutletSettingsManager({
         name,
         address: address.trim() || null,
         receiptFooter: receiptFooter.trim() || null,
+        wifiName: wifiName.trim() || null,
+        wifiPassword: wifiPassword.trim() || null,
         orderExpiryMinutes: exp,
         maxCashierDiscountPercent: maxPct,
         maxCashierDiscountAmount: maxAmt,
@@ -162,7 +191,32 @@ export function OutletSettingsManager({
         return;
       }
       toast.success(res.message);
+      router.refresh();
     });
+  }
+
+  function handleToggleTaxCheckbox(nextChecked: boolean) {
+    if (nextChecked && !canEnableTax) {
+      toast.error(
+        "Isi persentase pajak terlebih dahulu (contoh: 10 atau 11), lalu centang Aktifkan Pajak."
+      );
+      setTaxEnabled(false);
+      taxPercentInputRef.current?.focus();
+      return;
+    }
+    setTaxEnabled(nextChecked);
+  }
+
+  function handleToggleServiceCheckbox(nextChecked: boolean) {
+    if (nextChecked && !canEnableService) {
+      toast.error(
+        "Isi persentase service charge terlebih dahulu (contoh: 5), lalu centang Aktifkan Service Charge."
+      );
+      setServiceEnabled(false);
+      servicePercentInputRef.current?.focus();
+      return;
+    }
+    setServiceEnabled(nextChecked);
   }
 
   function handleSaveTaxAndService(e: React.FormEvent<HTMLFormElement>) {
@@ -171,12 +225,14 @@ export function OutletSettingsManager({
       toast.error(
         "Saklar pajak tidak bisa dinyalakan sebelum persentase pajak diisi (1-100%)."
       );
+      taxPercentInputRef.current?.focus();
       return;
     }
     if (serviceEnabled && !canEnableService) {
       toast.error(
         "Saklar service charge tidak bisa dinyalakan sebelum persentase diisi (1-100%)."
       );
+      servicePercentInputRef.current?.focus();
       return;
     }
 
@@ -193,6 +249,7 @@ export function OutletSettingsManager({
         return;
       }
       toast.success(res.message);
+      router.refresh();
     });
   }
 
@@ -204,12 +261,11 @@ export function OutletSettingsManager({
       staticQrisPayload: `${sampleStatic}0000`,
       amountRupiah: 25000,
     });
-    // Ambil base statis dengan CRC valid
     setQrisMerchantName(cleanMerchant);
     setQrisRawPayload(dynamicSample);
     setQrisEnabled(true);
     toast.success(
-      `Kode QRIS contoh untuk ${cleanMerchant} berhasil diisi! Klik 'Simpan Pengaturan QRIS' untuk mengaktifkan.`
+      `Kode QRIS contoh untuk ${cleanMerchant} berhasil diisi! Klik 'Simpan Status & Pengaturan QRIS' untuk menerbitkan.`
     );
   }
 
@@ -265,7 +321,6 @@ export function OutletSettingsManager({
         drawSource = img;
       }
 
-      // 1. Kompres gambar QRIS ke Data URL agar tersimpan permanen di database
       const maxDim = 650;
       const scale = Math.min(1, maxDim / Math.max(bitmapWidth, bitmapHeight));
       const canvas = document.createElement("canvas");
@@ -282,13 +337,11 @@ export function OutletSettingsManager({
 
       let decodedQrisText: string | null = null;
 
-      // 2. Pindai QR Code dengan jsQR (berfungsi di semua browser Windows/Mac/HP)
-      // Kita pindai gambar penuh dan beberapa area crop tengah poster QRIS
       const cropZones = [
-        { sx: 0, sy: 0, sw: 1, sh: 1 }, // Gambar penuh
-        { sx: 0.1, sy: 0.15, sw: 0.8, sh: 0.7 }, // Area tengah poster QRIS
-        { sx: 0.15, sy: 0.2, sw: 0.7, sh: 0.6 }, // Fokus kotak QR tengah
-        { sx: 0.1, sy: 0.25, sw: 0.8, sh: 0.65 }, // Fokus tengah-bawah poster
+        { sx: 0, sy: 0, sw: 1, sh: 1 },
+        { sx: 0.1, sy: 0.15, sw: 0.8, sh: 0.7 },
+        { sx: 0.15, sy: 0.2, sw: 0.7, sh: 0.6 },
+        { sx: 0.1, sy: 0.25, sw: 0.8, sh: 0.65 },
       ];
 
       const scanCanvas = document.createElement("canvas");
@@ -338,7 +391,6 @@ export function OutletSettingsManager({
         }
       }
 
-      // 3. Fallback ke BarcodeDetector bawaan browser jika ada
       if (!decodedQrisText) {
         type BarcodeDetectorLike = {
           detect: (
@@ -378,8 +430,6 @@ export function OutletSettingsManager({
         ? cleanFallbackName
         : qrisMerchantName.trim() || cleanFallbackName;
 
-      // Simpan gambar poster QRIS Anda agar tampil persis sesuai foto yang di-upload,
-      // namun ambil Nama Merchant asli (Tag 59) dari QRIS yang berhasil dipindai!
       const finalPayload = compressedDataUrl;
 
       if (decodedQrisText) {
@@ -395,7 +445,6 @@ export function OutletSettingsManager({
       setQrisRawPayload(finalPayload);
       setQrisEnabled(true);
 
-      // Langsung simpan ke database otomatis begitu gambar diupload
       startTransition(async () => {
         const res = await updateQrisSettingsAction({
           qrisEnabled: true,
@@ -408,6 +457,7 @@ export function OutletSettingsManager({
               ? `QRIS berhasil dipindai & disimpan! Nama Merchant: ${detectedMerchant}`
               : `Gambar QRIS berhasil disimpan untuk Merchant: ${detectedMerchant}`
           );
+          router.refresh();
         } else {
           toast.error(res.message);
         }
@@ -424,11 +474,23 @@ export function OutletSettingsManager({
     }
   }
 
+  function handleToggleQrisCheckbox(nextChecked: boolean) {
+    if (nextChecked && !canEnableQris) {
+      toast.error(
+        "Upload gambar QRIS atau klik 'Isi Contoh QRIS' terlebih dahulu sebelum mengaktifkan pembayaran QRIS."
+      );
+      setQrisEnabled(false);
+      return;
+    }
+    setQrisEnabled(nextChecked);
+  }
+
   function handleSaveQris(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     startTransition(async () => {
+      const nextEnabled = canEnableQris ? qrisEnabled : false;
       const res = await updateQrisSettingsAction({
-        qrisEnabled: canEnableQris ? qrisEnabled : false,
+        qrisEnabled: nextEnabled,
         qrisMerchantName: qrisMerchantName.trim() || null,
         qrisRawPayload: qrisRawPayload.trim() || null,
       });
@@ -436,37 +498,27 @@ export function OutletSettingsManager({
         toast.error(res.message);
         return;
       }
-      toast.success(res.message);
-    });
-  }
-
-  function handleSaveNotification(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    startTransition(async () => {
-      const res = await updateNotificationSettingsAction({
-        ownerEmail: ownerEmail.trim() || null,
-        monthlyReportEnabled,
-        instantEvents,
-      });
-      if (!res.ok) {
-        toast.error(res.message);
-        return;
-      }
-      toast.success(res.message);
+      toast.success(
+        nextEnabled
+          ? "Pembayaran QRIS di Meja diaktifkan dan disimpan."
+          : "Pembayaran QRIS di Meja dinonaktifkan dan disimpan."
+      );
+      router.refresh();
     });
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      {/* 1. PROFIL OUTLET & BATAS DISKON KASIR */}
+      {/* 1. PROFIL OUTLET, WIFI STRUK & BATAS DISKON KASIR */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            1. Profil Outlet &amp; Batas Diskon Kasir
+            1. Profil Outlet, WiFi Struk &amp; Batas Diskon Kasir
           </CardTitle>
           <CardDescription>
-            Atur identitas toko pada struk, batas waktu pembayaran order
-            pelanggan (default 15 menit), dan batas diskon maksimum untuk kasir.
+            Atur identitas toko &amp; info WiFi pada struk, batas waktu
+            pembayaran order pelanggan (default 15 menit), dan batas diskon
+            maksimum untuk kasir.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -489,6 +541,32 @@ export function OutletSettingsManager({
                 placeholder="Jl. Merdeka No. 1621, Jakarta"
                 disabled={isPending}
               />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium">
+                  Nama WiFi (SSID di Struk)
+                </label>
+                <Input
+                  value={wifiName}
+                  onChange={(e) => setWifiName(e.target.value)}
+                  placeholder="Contoh: 1621-Guest-WiFi"
+                  disabled={isPending}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium">
+                  Password WiFi (di Struk)
+                </label>
+                <Input
+                  value={wifiPassword}
+                  onChange={(e) => setWifiPassword(e.target.value)}
+                  placeholder="Kosongkan jika bebas"
+                  disabled={isPending}
+                />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -557,8 +635,8 @@ export function OutletSettingsManager({
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isPending}>
-              Simpan Profil &amp; Batas Diskon
+            <Button type="submit" className="min-h-11 w-full" disabled={isPending}>
+              Simpan Profil, WiFi &amp; Batas Diskon
             </Button>
           </form>
         </CardContent>
@@ -580,9 +658,10 @@ export function OutletSettingsManager({
             </Badge>
           </div>
           <CardDescription>
-            Default mati dan persentase kosong. Saklar{" "}
-            <strong>tidak bisa dinyalakan sebelum persentase diisi</strong>.
-            Perubahan hanya berlaku untuk order baru.
+            Isi persentase terlebih dahulu lalu centang{" "}
+            <strong>Aktifkan Pajak / Service Charge</strong>, kemudian klik{" "}
+            <strong>Simpan Pengaturan Pajak &amp; Service</strong>. Perubahan
+            hanya berlaku untuk order baru.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -593,36 +672,40 @@ export function OutletSettingsManager({
                   Persentase Pajak / PB1 (%)
                 </label>
                 <Input
-                  type="number"
-                  min={0.1}
-                  max={100}
-                  step="0.1"
+                  ref={taxPercentInputRef}
+                  type="text"
+                  inputMode="decimal"
                   value={taxPercentStr}
                   onChange={(e) => {
                     const val = e.target.value;
                     setTaxPercentStr(val);
-                    if (!val || Number(val) <= 0) {
+                    const parsed = parsePercentValue(val);
+                    if (parsed === null || parsed <= 0 || parsed > 100) {
                       setTaxEnabled(false);
                     }
                   }}
-                  placeholder="Kosongkan jika belum dipakai (contoh: 10)"
+                  placeholder="Kosongkan jika belum dipakai (contoh: 10 atau 11)"
                   disabled={isPending}
                 />
               </div>
 
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium select-none">
                 <input
                   type="checkbox"
                   checked={taxEnabled && canEnableTax}
-                  disabled={!canEnableTax || isPending}
-                  onChange={(e) => setTaxEnabled(e.target.checked)}
-                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600 disabled:opacity-40"
+                  disabled={isPending}
+                  onChange={(e) => handleToggleTaxCheckbox(e.target.checked)}
+                  className="h-5 w-5 rounded border-zinc-300 accent-emerald-600 dark:border-slate-600 cursor-pointer"
                 />
                 <span>
                   Aktifkan Pajak{" "}
                   {!canEnableTax ? (
                     <span className="text-xs font-normal text-amber-700 dark:text-amber-400">
-                      (Isi persentase pajak terlebih dahulu)
+                      (Isi persentase pajak di atas terlebih dahulu)
+                    </span>
+                  ) : taxEnabled ? (
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                      (Pajak {parsedTaxPercent}% siap diaktifkan)
                     </span>
                   ) : null}
                 </span>
@@ -635,15 +718,15 @@ export function OutletSettingsManager({
                   Persentase Service Charge (%)
                 </label>
                 <Input
-                  type="number"
-                  min={0.1}
-                  max={100}
-                  step="0.1"
+                  ref={servicePercentInputRef}
+                  type="text"
+                  inputMode="decimal"
                   value={servicePercentStr}
                   onChange={(e) => {
                     const val = e.target.value;
                     setServicePercentStr(val);
-                    if (!val || Number(val) <= 0) {
+                    const parsed = parsePercentValue(val);
+                    if (parsed === null || parsed <= 0 || parsed > 100) {
                       setServiceEnabled(false);
                     }
                   }}
@@ -652,19 +735,23 @@ export function OutletSettingsManager({
                 />
               </div>
 
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium select-none">
                 <input
                   type="checkbox"
                   checked={serviceEnabled && canEnableService}
-                  disabled={!canEnableService || isPending}
-                  onChange={(e) => setServiceEnabled(e.target.checked)}
-                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600 disabled:opacity-40"
+                  disabled={isPending}
+                  onChange={(e) => handleToggleServiceCheckbox(e.target.checked)}
+                  className="h-5 w-5 rounded border-zinc-300 accent-emerald-600 dark:border-slate-600 cursor-pointer"
                 />
                 <span>
                   Aktifkan Service Charge{" "}
                   {!canEnableService ? (
                     <span className="text-xs font-normal text-amber-700 dark:text-amber-400">
-                      (Isi persentase service terlebih dahulu)
+                      (Isi persentase service di atas terlebih dahulu)
+                    </span>
+                  ) : serviceEnabled ? (
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                      (Service {parsedServicePercent}% siap diaktifkan)
                     </span>
                   ) : null}
                 </span>
@@ -693,20 +780,20 @@ export function OutletSettingsManager({
               </select>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button type="submit" className="min-h-11 w-full" disabled={isPending}>
               Simpan Pengaturan Pajak &amp; Service
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* 3. SECTION KHUSUS POST / UPLOAD QRIS TOKO */}
-      <Card className="border-sky-200 dark:border-slate-800 shadow-xs">
+      {/* 3. SECTION KHUSUS POST / UPLOAD & SAKLAR QRIS TOKO */}
+      <Card className="border-sky-200 dark:border-slate-800 shadow-xs lg:col-span-2">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <QrCode className="h-5 w-5 text-[#1E88E5]" />
-              3. Post / Upload QRIS Toko (Pembayaran QRIS di Meja)
+              3. Post / Upload &amp; Status QRIS Toko (Pembayaran QRIS di Meja)
             </CardTitle>
             <Badge variant={qrisEnabled && canEnableQris ? "success" : "secondary"}>
               {qrisEnabled && canEnableQris ? "QRIS Aktif" : "Nonaktif"}
@@ -715,13 +802,13 @@ export function OutletSettingsManager({
           <CardDescription>
             Upload gambar stiker/poster QRIS toko Anda untuk dipindai otomatis,
             atau tempelkan kode QRIS statis (diawali <code>000201...</code>).
-            Sistem otomatis menghasilkan QRIS dengan nominal pas sesuai tagihan
-            dan label meja (<code>MEJA-XX</code>).
+            Gunakan centang di bawah untuk{" "}
+            <strong>mengaktifkan atau menonaktifkan</strong> pilihan bayar QRIS
+            pada layar pelanggan meja.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSaveQris} className="space-y-4">
-            {/* Kotak Upload Poster / Gambar QRIS */}
             <div className="rounded-xl border-2 border-dashed border-sky-300 dark:border-slate-700 bg-sky-50/50 dark:bg-slate-900/50 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
@@ -734,7 +821,7 @@ export function OutletSettingsManager({
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <label className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-lg bg-[#1E88E5] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1976D2] transition-colors">
+                  <label className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg bg-[#1E88E5] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#1976D2] transition-colors">
                     <Upload className="h-3.5 w-3.5" />
                     <span>
                       {isScanningQrisImage
@@ -753,6 +840,7 @@ export function OutletSettingsManager({
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="min-h-11"
                     onClick={handleFillSampleQris}
                     disabled={isPending}
                   >
@@ -772,72 +860,72 @@ export function OutletSettingsManager({
                   />
                   <div className="text-xs text-slate-600 dark:text-slate-400">
                     <p className="font-semibold text-emerald-700 dark:text-emerald-400">
-                      Gambar QRIS Toko Aktif &amp; Tersimpan
+                      Gambar QRIS Toko Tersimpan
                     </p>
                     <p>
-                      Gambar QRIS ini akan muncul di Popup Kasir (Order Manual)
-                      serta di Layar Pelanggan saat memilih pembayaran QRIS.
+                      Akan tampil di Layar Pelanggan saat status QRIS diaktifkan.
                     </p>
                   </div>
                 </div>
               ) : null}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium">
-                Nama Merchant QRIS
-              </label>
-              <Input
-                value={qrisMerchantName}
-                onChange={(e) => setQrisMerchantName(e.target.value)}
-                placeholder="1621 GROUP - LATTESPACE"
-                disabled={isPending}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
                 <label className="block text-sm font-medium">
-                  String Payload QRIS Statis (EMVCo — Opsional jika sudah upload gambar)
+                  Nama Merchant QRIS
                 </label>
-                {isUploadedQrisImage ? (
-                  <Badge variant="success" className="text-[10px]">
-                    Menggunakan Gambar QRIS Upload
-                  </Badge>
-                ) : null}
+                <Input
+                  value={qrisMerchantName}
+                  onChange={(e) => setQrisMerchantName(e.target.value)}
+                  placeholder="1621 GROUP - LATTESPACE"
+                  disabled={isPending}
+                />
               </div>
-              <textarea
-                rows={3}
-                value={isUploadedQrisImage ? "" : qrisRawPayload}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setQrisRawPayload(val);
-                  if (val.trim().startsWith("000201")) {
-                    const info = extractMerchantInfoFromQris(val.trim());
-                    if (info.merchantName && !qrisMerchantName.trim()) {
-                      setQrisMerchantName(info.merchantName);
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-sm font-medium">
+                    String Payload QRIS Statis (Opsional jika upload gambar)
+                  </label>
+                  {isUploadedQrisImage ? (
+                    <Badge variant="success" className="text-[10px]">
+                      Gambar QRIS Upload
+                    </Badge>
+                  ) : null}
+                </div>
+                <textarea
+                  rows={2}
+                  value={isUploadedQrisImage ? "" : qrisRawPayload}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQrisRawPayload(val);
+                    if (val.trim().startsWith("000201")) {
+                      const info = extractMerchantInfoFromQris(val.trim());
+                      if (info.merchantName && !qrisMerchantName.trim()) {
+                        setQrisMerchantName(info.merchantName);
+                      }
+                    } else if (!val.trim().startsWith("data:image/")) {
+                      setQrisEnabled(false);
                     }
-                  } else if (!val.trim().startsWith("data:image/")) {
-                    setQrisEnabled(false);
+                  }}
+                  placeholder={
+                    isUploadedQrisImage
+                      ? "Gambar QRIS toko sudah terpasang."
+                      : "00020101021126..."
                   }
-                }}
-                placeholder={
-                  isUploadedQrisImage
-                    ? "Gambar QRIS toko sudah terpasang. (Tempel kode 000201... di sini hanya jika ingin mengganti dengan QRIS teks EMVCo)"
-                    : "00020101021126..."
-                }
-                disabled={isPending}
-                className="w-full rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 font-mono text-xs text-zinc-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-sky-500"
-              />
+                  disabled={isPending}
+                  className="w-full rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 font-mono text-xs text-zinc-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-sky-500"
+                />
+              </div>
             </div>
 
-            {/* Pratinjau Visual QRIS Dinamis / Gambar Aktif */}
             {canEnableQris ? (
               <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 p-3.5 sm:flex-row">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Pratinjau QRIS Kasir &amp; Meja Siap Pakai</span>
+                    <span>Pratinjau QRIS Meja Siap Pakai</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300">
                     Merchant:{" "}
@@ -866,13 +954,13 @@ export function OutletSettingsManager({
               </div>
             ) : null}
 
-            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium select-none">
               <input
                 type="checkbox"
                 checked={qrisEnabled && canEnableQris}
-                disabled={!canEnableQris || isPending}
-                onChange={(e) => setQrisEnabled(e.target.checked)}
-                className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600 disabled:opacity-40"
+                disabled={isPending}
+                onChange={(e) => handleToggleQrisCheckbox(e.target.checked)}
+                className="h-5 w-5 rounded border-zinc-300 accent-emerald-600 dark:border-slate-600 cursor-pointer"
               />
               <span>
                 Aktifkan Pembayaran QRIS di Meja{" "}
@@ -880,148 +968,18 @@ export function OutletSettingsManager({
                   <span className="text-xs font-normal text-amber-700 dark:text-amber-400">
                     (Upload gambar QRIS atau klik &apos;Isi Contoh QRIS&apos; terlebih dahulu)
                   </span>
-                ) : null}
+                ) : (
+                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                    (Centang untuk aktifkan, hilangkan centang untuk nonaktifkan)
+                  </span>
+                )}
               </span>
             </label>
 
-            <Button type="submit" className="w-full" disabled={isPending}>
-              Simpan &amp; Terbitkan QRIS Toko
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* 4. PENGATURAN NOTIFIKASI EMAIL OWNER */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            4. Notifikasi Email ke Owner
-          </CardTitle>
-          <CardDescription>
-            Atur pengiriman laporan bulanan otomatis dan email langsung saat
-            terjadi kejadian sensitif (refund, pembatalan setelah bayar, diskon,
-            dan perubahan harga/pengaturan).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSaveNotification} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium">
-                Alamat Email Owner
-              </label>
-              <Input
-                type="email"
-                value={ownerEmail}
-                onChange={(e) => setOwnerEmail(e.target.value)}
-                placeholder="owner@1621fnb.id"
-                disabled={isPending}
-              />
-            </div>
-
-            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium">
-              <input
-                type="checkbox"
-                checked={monthlyReportEnabled}
-                onChange={(e) => setMonthlyReportEnabled(e.target.checked)}
-                disabled={isPending}
-                className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
-              />
-              Kirim Laporan Bulanan Otomatis (Penjualan Kotor, Refund, Bersih,
-              Diskon)
-            </label>
-
-            <div className="rounded-xl border border-zinc-200 dark:border-slate-800 p-4 space-y-2">
-              <p className="text-sm font-semibold">
-                Kejadian Sensitif (Kirim Email Langsung):
-              </p>
-
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={instantEvents.refund}
-                  onChange={(e) =>
-                    setInstantEvents((prev) => ({
-                      ...prev,
-                      refund: e.target.checked,
-                    }))
-                  }
-                  disabled={isPending}
-                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
-                />
-                Saat terjadi Refund Tunai
-              </label>
-
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={instantEvents.paid_cancellation}
-                  onChange={(e) =>
-                    setInstantEvents((prev) => ({
-                      ...prev,
-                      paid_cancellation: e.target.checked,
-                    }))
-                  }
-                  disabled={isPending}
-                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
-                />
-                Saat Pembatalan Order yang Sudah Dibayar (PAID / READY / SERVED)
-              </label>
-
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={instantEvents.discount}
-                  onChange={(e) =>
-                    setInstantEvents((prev) => ({
-                      ...prev,
-                      discount: e.target.checked,
-                    }))
-                  }
-                  disabled={isPending}
-                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
-                />
-                Saat Kasir Memberikan Diskon Order
-              </label>
-
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={instantEvents.price_or_setting_change}
-                  onChange={(e) =>
-                    setInstantEvents((prev) => ({
-                      ...prev,
-                      price_or_setting_change: e.target.checked,
-                    }))
-                  }
-                  disabled={isPending}
-                  className="h-5 w-5 rounded border-zinc-300 dark:border-slate-600"
-                />
-                Saat Ada Perubahan Harga Menu atau Pengaturan Pajak/Outlet
-              </label>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isPending}>
-              Simpan Pengaturan Notifikasi Email
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={isPending || !ownerEmail.trim()}
-              onClick={() => {
-                startTransition(async () => {
-                  const res = await triggerManualMonthlyReportAction();
-                  if (res.ok) {
-                    toast.success(res.message);
-                  } else {
-                    toast.error(res.message);
-                  }
-                });
-              }}
-            >
-              <Mail className="mr-1.5 h-4 w-4" />
-              Kirim / Uji Laporan Bulanan Sekarang (Catat di Audit)
+            <Button type="submit" className="min-h-11 w-full" disabled={isPending}>
+              {qrisEnabled && canEnableQris
+                ? "Simpan & Aktifkan QRIS Toko"
+                : "Simpan Status QRIS Toko (Nonaktif)"}
             </Button>
           </form>
         </CardContent>
@@ -1029,4 +987,3 @@ export function OutletSettingsManager({
     </div>
   );
 }
-

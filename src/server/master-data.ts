@@ -78,6 +78,8 @@ const outletProfileSchema = z.object({
   name: z.string().trim().min(1, "Nama outlet wajib diisi.").max(120),
   address: z.string().trim().max(300).nullable(),
   receiptFooter: z.string().trim().max(300).nullable(),
+  wifiName: z.string().trim().max(80, "Nama WiFi maksimal 80 karakter.").nullable().optional(),
+  wifiPassword: z.string().trim().max(80, "Password WiFi maksimal 80 karakter.").nullable().optional(),
   orderExpiryMinutes: z
     .number()
     .int()
@@ -663,6 +665,8 @@ export async function getOutletAndNotificationSettings(): Promise<OutletAndNotif
     name: String(rawOutlet.name ?? ""),
     address: (rawOutlet.address as string | null) ?? null,
     receipt_footer: (rawOutlet.receipt_footer as string | null) ?? null,
+    wifi_name: (rawOutlet.wifi_name as string | null) ?? null,
+    wifi_password: (rawOutlet.wifi_password as string | null) ?? null,
     order_expiry_minutes: Number(rawOutlet.order_expiry_minutes ?? 15),
     tax_enabled: Boolean(rawOutlet.tax_enabled),
     tax_percent:
@@ -731,6 +735,8 @@ export async function updateOutletProfileSettingsAction(rawInput: {
   name: string;
   address: string | null;
   receiptFooter: string | null;
+  wifiName?: string | null;
+  wifiPassword?: string | null;
   orderExpiryMinutes: number;
   maxCashierDiscountPercent: number | null;
   maxCashierDiscountAmount: number | null;
@@ -745,20 +751,56 @@ export async function updateOutletProfileSettingsAction(rawInput: {
   }
 
   const { owner, admin } = await applyOwnerAuditContext(
-    "Pembaruan pengaturan profil outlet & batas diskon kasir"
+    "Pembaruan pengaturan profil outlet, WiFi struk & batas diskon kasir"
   );
 
-  const { error } = await admin
+  const baseProfileUpdate = {
+    name: parsed.data.name,
+    address: parsed.data.address,
+    receipt_footer: parsed.data.receiptFooter,
+    order_expiry_minutes: parsed.data.orderExpiryMinutes,
+    max_cashier_discount_percent: parsed.data.maxCashierDiscountPercent,
+    max_cashier_discount_amount: parsed.data.maxCashierDiscountAmount,
+  };
+
+  const hasWifiUpdate =
+    parsed.data.wifiName !== undefined || parsed.data.wifiPassword !== undefined;
+  const wifiUpdatePayload = hasWifiUpdate
+    ? {
+        ...(parsed.data.wifiName !== undefined
+          ? { wifi_name: parsed.data.wifiName }
+          : {}),
+        ...(parsed.data.wifiPassword !== undefined
+          ? { wifi_password: parsed.data.wifiPassword }
+          : {}),
+      }
+    : {};
+
+  let { error } = await admin
     .from("outlets")
     .update({
-      name: parsed.data.name,
-      address: parsed.data.address,
-      receipt_footer: parsed.data.receiptFooter,
-      order_expiry_minutes: parsed.data.orderExpiryMinutes,
-      max_cashier_discount_percent: parsed.data.maxCashierDiscountPercent,
-      max_cashier_discount_amount: parsed.data.maxCashierDiscountAmount,
+      ...baseProfileUpdate,
+      ...wifiUpdatePayload,
     })
     .eq("id", owner.outletId);
+
+  let wifiMigrationMissing = false;
+  if (
+    error &&
+    hasWifiUpdate &&
+    (error.message.includes("wifi_name") ||
+      error.message.includes("wifi_password") ||
+      error.message.includes("schema cache"))
+  ) {
+    wifiMigrationMissing = Boolean(
+      parsed.data.wifiName || parsed.data.wifiPassword
+    );
+    const fallbackRes = await admin
+      .from("outlets")
+      .update(baseProfileUpdate)
+      .eq("id", owner.outletId);
+    error = fallbackRes.error;
+  }
 
   if (error) {
     return {
@@ -767,7 +809,16 @@ export async function updateOutletProfileSettingsAction(rawInput: {
     };
   }
 
+  if (wifiMigrationMissing) {
+    return {
+      ok: false,
+      message:
+        "Profil disimpan, tetapi kolom wifi_name / wifi_password belum tersedia. Jalankan migrasi 0012 di Supabase terlebih dahulu.",
+    };
+  }
+
   revalidateTag("sidebar_outlets");
+  revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard/pengaturan");
   revalidatePath("/order-manual");
   revalidatePath("/kasir");
@@ -836,6 +887,8 @@ export async function updateTaxAndServiceSettingsAction(rawInput: {
   });
 
   revalidateTag("sidebar_outlets");
+  revalidatePath("/dashboard/cabang");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
   revalidatePath("/order-manual");
   revalidatePath("/kasir");
@@ -911,6 +964,8 @@ export async function updateQrisSettingsAction(rawInput: {
   }
 
   revalidateTag("sidebar_outlets");
+  revalidatePath("/dashboard/cabang");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
   revalidatePath("/order-manual");
   revalidatePath("/kasir");

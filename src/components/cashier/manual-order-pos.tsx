@@ -54,6 +54,8 @@ interface ManualCartItem {
   selectedAddons: OrderItemAddonSnapshot[];
 }
 
+const SHOW_MANUAL_POS_QRIS = false;
+
 export function ManualOrderPos({
   initialData,
 }: {
@@ -730,18 +732,20 @@ export function ManualOrderPos({
                     <Banknote className="mr-1.5 h-4 w-4" />
                     Tunai
                   </Button>
-                  <Button
-                    type="button"
-                    className="flex-1"
-                    variant={paymentMethod === "qris" ? "default" : "outline"}
-                    onClick={() => {
-                      setPaymentMethod("qris");
-                      setShowQrisModal(true);
-                    }}
-                  >
-                    <QrCode className="mr-1.5 h-4 w-4" />
-                    QRIS
-                  </Button>
+                  {SHOW_MANUAL_POS_QRIS && (
+                    <Button
+                      type="button"
+                      className="flex-1"
+                      variant={paymentMethod === "qris" ? "default" : "outline"}
+                      onClick={() => {
+                        setPaymentMethod("qris");
+                        setShowQrisModal(true);
+                      }}
+                    >
+                      <QrCode className="mr-1.5 h-4 w-4" />
+                      QRIS
+                    </Button>
+                  )}
                 </div>
 
                 {paymentMethod === "cash" && (
