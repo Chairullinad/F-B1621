@@ -24,7 +24,7 @@ export default async function StaffLayout({
 
   const [badges, outletsData] = await Promise.all([
     badgeOutletId
-      ? getStaffSidebarBadges(badgeOutletId)
+      ? getStaffSidebarBadges(badgeOutletId).catch(() => emptyBadges)
       : Promise.resolve(emptyBadges),
     listSidebarOutletsAction().catch(() => ({
       outlets: [],

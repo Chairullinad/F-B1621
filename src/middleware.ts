@@ -54,14 +54,95 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: claimsData,
-    error: claimsErr,
-  } = await supabase.auth.getClaims();
+  try {
+    const {
+      data: claimsData,
+      error: claimsErr,
+    } = await supabase.auth.getClaims();
 
-  const userId = !claimsErr ? claimsData?.claims?.sub : undefined;
+    const userId = !claimsErr ? claimsData?.claims?.sub : undefined;
 
-  if (!userId) {
+    if (!userId) {
+      if (isProtected) {
+        const loginUrl = request.nextUrl.clone();
+        loginUrl.pathname = "/login";
+        loginUrl.searchParams.set("next", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+      return supabaseResponse;
+    }
+
+    // Ambil role dan status aktif staf dari tabel profiles (menggunakan RLS profiles_select_same_outlet)
+    let profile: {
+      role: string;
+      is_active: boolean;
+      deleted_at: string | null;
+      custom_permissions?: unknown;
+    } | null = null;
+
+    const { data: profileWithPerms, error: profilePermsErr } = await supabase
+      .from("profiles")
+      .select("role, is_active, deleted_at, custom_permissions")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profilePermsErr && profilePermsErr.message.includes("custom_permissions")) {
+      const { data: fallbackProfile } = await supabase
+        .from("profiles")
+        .select("role, is_active, deleted_at")
+        .eq("id", userId)
+        .maybeSingle();
+      profile = fallbackProfile;
+    } else {
+      profile = profileWithPerms;
+    }
+
+    if (!profile || !profile.is_active || profile.deleted_at !== null) {
+      if (isProtected) {
+        const loginUrl = request.nextUrl.clone();
+        loginUrl.pathname = "/login";
+        return NextResponse.redirect(loginUrl);
+      }
+      return supabaseResponse;
+    }
+
+    const role = profile.role as UserRole;
+    const customPermissions = sanitizeCustomPermissions(profile.custom_permissions);
+
+    // Jika sudah login lalu membuka /login, langsung arahkan ke rute default usernya
+    if (pathname === "/login") {
+      const targetUrl = request.nextUrl.clone();
+      targetUrl.pathname = getDefaultRouteForUser(role, customPermissions);
+      targetUrl.search = "";
+      return NextResponse.redirect(targetUrl);
+    }
+
+    // Cek apakah user (role + custom permissions) boleh mengakses rute ini
+    if (isProtected && !canRoleAccessPathname(role, pathname, customPermissions)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = getDefaultRouteForUser(role, customPermissions);
+      redirectUrl.search = "";
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Owner yang belum masuk ke salah satu outlet hanya boleh membuka Dashboard Holding,
+    // Laporan Keuangan, dan Setting Outlet.
+    if (
+      isProtected &&
+      role === "owner" &&
+      !canOwnerAccessWithoutOutlet(pathname) &&
+      !request.cookies.get("fnb1621_active_outlet")?.value
+    ) {
+      const holdingUrl = request.nextUrl.clone();
+      holdingUrl.pathname = "/dashboard";
+      holdingUrl.search = "";
+      holdingUrl.searchParams.set("pilih_outlet", "1");
+      return NextResponse.redirect(holdingUrl);
+    }
+
+    return supabaseResponse;
+  } catch {
+    // Fail-closed: jika pengecekan sesi ke Supabase gagal, jangan biarkan middleware melempar 500
     if (isProtected) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/login";
@@ -70,76 +151,6 @@ export async function middleware(request: NextRequest) {
     }
     return supabaseResponse;
   }
-
-  // Ambil role dan status aktif staf dari tabel profiles (menggunakan RLS profiles_select_same_outlet)
-  let profile: {
-    role: string;
-    is_active: boolean;
-    deleted_at: string | null;
-    custom_permissions?: unknown;
-  } | null = null;
-
-  const { data: profileWithPerms, error: profilePermsErr } = await supabase
-    .from("profiles")
-    .select("role, is_active, deleted_at, custom_permissions")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profilePermsErr && profilePermsErr.message.includes("custom_permissions")) {
-    const { data: fallbackProfile } = await supabase
-      .from("profiles")
-      .select("role, is_active, deleted_at")
-      .eq("id", userId)
-      .maybeSingle();
-    profile = fallbackProfile;
-  } else {
-    profile = profileWithPerms;
-  }
-
-  if (!profile || !profile.is_active || profile.deleted_at !== null) {
-    if (isProtected) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/login";
-      return NextResponse.redirect(loginUrl);
-    }
-    return supabaseResponse;
-  }
-
-  const role = profile.role as UserRole;
-  const customPermissions = sanitizeCustomPermissions(profile.custom_permissions);
-
-  // Jika sudah login lalu membuka /login, langsung arahkan ke rute default usernya
-  if (pathname === "/login") {
-    const targetUrl = request.nextUrl.clone();
-    targetUrl.pathname = getDefaultRouteForUser(role, customPermissions);
-    targetUrl.search = "";
-    return NextResponse.redirect(targetUrl);
-  }
-
-  // Cek apakah user (role + custom permissions) boleh mengakses rute ini
-  if (isProtected && !canRoleAccessPathname(role, pathname, customPermissions)) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = getDefaultRouteForUser(role, customPermissions);
-    redirectUrl.search = "";
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Owner yang belum masuk ke salah satu outlet hanya boleh membuka Dashboard Holding,
-  // Laporan Keuangan, dan Setting Outlet.
-  if (
-    isProtected &&
-    role === "owner" &&
-    !canOwnerAccessWithoutOutlet(pathname) &&
-    !request.cookies.get("fnb1621_active_outlet")?.value
-  ) {
-    const holdingUrl = request.nextUrl.clone();
-    holdingUrl.pathname = "/dashboard";
-    holdingUrl.search = "";
-    holdingUrl.searchParams.set("pilih_outlet", "1");
-    return NextResponse.redirect(holdingUrl);
-  }
-
-  return supabaseResponse;
 }
 
 export const config = {
