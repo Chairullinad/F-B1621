@@ -5,9 +5,11 @@ import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import {
+  DEFAULT_OUTLET_TABLE_COUNT,
   isSafeActionLinkUrl,
   mapOutletRowToSidebarView,
   mapOutletRowToView,
+  planOutletTableCountSync,
   type OutletView,
   type SidebarOutletView,
 } from "@/lib/outlets";
@@ -39,6 +41,12 @@ const createOutletSchema = z.object({
     .trim()
     .regex(/^#[0-9a-fA-F]{6}$/, "Format warna harus hex #RRGGBB.")
     .default("#0284C7"),
+  tableCount: z.coerce
+    .number()
+    .int("Jumlah meja harus berupa bilangan bulat.")
+    .min(1, "Minimal 1 meja per outlet.")
+    .max(1000, "Maksimal 1000 meja per outlet.")
+    .default(DEFAULT_OUTLET_TABLE_COUNT),
 });
 
 const updateOutletSchema = z.object({
@@ -62,6 +70,12 @@ const updateOutletSchema = z.object({
     .trim()
     .regex(/^#[0-9a-fA-F]{6}$/, "Format warna harus hex #RRGGBB.")
     .default("#0284C7"),
+  tableCount: z.coerce
+    .number()
+    .int("Jumlah meja harus berupa bilangan bulat.")
+    .min(1, "Minimal 1 meja per outlet.")
+    .max(1000, "Maksimal 1000 meja per outlet.")
+    .optional(),
 });
 
 const bannerImageUrlSchema = z
@@ -199,15 +213,31 @@ export async function listAllOutletsAction(): Promise<{
   const staff = await requireStaffRole(["owner", "cashier", "warehouse", "kitchen", "waiter"]);
   const admin = createSupabaseAdminClient();
 
-  const { data: rawOutlets } = await admin
-    .from("outlets")
-    .select("*")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: true });
+  const [{ data: rawOutlets }, { data: rawTables }] = await Promise.all([
+    admin
+      .from("outlets")
+      .select("*")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("tables")
+      .select("outlet_id")
+      .is("deleted_at", null),
+  ]);
 
-  const outlets: OutletView[] = (rawOutlets ?? []).map((o) =>
-    mapOutletRowToView(o as Record<string, unknown>)
-  );
+  const tableCountMap = new Map<string, number>();
+  for (const t of rawTables ?? []) {
+    const oid = String(t.outlet_id);
+    tableCountMap.set(oid, (tableCountMap.get(oid) ?? 0) + 1);
+  }
+
+  const outlets: OutletView[] = (rawOutlets ?? []).map((o) => {
+    const view = mapOutletRowToView(o as Record<string, unknown>);
+    return {
+      ...view,
+      tableCount: tableCountMap.get(view.id) ?? 0,
+    };
+  });
 
   if (staff.role !== "owner") {
     return { outlets, activeOutletId: staff.outletId };
@@ -219,6 +249,93 @@ export async function listAllOutletsAction(): Promise<{
       : null;
 
   return { outlets, activeOutletId: validSelectedId };
+}
+
+async function syncOutletTablesCount(params: {
+  admin: ReturnType<typeof createSupabaseAdminClient>;
+  outletId: string;
+  targetCount: number;
+}): Promise<{ ok: true; activeCount: number } | { ok: false; message: string }> {
+  const { admin, outletId, targetCount } = params;
+
+  const { data: existingRows, error: fetchErr } = await admin
+    .from("tables")
+    .select("id, table_no, is_active, deleted_at")
+    .eq("outlet_id", outletId);
+
+  if (fetchErr) {
+    return { ok: false, message: `Gagal membaca daftar meja outlet: ${fetchErr.message}` };
+  }
+
+  const existing = (existingRows ?? []).map((row) => ({
+    id: String(row.id),
+    tableNo: Number(row.table_no),
+    isActive: Boolean(row.is_active),
+    deletedAt: row.deleted_at ? String(row.deleted_at) : null,
+  }));
+
+  const plan = planOutletTableCountSync(existing, targetCount);
+
+  if (plan.toSoftDeleteIds.length > 0) {
+    const { data: activeOrders } = await admin
+      .from("orders")
+      .select("table_id")
+      .eq("outlet_id", outletId)
+      .in("table_id", plan.toSoftDeleteIds)
+      .in("status", ["pending", "paid", "ready"])
+      .is("deleted_at", null)
+      .limit(1);
+
+    if (activeOrders && activeOrders.length > 0) {
+      return {
+        ok: false,
+        message: `Tidak dapat mengurangi meja hingga ${targetCount} karena meja nomor di atasnya (${plan.toSoftDeleteNos.slice(0, 5).join(", ")}${plan.toSoftDeleteNos.length > 5 ? ", ..." : ""}) masih memiliki pesanan aktif.`,
+      };
+    }
+
+    const { error: delErr } = await admin
+      .from("tables")
+      .update({
+        deleted_at: new Date().toISOString(),
+        is_active: false,
+      })
+      .in("id", plan.toSoftDeleteIds);
+
+    if (delErr) {
+      return { ok: false, message: `Gagal menonaktifkan meja tambahan: ${delErr.message}` };
+    }
+  }
+
+  if (plan.toRestoreIds.length > 0) {
+    const { error: restoreErr } = await admin
+      .from("tables")
+      .update({
+        deleted_at: null,
+        is_active: true,
+      })
+      .in("id", plan.toRestoreIds);
+
+    if (restoreErr) {
+      return { ok: false, message: `Gagal memulihkan meja lama: ${restoreErr.message}` };
+    }
+  }
+
+  if (plan.toInsertNos.length > 0) {
+    const newRows = plan.toInsertNos.map((no) => ({
+      outlet_id: outletId,
+      table_no: no,
+      name: `Meja ${no}`,
+      qr_token: crypto.randomBytes(24).toString("hex"),
+      is_active: true,
+    }));
+
+    const { error: insErr } = await admin.from("tables").insert(newRows);
+    if (insErr) {
+      return { ok: false, message: `Gagal membuat meja baru: ${insErr.message}` };
+    }
+  }
+
+  return { ok: true, activeCount: targetCount };
 }
 
 export async function createOutletAction(
@@ -265,18 +382,14 @@ export async function createOutletAction(
 
   const newOutletId = String(newOutlet.id);
 
-  // Buat 10 Meja Awal Otomatis untuk Outlet Baru (aman dan tahan kegagalan)
-  try {
-    const defaultTables = Array.from({ length: 10 }, (_, i) => ({
-      outlet_id: newOutletId,
-      table_no: i + 1,
-      name: `Meja ${i + 1}`,
-      qr_token: crypto.randomBytes(24).toString("hex"),
-      is_active: true,
-    }));
-    await admin.from("tables").insert(defaultTables);
-  } catch (tableErr) {
-    console.error("Gagal inisialisasi meja outlet baru:", tableErr);
+  // Buat Meja Awal Otomatis sesuai input (default 50 meja) lengkap dengan qr_token unik
+  const syncRes = await syncOutletTablesCount({
+    admin,
+    outletId: newOutletId,
+    targetCount: parsed.data.tableCount,
+  });
+  if (!syncRes.ok) {
+    console.error("Gagal inisialisasi meja outlet baru:", syncRes.message);
   }
 
   // Catat ke Audit Log (aman)
@@ -298,8 +411,9 @@ export async function createOutletAction(
         description: cleanDescription,
         theme_color: cleanThemeColor,
         has_logo: Boolean(cleanLogoUrl),
+        table_count: parsed.data.tableCount,
       },
-      reason: `Owner menambahkan outlet baru '${parsed.data.name}'`,
+      reason: `Owner menambahkan outlet baru '${parsed.data.name}' dengan ${parsed.data.tableCount} meja`,
       prev_hash: "",
       hash: "",
     });
@@ -311,12 +425,17 @@ export async function createOutletAction(
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
+  revalidatePath("/dashboard/meja");
+  revalidatePath("/dashboard/meja/cetak");
 
-  const newOutletView = mapOutletRowToView(newOutlet as Record<string, unknown>);
+  const newOutletView = {
+    ...mapOutletRowToView(newOutlet as Record<string, unknown>),
+    tableCount: parsed.data.tableCount,
+  };
 
   return {
     ok: true,
-    message: `Usaha '${parsed.data.name}' berhasil dibuat dengan 10 meja siap pakai.`,
+    message: `Outlet '${parsed.data.name}' berhasil dibuat dengan ${parsed.data.tableCount} meja & QR Code siap pakai.`,
     outletId: newOutletId,
     outlet: newOutletView,
   };
@@ -347,6 +466,17 @@ export async function updateOutletCustomizationAction(
     parsed.data.receiptFooter.trim().length > 0
       ? parsed.data.receiptFooter.trim()
       : existingView?.receiptFooter ?? null;
+
+  if (parsed.data.tableCount !== undefined) {
+    const syncRes = await syncOutletTablesCount({
+      admin,
+      outletId: parsed.data.id,
+      targetCount: parsed.data.tableCount,
+    });
+    if (!syncRes.ok) {
+      return { ok: false, message: syncRes.message };
+    }
+  }
 
   const { error: updErr } = await admin
     .from("outlets")
@@ -383,21 +513,34 @@ export async function updateOutletCustomizationAction(
       description: parsed.data.description || null,
       theme_color: parsed.data.themeColor,
       receipt_footer: resolvedFooter,
+      ...(parsed.data.tableCount !== undefined
+        ? { table_count: parsed.data.tableCount }
+        : {}),
     },
-    reason: `Owner memperbarui profil & logo outlet '${parsed.data.name}'`,
+    reason:
+      parsed.data.tableCount !== undefined
+        ? `Owner memperbarui profil, logo, & jumlah meja (${parsed.data.tableCount}) outlet '${parsed.data.name}'`
+        : `Owner memperbarui profil & logo outlet '${parsed.data.name}'`,
     prev_hash: "",
     hash: "",
   });
 
-  revalidateTag("sidebar_outlets");
   revalidateTag("sidebar_outlets");
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
   revalidatePath("/dashboard/meja");
   revalidatePath("/dashboard/meja/cetak");
+  revalidatePath("/order-manual");
+  revalidatePath("/kasir");
 
-  return { ok: true, message: `Profil outlet '${parsed.data.name}' berhasil disimpan.` };
+  return {
+    ok: true,
+    message:
+      parsed.data.tableCount !== undefined
+        ? `Profil & ${parsed.data.tableCount} meja QR outlet '${parsed.data.name}' berhasil disimpan.`
+        : `Profil outlet '${parsed.data.name}' berhasil disimpan.`,
+  };
 }
 
 export async function updateOutletLandingPageAction(

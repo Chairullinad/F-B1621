@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { compressImageFileToDataUrl } from "@/lib/client-image";
 import {
+  DEFAULT_OUTLET_TABLE_COUNT,
   OUTLET_CHART_FALLBACK_PALETTE,
   type OutletView,
 } from "@/lib/outlets";
@@ -50,6 +51,7 @@ interface OutletFormState {
   receiptFooter: string;
   logoUrl: string;
   themeColor: string;
+  tableCount: number;
 }
 
 const DEFAULT_LOGO_PATH = "/logo-1621group-stacked.png";
@@ -67,6 +69,7 @@ function makeEmptyFormState(indexOffset: number): OutletFormState {
     receiptFooter: "Terima kasih atas kunjungan Anda!",
     logoUrl: DEFAULT_LOGO_PATH,
     themeColor: paletteColor,
+    tableCount: DEFAULT_OUTLET_TABLE_COUNT,
   };
 }
 
@@ -79,6 +82,10 @@ function makeEditFormState(outlet: OutletView): OutletFormState {
     receiptFooter: outlet.receiptFooter ?? "",
     logoUrl: outlet.logoUrl || DEFAULT_LOGO_PATH,
     themeColor: outlet.themeColor || "#0284C7",
+    tableCount:
+      outlet.tableCount && outlet.tableCount > 0
+        ? outlet.tableCount
+        : DEFAULT_OUTLET_TABLE_COUNT,
   };
 }
 
@@ -310,6 +317,7 @@ export function OutletManager({
         receiptFooter: addForm.receiptFooter,
         logoUrl: addForm.logoUrl,
         themeColor: addForm.themeColor,
+        tableCount: addForm.tableCount,
       });
 
       if (res.ok) {
@@ -337,6 +345,7 @@ export function OutletManager({
         receiptFooter: editForm.receiptFooter,
         logoUrl: editForm.logoUrl,
         themeColor: editForm.themeColor,
+        tableCount: editForm.tableCount,
       });
 
       if (res.ok) {
@@ -540,7 +549,35 @@ export function OutletManager({
               />
             </div>
 
-            <div className="md:col-span-2">
+            <div>
+              <label
+                htmlFor="add-outlet-table-count"
+                className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5"
+              >
+                Jumlah Meja (QR Code) *
+              </label>
+              <input
+                id="add-outlet-table-count"
+                type="number"
+                min={1}
+                max={1000}
+                required
+                value={addForm.tableCount}
+                onChange={(e) => {
+                  const nextVal = Number.parseInt(e.target.value, 10);
+                  setAddForm((prev) => ({
+                    ...prev,
+                    tableCount: Number.isFinite(nextVal) ? nextVal : 1,
+                  }));
+                }}
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-sm font-semibold focus:border-[#1E88E5] focus:bg-white dark:focus:bg-slate-900 focus:outline-none"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Default {DEFAULT_OUTLET_TABLE_COUNT} meja. QR Code &amp; token tiap meja dibuat otomatis.
+              </p>
+            </div>
+
+            <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
                 Pesan Footer Struk Pelanggan
               </label>
@@ -676,6 +713,12 @@ export function OutletManager({
 
                     <td className="px-4 py-4 text-xs text-slate-600 dark:text-slate-300">
                       <div className="flex flex-col gap-0.5">
+                        <span>
+                          Meja QR:{" "}
+                          <strong className="text-[#1E88E5] dark:text-sky-400">
+                            {outlet.tableCount ?? 0} Meja
+                          </strong>
+                        </span>
                         <span>
                           PB1:{" "}
                           <strong
@@ -894,7 +937,35 @@ export function OutletManager({
                   />
                 </div>
 
-                <div className="md:col-span-2">
+                <div>
+                  <label
+                    htmlFor="edit-outlet-table-count"
+                    className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5"
+                  >
+                    Jumlah Meja (QR Code) *
+                  </label>
+                  <input
+                    id="edit-outlet-table-count"
+                    type="number"
+                    min={1}
+                    max={1000}
+                    required
+                    value={editForm.tableCount}
+                    onChange={(e) => {
+                      const nextVal = Number.parseInt(e.target.value, 10);
+                      setEditForm((prev) => ({
+                        ...prev,
+                        tableCount: Number.isFinite(nextVal) ? nextVal : 1,
+                      }));
+                    }}
+                    className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-sm font-semibold focus:border-[#1E88E5] focus:outline-none"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Otomatis menambah / memperbarui daftar Meja &amp; QR Code (maks 1000).
+                  </p>
+                </div>
+
+                <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
                     Catatan Footer Struk Pelanggan
                   </label>

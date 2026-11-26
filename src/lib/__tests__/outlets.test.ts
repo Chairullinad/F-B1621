@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import {
   assignDistinctOutletColors,
   buildQrStandeeFilename,
+  DEFAULT_OUTLET_TABLE_COUNT,
   getStandeeContrastPalette,
   isSafeActionLinkUrl,
   mapOutletRowToSidebarView,
   mapOutletRowToView,
   parseLandingBanners,
+  planOutletTableCountSync,
 } from "../outlets.ts";
 
 describe("src/lib/outlets.ts", () => {
@@ -153,5 +155,47 @@ describe("src/lib/outlets.ts", () => {
       logoUrl: "/logo.png",
       themeColor: "#1E88E5",
     });
+  });
+
+  it("menyusun rencana sinkronisasi jumlah meja (default 50, tambah baru, pulihkan soft-delete, dan kurangi)", () => {
+    assert.equal(DEFAULT_OUTLET_TABLE_COUNT, 50);
+
+    // 1. Outlet baru (0 meja -> 50 meja)
+    const freshPlan = planOutletTableCountSync([], DEFAULT_OUTLET_TABLE_COUNT);
+    assert.equal(freshPlan.toInsertNos.length, 50);
+    assert.equal(freshPlan.toInsertNos[0], 1);
+    assert.equal(freshPlan.toInsertNos[49], 50);
+    assert.equal(freshPlan.toRestoreIds.length, 0);
+    assert.equal(freshPlan.toSoftDeleteIds.length, 0);
+
+    // 2. Kurangi dari 5 meja ke 3 meja -> meja 4 & 5 di-soft-delete
+    const shrinkPlan = planOutletTableCountSync(
+      [
+        { id: "t1", tableNo: 1, isActive: true, deletedAt: null },
+        { id: "t2", tableNo: 2, isActive: true, deletedAt: null },
+        { id: "t3", tableNo: 3, isActive: true, deletedAt: null },
+        { id: "t4", tableNo: 4, isActive: true, deletedAt: null },
+        { id: "t5", tableNo: 5, isActive: true, deletedAt: null },
+      ],
+      3
+    );
+    assert.deepEqual(shrinkPlan.toSoftDeleteIds, ["t4", "t5"]);
+    assert.deepEqual(shrinkPlan.toSoftDeleteNos, [4, 5]);
+    assert.equal(shrinkPlan.toInsertNos.length, 0);
+
+    // 3. Tambah kembali dari 3 ke 6 meja (meja 4 & 5 dipulihkan, meja 6 dibuat baru)
+    const expandPlan = planOutletTableCountSync(
+      [
+        { id: "t1", tableNo: 1, isActive: true, deletedAt: null },
+        { id: "t2", tableNo: 2, isActive: true, deletedAt: null },
+        { id: "t3", tableNo: 3, isActive: true, deletedAt: null },
+        { id: "t4", tableNo: 4, isActive: false, deletedAt: "2026-11-25T10:00:00Z" },
+        { id: "t5", tableNo: 5, isActive: false, deletedAt: "2026-11-25T10:00:00Z" },
+      ],
+      6
+    );
+    assert.deepEqual(expandPlan.toRestoreIds, ["t4", "t5"]);
+    assert.deepEqual(expandPlan.toInsertNos, [6]);
+    assert.deepEqual(expandPlan.toSoftDeleteIds, []);
   });
 });

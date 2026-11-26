@@ -4,6 +4,8 @@ export interface LandingBannerItem {
   caption?: string;
 }
 
+export const DEFAULT_OUTLET_TABLE_COUNT = 50;
+
 export interface OutletView {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ export interface OutletView {
   serviceEnabled: boolean;
   servicePercent: number | null;
   createdAt: string;
+  tableCount?: number;
   landingBanners: LandingBannerItem[];
   landingNewsTitle: string;
   landingNewsBannerUrl: string | null;
@@ -383,4 +386,65 @@ export function buildQrStandeeFilename(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `qr-meja-${paddedTable}-${slug || "outlet"}.png`;
+}
+
+export interface ExistingOutletTableRecord {
+  id: string;
+  tableNo: number;
+  isActive: boolean;
+  deletedAt: string | null;
+}
+
+export interface OutletTableSyncPlan {
+  toRestoreIds: string[];
+  toInsertNos: number[];
+  toSoftDeleteIds: string[];
+  toSoftDeleteNos: number[];
+}
+
+/**
+ * Menghitung rencana sinkronisasi baris meja (`1..targetCount`) terhadap data meja saat ini:
+ * - Memulihkan baris `table_no <= targetCount` yang sebelumnya nonaktif/soft-delete
+ * - Menambahkan `table_no <= targetCount` yang belum pernah ada
+ * - Me-soft-delete baris aktif dengan `table_no > targetCount`
+ */
+export function planOutletTableCountSync(
+  existingTables: ReadonlyArray<ExistingOutletTableRecord>,
+  rawTargetCount: number
+): OutletTableSyncPlan {
+  const targetCount = Math.max(1, Math.min(1000, Math.floor(rawTargetCount)));
+  const byTableNo = new Map<number, ExistingOutletTableRecord>();
+  for (const row of existingTables) {
+    byTableNo.set(row.tableNo, row);
+  }
+
+  const toRestoreIds: string[] = [];
+  const toInsertNos: number[] = [];
+  const toSoftDeleteIds: string[] = [];
+  const toSoftDeleteNos: number[] = [];
+
+  for (let no = 1; no <= targetCount; no++) {
+    const existing = byTableNo.get(no);
+    if (!existing) {
+      toInsertNos.push(no);
+    } else if (existing.deletedAt !== null || !existing.isActive) {
+      toRestoreIds.push(existing.id);
+    }
+  }
+
+  for (const row of existingTables) {
+    if (row.tableNo > targetCount && row.deletedAt === null) {
+      toSoftDeleteIds.push(row.id);
+      toSoftDeleteNos.push(row.tableNo);
+    }
+  }
+
+  toSoftDeleteNos.sort((a, b) => a - b);
+
+  return {
+    toRestoreIds,
+    toInsertNos,
+    toSoftDeleteIds,
+    toSoftDeleteNos,
+  };
 }
