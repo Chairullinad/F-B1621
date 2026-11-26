@@ -52,9 +52,11 @@ describe("src/lib/auth.ts", () => {
     assert.equal(canRoleAccessPathname("warehouse", "/dapur"), false);
     assert.equal(canRoleAccessPathname("warehouse", "/antar"), false);
 
-    // Dapur hanya bisa mengakses /dapur
+    // Dapur hanya bisa mengakses /dapur dan cetak tiket /dapur/struk/*
     assert.equal(canRoleAccessPathname("kitchen", "/dapur"), true);
+    assert.equal(canRoleAccessPathname("kitchen", "/dapur/struk/ord-1"), true);
     assert.equal(canRoleAccessPathname("kitchen", "/kasir"), false);
+    assert.equal(canRoleAccessPathname("kitchen", "/struk/ord-1"), false);
     assert.equal(canRoleAccessPathname("kitchen", "/dashboard"), false);
     assert.equal(canRoleAccessPathname("kitchen", "/antar"), false);
 

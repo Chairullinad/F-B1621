@@ -39,17 +39,26 @@ import {
   recordReceiptReprintAction,
   type OrderReceiptDetail,
 } from "@/server/cashier";
+import { recordKitchenTicketPrintAction } from "@/server/kitchen-waiter";
 
 const PAPER_SIZE_STORAGE_KEY = "1621_receipt_paper_size";
 const PRINT_MODE_STORAGE_KEY = "1621_receipt_print_mode";
 
 export function ReceiptPrintView({
   receipt,
+  kitchenOnly = false,
+  backHref = "/kasir",
+  backLabel = "Kembali ke Kasir",
 }: {
   receipt: OrderReceiptDetail;
+  kitchenOnly?: boolean;
+  backHref?: string;
+  backLabel?: string;
 }) {
   const [paperSize, setPaperSize] = useState<ReceiptPaperSize>("58mm");
-  const [printMode, setPrintMode] = useState<ReceiptPrintMode>("both");
+  const [printMode, setPrintMode] = useState<ReceiptPrintMode>(
+    kitchenOnly ? "kitchen" : "both"
+  );
   const [printCount, setPrintCount] = useState(0);
   const [auditNotice, setAuditNotice] = useState<string | null>(null);
   const [printerState, setPrinterState] = useState<BluetoothPrinterState>({
@@ -65,9 +74,13 @@ export function ReceiptPrintView({
 
   async function recordPrintAudit(): Promise<void> {
     try {
-      const res = await recordReceiptReprintAction({
-        orderId: receipt.orderId,
-      });
+      const res = kitchenOnly
+        ? await recordKitchenTicketPrintAction({
+            orderId: receipt.orderId,
+          })
+        : await recordReceiptReprintAction({
+            orderId: receipt.orderId,
+          });
       if (res.ok) {
         setPrintCount((c) => c + 1);
         setAuditNotice(res.message);
@@ -100,7 +113,7 @@ export function ReceiptPrintView({
     const unsubscribe = subscribeBluetoothPrinterState(setPrinterState);
 
     let resolvedPaper: ReceiptPaperSize = "58mm";
-    let resolvedMode: ReceiptPrintMode = "both";
+    let resolvedMode: ReceiptPrintMode = kitchenOnly ? "kitchen" : "both";
 
     try {
       const savedPaper = window.localStorage.getItem(PAPER_SIZE_STORAGE_KEY);
@@ -108,14 +121,16 @@ export function ReceiptPrintView({
         resolvedPaper = savedPaper;
         setPaperSize(savedPaper);
       }
-      const savedMode = window.localStorage.getItem(PRINT_MODE_STORAGE_KEY);
-      if (
-        savedMode === "both" ||
-        savedMode === "customer" ||
-        savedMode === "kitchen"
-      ) {
-        resolvedMode = savedMode;
-        setPrintMode(savedMode);
+      if (!kitchenOnly) {
+        const savedMode = window.localStorage.getItem(PRINT_MODE_STORAGE_KEY);
+        if (
+          savedMode === "both" ||
+          savedMode === "customer" ||
+          savedMode === "kitchen"
+        ) {
+          resolvedMode = savedMode;
+          setPrintMode(savedMode);
+        }
       }
     } catch {
       // Gunakan default
@@ -124,9 +139,10 @@ export function ReceiptPrintView({
     const params = new URLSearchParams(window.location.search);
     const modeParam = params.get("mode");
     if (
-      modeParam === "both" ||
-      modeParam === "kitchen" ||
-      modeParam === "customer"
+      !kitchenOnly &&
+      (modeParam === "both" ||
+        modeParam === "kitchen" ||
+        modeParam === "customer")
     ) {
       resolvedMode = modeParam;
       setPrintMode(modeParam);
@@ -290,14 +306,14 @@ export function ReceiptPrintView({
       {/* Toolbar (Disembunyikan saat print browser) */}
       <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Link href="/kasir">
+          <Link href={backHref}>
             <Button
               type="button"
               variant="outline"
               className="min-h-[44px]"
             >
               <ArrowLeft className="mr-1.5 h-4 w-4" />
-              Kembali ke Kasir
+              {backLabel}
             </Button>
           </Link>
 
@@ -446,41 +462,43 @@ export function ReceiptPrintView({
         </div>
 
         {/* Pilihan Mode Slip Cetak: Struk Harga + Struk Antrean Kitchen */}
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
-          <span className="mr-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-            Bagian Cetak:
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant={printMode === "both" ? "default" : "outline"}
-            className="min-h-[44px]"
-            onClick={() => updatePrintMode("both")}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Struk Harga + Antrean Kitchen
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={printMode === "customer" ? "default" : "outline"}
-            className="min-h-[44px]"
-            onClick={() => updatePrintMode("customer")}
-          >
-            <Receipt className="mr-1.5 h-3.5 w-3.5" />
-            Struk Harga Saja
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={printMode === "kitchen" ? "default" : "outline"}
-            className="min-h-[44px]"
-            onClick={() => updatePrintMode("kitchen")}
-          >
-            <ChefHat className="mr-1.5 h-3.5 w-3.5" />
-            Tiket Kitchen Saja
-          </Button>
-        </div>
+        {!kitchenOnly && (
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+            <span className="mr-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Bagian Cetak:
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant={printMode === "both" ? "default" : "outline"}
+              className="min-h-[44px]"
+              onClick={() => updatePrintMode("both")}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Struk Harga + Antrean Kitchen
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={printMode === "customer" ? "default" : "outline"}
+              className="min-h-[44px]"
+              onClick={() => updatePrintMode("customer")}
+            >
+              <Receipt className="mr-1.5 h-3.5 w-3.5" />
+              Struk Harga Saja
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={printMode === "kitchen" ? "default" : "outline"}
+              className="min-h-[44px]"
+              onClick={() => updatePrintMode("kitchen")}
+            >
+              <ChefHat className="mr-1.5 h-3.5 w-3.5" />
+              Tiket Kitchen Saja
+            </Button>
+          </div>
+        )}
       </div>
 
       {printerError && (

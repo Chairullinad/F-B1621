@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertOctagon,
   CheckCircle2,
   ChefHat,
+  Printer,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -413,7 +415,18 @@ export function KitchenBoard({
                     ))}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Link href={`/dapur/struk/${ticket.id}`}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11 px-3 text-sm font-semibold"
+                        title="Cetak tiket antrean kitchen (Bluetooth / Browser)"
+                      >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        Cetak Struk
+                      </Button>
+                    </Link>
                     {!ticket.cookingStartedAt ? (
                       <Button
                         type="button"

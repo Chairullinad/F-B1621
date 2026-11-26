@@ -9,6 +9,7 @@ import type {
   OrderType,
   UserRole,
 } from "@/lib/types/database";
+import type { OrderReceiptDetail } from "@/server/cashier";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 
 // ============================================================================
@@ -509,6 +510,181 @@ export async function markOrderServedAction(rawInput: {
   return {
     ok: true,
     message: `Order #${updated.order_no} selesai disajikan (SERVED). Sesi pantau pelanggan pada meja tersebut otomatis ditutup.`,
+  };
+}
+
+/**
+ * Mengambil detail tiket order KHUSUS Kitchen (/dapur/struk/[orderId])
+ * tanpa menyertakan harga, diskon, pajak, total, atau nominal pembayaran (PRD 5.8).
+ */
+export async function getKitchenTicketPrintDetail(
+  rawOrderId: string
+): Promise<OrderReceiptDetail | null> {
+  const staff = await requireStaffRole(["owner", "kitchen", "cashier"], "dapur");
+  const parsedId = z.string().uuid().safeParse(rawOrderId);
+  if (!parsedId.success) {
+    return null;
+  }
+
+  const admin = createSupabaseAdminClient();
+  const orderId = parsedId.data;
+
+  const { data: orderRow } = await admin
+    .from("orders")
+    .select(
+      "id, outlet_id, order_no, order_type, table_id, status, created_at, paid_at, paid_by, cancelled_at, cancel_reason"
+    )
+    .eq("id", orderId)
+    .eq("outlet_id", staff.outletId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!orderRow) {
+    return null;
+  }
+
+  const [outletRes, tableRes, itemsRes, cashierRes] = await Promise.all([
+    admin
+      .from("outlets")
+      .select("name, address")
+      .eq("id", staff.outletId)
+      .maybeSingle(),
+    orderRow.table_id
+      ? admin
+          .from("tables")
+          .select("name")
+          .eq("id", orderRow.table_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    admin
+      .from("order_items")
+      .select("id, product_id, product_name, qty, note")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: true }),
+    orderRow.paid_by
+      ? admin
+          .from("users")
+          .select("full_name")
+          .eq("id", orderRow.paid_by)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const rawItems = (itemsRes.data ?? []) as Array<{
+    id: string;
+    product_id: string;
+    product_name: string;
+    qty: number;
+    note: string | null;
+  }>;
+
+  return {
+    orderId,
+    orderNo: String(orderRow.order_no),
+    outletName: String(outletRes.data?.name ?? "1621 GROUP"),
+    outletAddress: (outletRes.data?.address as string | null) ?? null,
+    receiptFooter: null,
+    orderType: (orderRow.order_type as OrderType) ?? "dine_in",
+    tableName:
+      tableRes.data?.name ??
+      (orderRow.order_type === "takeaway" ? "Takeaway / Bungkus" : "-"),
+    status: orderRow.status as OrderStatus,
+    cashierName: String(cashierRes.data?.full_name ?? staff.fullName),
+    paymentMethod: "cash",
+    subtotal: 0,
+    discount: 0,
+    discountReason: null,
+    serviceRate: null,
+    serviceAmount: 0,
+    taxRate: null,
+    taxAmount: 0,
+    priceIncludesTax: false,
+    total: 0,
+    amountReceived: 0,
+    changeAmount: 0,
+    createdAt: String(orderRow.created_at),
+    paidAt: (orderRow.paid_at as string | null) ?? null,
+    cancelledAt: (orderRow.cancelled_at as string | null) ?? null,
+    cancelReason: (orderRow.cancel_reason as string | null) ?? null,
+    refund: null,
+    items: rawItems.map((i) => ({
+      id: i.id,
+      productId: i.product_id,
+      productName: i.product_name,
+      unitPrice: 0,
+      qty: Number(i.qty),
+      note: i.note ?? null,
+      lineTotal: 0,
+    })),
+  };
+}
+
+/**
+ * Server Action: Mencatat cetak tiket antrean dari Layar Kitchen ke audit_logs.
+ */
+export async function recordKitchenTicketPrintAction(rawInput: {
+  orderId: string;
+}): Promise<ActionResult> {
+  const parsedId = z.string().uuid().safeParse(rawInput.orderId);
+  if (!parsedId.success) {
+    return { ok: false, message: "ID order tidak valid." };
+  }
+
+  const staff = await requireStaffRole(
+    ["owner", "kitchen", "cashier"],
+    "dapur"
+  );
+  const hdrs = await headers();
+  const forwardedFor = hdrs.get("x-forwarded-for");
+  const ip =
+    (forwardedFor ? forwardedFor.split(",")[0]?.trim() : null) ??
+    hdrs.get("x-real-ip") ??
+    "127.0.0.1";
+  const device = hdrs.get("user-agent") ?? "kitchen-browser";
+  const admin = createSupabaseAdminClient();
+
+  const { data: orderRow } = await admin
+    .from("orders")
+    .select("id, outlet_id, order_no")
+    .eq("id", parsedId.data)
+    .eq("outlet_id", staff.outletId)
+    .maybeSingle();
+
+  if (!orderRow) {
+    return { ok: false, message: "Order tidak ditemukan." };
+  }
+
+  const reason = `Cetak tiket kitchen Order #${orderRow.order_no} oleh ${staff.fullName}`;
+  await admin.rpc("set_audit_context", {
+    p_user_id: staff.userId,
+    p_role: staff.role,
+    p_device: device,
+    p_ip: ip,
+    p_reason: reason,
+  });
+
+  await admin.from("audit_logs").insert({
+    outlet_id: staff.outletId,
+    user_id: staff.userId,
+    role: staff.role,
+    device,
+    ip,
+    action: "kitchen_ticket.printed",
+    entity: "orders",
+    entity_id: orderRow.id,
+    before: null,
+    after: {
+      order_no: orderRow.order_no,
+      printed_by: staff.fullName,
+    },
+    reason,
+    prev_hash: "",
+    hash: "",
+  });
+
+  return {
+    ok: true,
+    message: `Cetak tiket kitchen Order #${orderRow.order_no} dicatat di Jejak Audit.`,
   };
 }
 
