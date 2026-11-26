@@ -1,5 +1,6 @@
 "use server";
 
+import { parseWibDateRange } from "@/lib/datetime";
 import {
   assignDistinctOutletColors,
   mapOutletRowToView,
@@ -56,6 +57,10 @@ export interface OwnerHoldingAnalyticsData {
   currentWibYear: number;
   currentWibMonth: number;
   availableYears: number[];
+  activeStartDate: string | null;
+  activeEndDate: string | null;
+  rangeLabel: string | null;
+  rangeDayCount: number;
   totalOutlets: number;
   activeOutletsCount: number;
   totalAnnualSales: number;
@@ -76,6 +81,14 @@ function getWibYearMonthFromDate(date: Date): { year: number; month: number } {
   };
 }
 
+function formatWibDayKeyFromDate(date: Date): string {
+  const shifted = new Date(date.getTime() + WIB_OFFSET_MS);
+  const y = shifted.getUTCFullYear();
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function getWibYearMonthFromIso(iso: string): { year: number; month: number } | null {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) {
@@ -90,30 +103,36 @@ function isCountedPaidStatus(status: OrderStatus): boolean {
 
 export async function getOwnerHoldingAnalytics(params?: {
   year?: number;
+  startDate?: string;
+  endDate?: string;
 }): Promise<OwnerHoldingAnalyticsData> {
   await requireStaffRole(["owner"]);
 
   const admin = createSupabaseAdminClient();
   const nowWib = getWibYearMonthFromDate(new Date());
+  const customRange = parseWibDateRange(params?.startDate, params?.endDate);
 
   const requestedYear = params?.year;
+  const fallbackYear = customRange
+    ? Number.parseInt(customRange.startDateWib.slice(0, 4), 10)
+    : nowWib.year;
   const selectedYear =
     requestedYear &&
     Number.isInteger(requestedYear) &&
     requestedYear >= 2020 &&
     requestedYear <= nowWib.year + 1
       ? requestedYear
-      : nowWib.year;
+      : fallbackYear;
 
-  // Batas UTC untuk 1 Jan 00:00 WIB s/d 1 Jan (year+1) 00:00 WIB,
-  // ditambah buffer 3 hari di awal untuk order created_at menjelang pergantian tahun lalu paid_at di Januari.
-  const yearStartUtc = new Date(
-    Date.UTC(selectedYear, 0, 1, 0, 0, 0) - WIB_OFFSET_MS
-  );
-  const queryStartUtc = new Date(yearStartUtc.getTime() - 3 * 24 * 60 * 60 * 1000);
-  const yearEndUtc = new Date(
-    Date.UTC(selectedYear + 1, 0, 1, 0, 0, 0) - WIB_OFFSET_MS
-  );
+  // Batas UTC untuk query orders (custom range WIB atau 1 tahun penuh WIB)
+  const rangeStartUtcMs = customRange
+    ? Date.parse(customRange.startIso)
+    : Date.UTC(selectedYear, 0, 1, 0, 0, 0) - WIB_OFFSET_MS;
+  const rangeEndUtcMs = customRange
+    ? Date.parse(customRange.endIso)
+    : Date.UTC(selectedYear + 1, 0, 1, 0, 0, 0) - WIB_OFFSET_MS - 1;
+  const queryStartUtc = new Date(rangeStartUtcMs - 3 * 24 * 60 * 60 * 1000);
+  const queryEndUtc = new Date(rangeEndUtcMs + 1);
 
   const [outletsRes, earliestOrderRes, yearOrdersRes] = await Promise.all([
     admin
@@ -135,7 +154,7 @@ export async function getOwnerHoldingAnalytics(params?: {
       .select("outlet_id, status, total, paid_at, created_at")
       .is("deleted_at", null)
       .gte("created_at", queryStartUtc.toISOString())
-      .lt("created_at", yearEndUtc.toISOString()),
+      .lt("created_at", queryEndUtc.toISOString()),
   ]);
 
   const rawOutlets = (outletsRes.data ?? []) as Record<string, unknown>[];
@@ -157,12 +176,66 @@ export async function getOwnerHoldingAnalytics(params?: {
   }
   const availableYears = Array.from(yearsSet).sort((a, b) => b - a);
 
-  // Inisialisasi akumulator per outlet (12 bulan)
+  // Tentukan sumbu bucket grafik:
+  // - Mode tahunan: 12 bulan (Jan..Des)
+  // - Mode rentang tanggal <= 31 hari: per tanggal WIB
+  // - Mode rentang tanggal > 31 hari: per bulan dalam rentang (YYYY-MM)
+  const useDailyBuckets = Boolean(customRange && customRange.dayCount <= 31);
+  const bucketKeys: string[] = [];
+  const bucketLabels: string[] = [];
+
+  if (customRange && useDailyBuckets) {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const shortFmt = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      day: "numeric",
+      month: "short",
+    });
+    for (let i = 0; i < customRange.dayCount; i++) {
+      const utcMidMs = rangeStartUtcMs + i * dayMs;
+      const dt = new Date(utcMidMs);
+      bucketKeys.push(formatWibDayKeyFromDate(dt));
+      bucketLabels.push(shortFmt.format(dt));
+    }
+  } else if (customRange) {
+    const startYear = Number.parseInt(customRange.startDateWib.slice(0, 4), 10);
+    const startMonth = Number.parseInt(customRange.startDateWib.slice(5, 7), 10) - 1;
+    const endYear = Number.parseInt(customRange.endDateWib.slice(0, 4), 10);
+    const endMonth = Number.parseInt(customRange.endDateWib.slice(5, 7), 10) - 1;
+    let curY = startYear;
+    let curM = startMonth;
+    while (curY < endYear || (curY === endYear && curM <= endMonth)) {
+      const mm = String(curM + 1).padStart(2, "0");
+      bucketKeys.push(`${curY}-${mm}`);
+      bucketLabels.push(
+        startYear === endYear
+          ? MONTH_SHORT_LABELS_ID[curM] ?? mm
+          : `${MONTH_SHORT_LABELS_ID[curM] ?? mm} '${String(curY).slice(-2)}`
+      );
+      curM += 1;
+      if (curM >= 12) {
+        curM = 0;
+        curY += 1;
+      }
+      if (bucketKeys.length >= 36) break;
+    }
+  } else {
+    for (let m = 0; m < 12; m++) {
+      bucketKeys.push(`${selectedYear}-${String(m + 1).padStart(2, "0")}`);
+      bucketLabels.push(MONTH_SHORT_LABELS_ID[m] ?? String(m + 1));
+    }
+  }
+
+  const bucketIndexByKey = new Map<string, number>();
+  bucketKeys.forEach((key, idx) => bucketIndexByKey.set(key, idx));
+  const bucketCount = Math.max(1, bucketLabels.length);
+
+  // Inisialisasi akumulator per outlet
   const outletMonthlySales = new Map<string, number[]>();
   const outletMonthlyBills = new Map<string, number[]>();
   for (const outlet of mappedOutlets) {
-    outletMonthlySales.set(outlet.id, new Array<number>(12).fill(0));
-    outletMonthlyBills.set(outlet.id, new Array<number>(12).fill(0));
+    outletMonthlySales.set(outlet.id, new Array<number>(bucketCount).fill(0));
+    outletMonthlyBills.set(outlet.id, new Array<number>(bucketCount).fill(0));
   }
 
   for (const row of yearOrdersRes.data ?? []) {
@@ -178,8 +251,26 @@ export async function getOwnerHoldingAnalytics(params?: {
     }
 
     const effectiveTs = String(row.paid_at || row.created_at || "");
-    const wibYm = getWibYearMonthFromIso(effectiveTs);
-    if (!wibYm || wibYm.year !== selectedYear) {
+    const effectiveMs = Date.parse(effectiveTs);
+    if (
+      Number.isNaN(effectiveMs) ||
+      effectiveMs < rangeStartUtcMs ||
+      effectiveMs > rangeEndUtcMs
+    ) {
+      continue;
+    }
+
+    const effectiveDate = new Date(effectiveMs);
+    let key: string;
+    if (useDailyBuckets) {
+      key = formatWibDayKeyFromDate(effectiveDate);
+    } else {
+      const ym = getWibYearMonthFromDate(effectiveDate);
+      key = `${ym.year}-${String(ym.month + 1).padStart(2, "0")}`;
+    }
+
+    const bucketIdx = bucketIndexByKey.get(key);
+    if (bucketIdx === undefined) {
       continue;
     }
 
@@ -188,16 +279,18 @@ export async function getOwnerHoldingAnalytics(params?: {
       continue;
     }
 
-    salesArr[wibYm.month] = (salesArr[wibYm.month] ?? 0) + Math.round(total);
-    billsArr[wibYm.month] = (billsArr[wibYm.month] ?? 0) + 1;
+    salesArr[bucketIdx] = (salesArr[bucketIdx] ?? 0) + Math.round(total);
+    billsArr[bucketIdx] = (billsArr[bucketIdx] ?? 0) + 1;
   }
 
   const targetMonthIndex =
     selectedYear === nowWib.year ? nowWib.month : 11;
 
   const outletSummaries: HoldingOutletSummary[] = mappedOutlets.map((outlet) => {
-    const monthlySeries = outletMonthlySales.get(outlet.id) ?? new Array<number>(12).fill(0);
-    const monthlyBills = outletMonthlyBills.get(outlet.id) ?? new Array<number>(12).fill(0);
+    const monthlySeries =
+      outletMonthlySales.get(outlet.id) ?? new Array<number>(bucketCount).fill(0);
+    const monthlyBills =
+      outletMonthlyBills.get(outlet.id) ?? new Array<number>(bucketCount).fill(0);
     const annualSales = monthlySeries.reduce((acc, v) => acc + v, 0);
     const annualBills = monthlyBills.reduce((acc, v) => acc + v, 0);
 
@@ -206,14 +299,18 @@ export async function getOwnerHoldingAnalytics(params?: {
       chartColor: colorMap.get(outlet.id) ?? "#0284C7",
       annualSales,
       annualBills,
-      currentMonthSales: monthlySeries[targetMonthIndex] ?? 0,
-      currentMonthBills: monthlyBills[targetMonthIndex] ?? 0,
+      currentMonthSales: customRange
+        ? Math.round(annualSales / customRange.dayCount)
+        : (monthlySeries[targetMonthIndex] ?? 0),
+      currentMonthBills: customRange
+        ? annualBills
+        : (monthlyBills[targetMonthIndex] ?? 0),
       monthlySeries,
       monthlyBills,
     };
   });
 
-  const monthlyChart: HoldingMonthlyBucket[] = MONTH_SHORT_LABELS_ID.map(
+  const monthlyChart: HoldingMonthlyBucket[] = bucketLabels.map(
     (monthLabel, monthIndex) => {
       const byOutlet: Record<string, HoldingMonthlyOutletPoint> = {};
       let totalSales = 0;
@@ -249,14 +346,12 @@ export async function getOwnerHoldingAnalytics(params?: {
     (acc, item) => acc + item.annualBills,
     0
   );
-  const totalCurrentMonthSales = outletSummaries.reduce(
-    (acc, item) => acc + item.currentMonthSales,
-    0
-  );
-  const totalCurrentMonthBills = outletSummaries.reduce(
-    (acc, item) => acc + item.currentMonthBills,
-    0
-  );
+  const totalCurrentMonthSales = customRange
+    ? Math.round(totalAnnualSales / customRange.dayCount)
+    : outletSummaries.reduce((acc, item) => acc + item.currentMonthSales, 0);
+  const totalCurrentMonthBills = customRange
+    ? totalAnnualBills
+    : outletSummaries.reduce((acc, item) => acc + item.currentMonthBills, 0);
 
   let bestOutletName: string | null = null;
   let bestOutletSales = 0;
@@ -272,6 +367,10 @@ export async function getOwnerHoldingAnalytics(params?: {
     currentWibYear: nowWib.year,
     currentWibMonth: nowWib.month,
     availableYears,
+    activeStartDate: customRange?.startDateWib ?? null,
+    activeEndDate: customRange?.endDateWib ?? null,
+    rangeLabel: customRange?.label ?? null,
+    rangeDayCount: customRange?.dayCount ?? 0,
     totalOutlets: mappedOutlets.length,
     activeOutletsCount: mappedOutlets.filter((o) => o.isActive).length,
     totalAnnualSales,

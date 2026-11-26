@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   getWibPeriodBounds,
   normalizeFinancialPeriod,
+  parseWibDateRange,
   type FinancialPeriodKey,
 } from "@/lib/datetime";
 import { roundRupiah } from "@/lib/money";
@@ -24,6 +25,9 @@ function makeJournalNo(prefix = "JV"): string {
 export interface FinancialReportData {
   periodLabel: string;
   activePeriod: FinancialPeriodKey;
+  activeStartDate: string | null;
+  activeEndDate: string | null;
+  isCustomRange: boolean;
   scopeLabel: string;
   selectedOutletId: string;
   isHoldingMode: boolean;
@@ -103,12 +107,24 @@ export interface FinancialReportData {
 export async function getFinancialReportData(params?: {
   outletId?: string;
   period?: string;
+  startDate?: string;
+  endDate?: string;
 }): Promise<FinancialReportData> {
   const staff = await requireStaffRole(["owner"], "keuangan");
   const admin = createSupabaseAdminClient();
 
   const activePeriod = normalizeFinancialPeriod(params?.period);
-  const periodBounds = getWibPeriodBounds(activePeriod);
+  const customRange = parseWibDateRange(params?.startDate, params?.endDate);
+  const periodBounds = customRange
+    ? {
+        period: activePeriod,
+        label: customRange.label,
+        startIso: customRange.startIso,
+        endIso: customRange.endIso,
+        startDateWib: customRange.startDateWib,
+        endDateWib: customRange.endDateWib,
+      }
+    : getWibPeriodBounds(activePeriod);
 
   const outletsRes = await admin
     .from("outlets")
@@ -406,6 +422,9 @@ export async function getFinancialReportData(params?: {
   return {
     periodLabel,
     activePeriod,
+    activeStartDate: customRange?.startDateWib ?? null,
+    activeEndDate: customRange?.endDateWib ?? null,
+    isCustomRange: Boolean(customRange),
     kpi: {
       totalRevenue,
       totalCogs: cogsAmount,

@@ -1,5 +1,6 @@
 "use server";
 
+import { parseWibDateRange } from "@/lib/datetime";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OrderStatus, PaymentMethod, UserRole } from "@/lib/types/database";
 import { requireStaffRole } from "@/server/auth";
@@ -66,6 +67,9 @@ export interface EsbDashboardAnalyticsData {
     outletId: string;
     period: "today" | "month";
     periodLabel: string;
+    startDate: string | null;
+    endDate: string | null;
+    isCustomRange: boolean;
   };
   availableOutlets: Array<{ id: string; name: string }>;
   kpis: {
@@ -178,12 +182,27 @@ function calculateTrendPercentage(current: number, previous: number): number {
 export async function getEsbDashboardAnalytics(params?: {
   period?: "today" | "month";
   outletId?: string;
+  startDate?: string;
+  endDate?: string;
 }): Promise<EsbDashboardAnalyticsData> {
   const staff = await requireStaffRole(["owner", "cashier", "warehouse", "kitchen", "waiter"]);
   const admin = createSupabaseAdminClient();
 
+  const customRange = parseWibDateRange(params?.startDate, params?.endDate);
   const selectedPeriod = params?.period ?? "today";
-  const bounds = getWibPeriodBounds(selectedPeriod);
+  const bounds = customRange
+    ? {
+        current: {
+          startIso: customRange.startIso,
+          endIso: customRange.endIso,
+          label: customRange.label,
+        },
+        previous: {
+          startIso: customRange.prevStartIso,
+          endIso: customRange.prevEndIso,
+        },
+      }
+    : getWibPeriodBounds(selectedPeriod);
   const activeOutletId = params?.outletId ?? staff.outletId;
 
   // Jalankan query daftar outlet, pesanan periode ini & sebelumnya, bahan baku, produk, dan kategori secara paralel
@@ -642,6 +661,9 @@ export async function getEsbDashboardAnalytics(params?: {
       outletId: activeOutletId,
       period: selectedPeriod,
       periodLabel: bounds.current.label,
+      startDate: customRange?.startDateWib ?? null,
+      endDate: customRange?.endDateWib ?? null,
+      isCustomRange: Boolean(customRange),
     },
     availableOutlets,
     kpis: {

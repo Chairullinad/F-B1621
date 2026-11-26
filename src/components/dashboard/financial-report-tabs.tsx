@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { DailyEmailReportTemplate } from "@/components/dashboard/daily-email-report-template";
+import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import {
   FINANCIAL_PERIOD_OPTIONS,
   type FinancialPeriodKey,
@@ -120,11 +121,24 @@ export function FinancialReportTabs({
     outletId?: string;
     period?: FinancialPeriodKey;
     tab?: TabKey;
+    startDate?: string | null;
+    endDate?: string | null;
   }) {
     const outlet = next.outletId ?? initialData.selectedOutletId;
     const period = next.period ?? initialData.activePeriod;
     const tab = next.tab ?? activeTab;
-    return `/dashboard/keuangan?outletId=${encodeURIComponent(outlet)}&period=${encodeURIComponent(period)}&tab=${encodeURIComponent(tab)}`;
+    const startDate =
+      next.startDate === undefined ? initialData.activeStartDate : next.startDate;
+    const endDate =
+      next.endDate === undefined ? initialData.activeEndDate : next.endDate;
+    const params = new URLSearchParams({
+      outletId: outlet,
+      period,
+      tab,
+    });
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+    return `/dashboard/keuangan?${params.toString()}`;
   }
 
   function handleOutletScopeChange(nextOutletId: string) {
@@ -132,7 +146,17 @@ export function FinancialReportTabs({
   }
 
   function handlePeriodChange(nextPeriod: FinancialPeriodKey) {
-    router.push(buildReportUrl({ period: nextPeriod }));
+    router.push(buildReportUrl({ period: nextPeriod, startDate: null, endDate: null }));
+  }
+
+  function handleDateRangeApply(range: { startDate: string; endDate: string }) {
+    router.push(
+      buildReportUrl({ startDate: range.startDate, endDate: range.endDate })
+    );
+  }
+
+  function handleDateRangeReset() {
+    router.push(buildReportUrl({ startDate: null, endDate: null }));
   }
 
   function handleCreateManualJournal(e: React.FormEvent) {
@@ -333,7 +357,8 @@ export function FinancialReportTabs({
           )}
           <div className="flex flex-wrap items-center gap-1.5">
             {FINANCIAL_PERIOD_OPTIONS.map((p) => {
-              const isActivePeriod = initialData.activePeriod === p.key;
+              const isActivePeriod =
+                !initialData.isCustomRange && initialData.activePeriod === p.key;
               return (
                 <button
                   key={p.key}
@@ -350,6 +375,14 @@ export function FinancialReportTabs({
               );
             })}
           </div>
+
+          <DateRangeFilter
+            startDate={initialData.activeStartDate ?? ""}
+            endDate={initialData.activeEndDate ?? ""}
+            hasActiveCustomRange={initialData.isCustomRange}
+            onApply={handleDateRangeApply}
+            onReset={handleDateRangeReset}
+          />
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import type { ProductAddonGroupWithOptions } from "@/lib/addons";
+import { parseWibDateRange } from "@/lib/datetime";
 import {
   calculateCashChange,
   calculateDiscountAmount,
@@ -166,6 +167,9 @@ export interface TransactionsDashboardData {
   isHoldingMode: boolean;
   outlets: Array<{ id: string; name: string }>;
   cashiers: Array<{ id: string; fullName: string; role: UserRole }>;
+  activeStartDate: string | null;
+  activeEndDate: string | null;
+  isCustomRange: boolean;
   summary: FinancialSummaryMetrics;
   transactions: TransactionRowView[];
 }
@@ -697,6 +701,8 @@ export async function createManualCashierOrderAction(rawInput: {
  */
 export async function getTransactionsDashboardData(rawFilters?: {
   period?: "today" | "7d" | "30d" | "all";
+  startDate?: string;
+  endDate?: string;
   status?: string;
   cashierId?: string;
   outletId?: string;
@@ -740,9 +746,15 @@ export async function getTransactionsDashboardData(rawFilters?: {
       ? "Semua Outlet (Konsolidasi)"
       : outletNameMap.get(selectedOutletId) ?? "Outlet Aktif";
 
+  const customRange = parseWibDateRange(rawFilters?.startDate, rawFilters?.endDate);
   const period = rawFilters?.period ?? "today";
-  const bounds =
-    period === "today"
+  const bounds = customRange
+    ? {
+        startIso: customRange.startIso,
+        endIso: customRange.endIso,
+        label: customRange.label,
+      }
+    : period === "today"
       ? getWibDayBoundsIso(0)
       : period === "7d"
         ? getWibDayBoundsIso(6)
@@ -1001,6 +1013,9 @@ export async function getTransactionsDashboardData(rawFilters?: {
     isHoldingMode,
     outlets,
     cashiers,
+    activeStartDate: customRange?.startDateWib ?? null,
+    activeEndDate: customRange?.endDateWib ?? null,
+    isCustomRange: Boolean(customRange),
     summary: {
       periodLabel: bounds?.label ?? "Semua Periode",
       totalOrdersCount: allTransactions.length,

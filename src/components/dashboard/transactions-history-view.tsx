@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -155,11 +156,17 @@ export function TransactionsHistoryView({
             <select
               aria-label="Filter Outlet Transaksi"
               value={initialData.selectedOutletId}
-              onChange={(e) =>
-                router.push(
-                  `/dashboard/transaksi?period=${activePeriod}&outletId=${encodeURIComponent(e.target.value)}`
-                )
-              }
+              onChange={(e) => {
+                const params = new URLSearchParams({
+                  period: activePeriod,
+                  outletId: e.target.value,
+                });
+                if (initialData.activeStartDate && initialData.activeEndDate) {
+                  params.set("startDate", initialData.activeStartDate);
+                  params.set("endDate", initialData.activeEndDate);
+                }
+                router.push(`/dashboard/transaksi?${params.toString()}`);
+              }}
               className="h-11 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-zinc-800 dark:text-slate-100"
             >
               <option value="ALL">Semua Outlet (Konsolidasi)</option>
@@ -190,13 +197,41 @@ export function TransactionsHistoryView({
                 <Button
                   type="button"
                   size="sm"
-                  variant={activePeriod === p.key ? "default" : "outline"}
+                  variant={
+                    !initialData.isCustomRange && activePeriod === p.key
+                      ? "default"
+                      : "outline"
+                  }
                 >
                   {p.label}
                 </Button>
               </Link>
             ))}
           </div>
+
+          <DateRangeFilter
+            startDate={initialData.activeStartDate ?? ""}
+            endDate={initialData.activeEndDate ?? ""}
+            hasActiveCustomRange={initialData.isCustomRange}
+            onApply={({ startDate, endDate }) => {
+              const params = new URLSearchParams({
+                period: activePeriod,
+                startDate,
+                endDate,
+              });
+              if (initialData.staff.role === "owner") {
+                params.set("outletId", initialData.selectedOutletId);
+              }
+              router.push(`/dashboard/transaksi?${params.toString()}`);
+            }}
+            onReset={() => {
+              const params = new URLSearchParams({ period: activePeriod });
+              if (initialData.staff.role === "owner") {
+                params.set("outletId", initialData.selectedOutletId);
+              }
+              router.push(`/dashboard/transaksi?${params.toString()}`);
+            }}
+          />
         </div>
       </div>
 

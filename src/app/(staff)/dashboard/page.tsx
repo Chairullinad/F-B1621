@@ -11,6 +11,8 @@ interface DashboardPageProps {
     period?: "today" | "month";
     outletId?: string;
     year?: string;
+    startDate?: string;
+    endDate?: string;
     pilih_outlet?: string;
   }>;
 }
@@ -32,6 +34,8 @@ export default async function OwnerDashboardPage({
     const parsedYear = sp.year ? Number.parseInt(sp.year, 10) : undefined;
     const holdingData = await getOwnerHoldingAnalytics({
       year: Number.isFinite(parsedYear) ? parsedYear : undefined,
+      startDate: sp.startDate,
+      endDate: sp.endDate,
     });
 
     return (
@@ -45,6 +49,8 @@ export default async function OwnerDashboardPage({
   const data = await getEsbDashboardAnalytics({
     period: sp.period === "month" ? "month" : "today",
     outletId: sp.outletId ?? staff.selectedOutletId ?? undefined,
+    startDate: sp.startDate,
+    endDate: sp.endDate,
   });
 
   return <EsbDashboardView initialData={data} />;

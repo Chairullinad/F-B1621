@@ -94,6 +94,109 @@ export interface WibPeriodBounds {
   endDateWib: string | null;
 }
 
+export interface CustomWibDateRange {
+  startDateWib: string;
+  endDateWib: string;
+  startIso: string;
+  endIso: string;
+  prevStartIso: string;
+  prevEndIso: string;
+  dayCount: number;
+  label: string;
+}
+
+function parseStrictIsoDateWib(raw?: string | null): {
+  year: number;
+  month: number;
+  day: number;
+  iso: string;
+} | null {
+  const trimmed = raw?.trim() ?? "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!match) return null;
+
+  const year = Number.parseInt(match[1] ?? "", 10);
+  const month = Number.parseInt(match[2] ?? "", 10);
+  const day = Number.parseInt(match[3] ?? "", 10);
+  if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return {
+    year,
+    month,
+    day,
+    iso: trimmed,
+  };
+}
+
+/**
+ * Mem-parsing tanggal tunggal atau rentang tanggal `YYYY-MM-DD` dalam WIB (UTC+7).
+ * Jika hanya salah satu diisi, otomatis berlaku untuk 1 hari penuh tersebut.
+ * Jika tanggal mulai > tanggal selesai, urutannya otomatis dibalik secara aman.
+ */
+export function parseWibDateRange(
+  rawStart?: string | null,
+  rawEnd?: string | null
+): CustomWibDateRange | null {
+  const parsedStart = parseStrictIsoDateWib(rawStart);
+  const parsedEnd = parseStrictIsoDateWib(rawEnd);
+
+  if (!parsedStart && !parsedEnd) {
+    return null;
+  }
+
+  const first = parsedStart ?? parsedEnd!;
+  const second = parsedEnd ?? parsedStart!;
+  const [start, end] = first.iso <= second.iso ? [first, second] : [second, first];
+
+  const wibOffsetMs = 7 * 60 * 60 * 1000;
+  const startUtcMs =
+    Date.UTC(start.year, start.month - 1, start.day, 0, 0, 0, 0) - wibOffsetMs;
+  const endUtcMs =
+    Date.UTC(end.year, end.month - 1, end.day, 23, 59, 59, 999) - wibOffsetMs;
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const dayCount = Math.max(
+    1,
+    Math.round((endUtcMs + 1 - startUtcMs) / dayMs)
+  );
+  const prevEndUtcMs = startUtcMs - 1;
+  const prevStartUtcMs = startUtcMs - dayCount * dayMs;
+
+  const fmt = new Intl.DateTimeFormat("id-ID", {
+    timeZone: APP_TIMEZONE,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  const label =
+    start.iso === end.iso
+      ? fmt.format(new Date(startUtcMs))
+      : `${fmt.format(new Date(startUtcMs))} – ${fmt.format(new Date(endUtcMs))}`;
+
+  return {
+    startDateWib: start.iso,
+    endDateWib: end.iso,
+    startIso: new Date(startUtcMs).toISOString(),
+    endIso: new Date(endUtcMs).toISOString(),
+    prevStartIso: new Date(prevStartUtcMs).toISOString(),
+    prevEndIso: new Date(prevEndUtcMs).toISOString(),
+    dayCount,
+    label,
+  };
+}
+
 /**
  * Menghitung batas waktu WIB (UTC+7) untuk filter laporan keuangan & laba rugi.
  */

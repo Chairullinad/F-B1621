@@ -11,6 +11,7 @@ import {
   Sparkles,
   X as CloseIcon,
 } from "lucide-react";
+import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { formatRupiah } from "@/lib/money";
 import type {
   CompositionSlice,
@@ -39,6 +40,35 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
     startTransition(() => {
       const url = new URL(window.location.href);
       url.searchParams.set("period", newPeriod);
+      url.searchParams.delete("startDate");
+      url.searchParams.delete("endDate");
+      if (selectedOutletId) url.searchParams.set("outletId", selectedOutletId);
+      router.push(url.pathname + url.search);
+    });
+  };
+
+  const handleDateRangeApply = ({
+    startDate,
+    endDate,
+  }: {
+    startDate: string;
+    endDate: string;
+  }) => {
+    startTransition(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("startDate", startDate);
+      url.searchParams.set("endDate", endDate);
+      if (selectedOutletId) url.searchParams.set("outletId", selectedOutletId);
+      router.push(url.pathname + url.search);
+    });
+  };
+
+  const handleDateRangeReset = () => {
+    startTransition(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("startDate");
+      url.searchParams.delete("endDate");
+      url.searchParams.set("period", period);
       if (selectedOutletId) url.searchParams.set("outletId", selectedOutletId);
       router.push(url.pathname + url.search);
     });
@@ -74,33 +104,45 @@ export function EsbDashboardView({ initialData }: EsbDashboardViewProps) {
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Menampilkan data operasional untuk outlet:{" "}
               <strong className="text-sky-700 dark:text-sky-400">{data.staff.outletName}</strong>
+              {" "}• Periode: <strong className="text-slate-700 dark:text-slate-200">{data.filter.periodLabel}</strong>
             </p>
           </div>
 
-          {/* Toggle Hari / Bulan */}
-          <div className="flex items-center rounded-xl border border-sky-300 dark:border-slate-700 bg-sky-50/50 dark:bg-slate-800 p-1 text-xs sm:text-sm font-semibold">
-            <button
-              type="button"
-              onClick={() => handlePeriodChange("today")}
-              className={`rounded-lg px-4 py-1.5 transition cursor-pointer ${
-                period === "today"
-                  ? "bg-[#0284C7] text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              Hari
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePeriodChange("month")}
-              className={`rounded-lg px-4 py-1.5 transition cursor-pointer ${
-                period === "month"
-                  ? "bg-[#0284C7] text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              Bulan
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Toggle Hari / Bulan */}
+            <div className="flex items-center rounded-xl border border-sky-300 dark:border-slate-700 bg-sky-50/50 dark:bg-slate-800 p-1 text-xs sm:text-sm font-semibold">
+              <button
+                type="button"
+                onClick={() => handlePeriodChange("today")}
+                className={`rounded-lg px-4 py-1.5 transition cursor-pointer ${
+                  !data.filter.isCustomRange && period === "today"
+                    ? "bg-[#0284C7] text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                Hari
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePeriodChange("month")}
+                className={`rounded-lg px-4 py-1.5 transition cursor-pointer ${
+                  !data.filter.isCustomRange && period === "month"
+                    ? "bg-[#0284C7] text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                Bulan
+              </button>
+            </div>
+
+            <DateRangeFilter
+              startDate={data.filter.startDate ?? ""}
+              endDate={data.filter.endDate ?? ""}
+              hasActiveCustomRange={data.filter.isCustomRange}
+              disabled={isPending}
+              onApply={handleDateRangeApply}
+              onReset={handleDateRangeReset}
+            />
           </div>
         </div>
 

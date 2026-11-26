@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { parseWibDateRange } from "@/lib/datetime";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@/lib/types/database";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
@@ -54,6 +55,10 @@ export interface AuditTrailDashboardData {
   selectedOutletId: string;
   isHoldingMode: boolean;
   outlets: Array<{ id: string; name: string }>;
+  activeStartDate: string | null;
+  activeEndDate: string | null;
+  isCustomRange: boolean;
+  periodLabel: string;
   chainVerification: AuditChainVerificationStatus;
   staffOptions: Array<{ id: string; fullName: string; role: UserRole }>;
   logs: AuditLogRowView[];
@@ -91,6 +96,8 @@ function getWibPeriodStartIso(period: "today" | "7d" | "30d" | "all"): string | 
  */
 export async function getAuditTrailDashboardData(rawFilters?: {
   period?: "today" | "7d" | "30d" | "all";
+  startDate?: string;
+  endDate?: string;
   outletId?: string;
 }): Promise<AuditTrailDashboardData> {
   const staff = await requireStaffRole(["owner"], "staf_audit");
@@ -126,8 +133,21 @@ export async function getAuditTrailDashboardData(rawFilters?: {
       ? "Semua Outlet (Konsolidasi)"
       : outletNameMap.get(selectedOutletId) ?? "Outlet Aktif";
 
+  const customRange = parseWibDateRange(rawFilters?.startDate, rawFilters?.endDate);
   const period = rawFilters?.period ?? "7d";
-  const startIso = getWibPeriodStartIso(period);
+  const startIso = customRange
+    ? customRange.startIso
+    : getWibPeriodStartIso(period);
+  const endIso = customRange ? customRange.endIso : null;
+  const periodLabel = customRange
+    ? customRange.label
+    : period === "today"
+      ? "Hari Ini (WIB)"
+      : period === "7d"
+        ? "7 Hari Terakhir"
+        : period === "30d"
+          ? "30 Hari Terakhir"
+          : "Semua Periode";
 
   let logsQuery = admin
     .from("audit_logs")
@@ -143,6 +163,9 @@ export async function getAuditTrailDashboardData(rawFilters?: {
 
   if (startIso) {
     logsQuery = logsQuery.gte("created_at", startIso);
+  }
+  if (endIso) {
+    logsQuery = logsQuery.lte("created_at", endIso);
   }
 
   let profilesQuery = admin.from("profiles").select("id, full_name, role");
@@ -335,6 +358,10 @@ export async function getAuditTrailDashboardData(rawFilters?: {
     selectedOutletId,
     isHoldingMode,
     outlets,
+    activeStartDate: customRange?.startDateWib ?? null,
+    activeEndDate: customRange?.endDateWib ?? null,
+    isCustomRange: Boolean(customRange),
+    periodLabel,
     chainVerification,
     staffOptions,
     logs: mappedLogs,

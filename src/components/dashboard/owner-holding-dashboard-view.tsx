@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { formatRupiah } from "@/lib/money";
 import type { OwnerHoldingAnalyticsData } from "@/server/owner-holding-analytics";
 import { switchActiveOutletAction } from "@/server/outlets";
@@ -121,6 +122,22 @@ export function OwnerHoldingDashboardView({
     router.push(`/dashboard?year=${encodeURIComponent(yearValue)}`);
   };
 
+  const handleDateRangeApply = ({
+    startDate,
+    endDate,
+  }: {
+    startDate: string;
+    endDate: string;
+  }) => {
+    router.push(
+      `/dashboard?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+    );
+  };
+
+  const handleDateRangeReset = () => {
+    router.push(`/dashboard?year=${encodeURIComponent(String(initialData.selectedYear))}`);
+  };
+
   // Skala sumbu Y untuk grafik bulanan
   const maxMonthlyValue = React.useMemo(() => {
     let maxVal = 0;
@@ -145,11 +162,16 @@ export function OwnerHoldingDashboardView({
   const plotW = svgW - padL - padR;
   const plotH = svgH - padT - padB;
 
+  const bucketCount = Math.max(1, initialData.monthlyChart.length);
+
   const getMonthCenterX = (monthIdx: number): number => {
     if (chartMode === "line") {
-      return padL + (monthIdx / 11) * plotW;
+      if (bucketCount <= 1) {
+        return padL + plotW / 2;
+      }
+      return padL + (monthIdx / (bucketCount - 1)) * plotW;
     }
-    const bandW = plotW / 12;
+    const bandW = plotW / bucketCount;
     return padL + monthIdx * bandW + bandW / 2;
   };
 
@@ -228,6 +250,14 @@ export function OwnerHoldingDashboardView({
               ))}
             </select>
           </div>
+
+          <DateRangeFilter
+            startDate={initialData.activeStartDate ?? ""}
+            endDate={initialData.activeEndDate ?? ""}
+            hasActiveCustomRange={Boolean(initialData.rangeLabel)}
+            onApply={handleDateRangeApply}
+            onReset={handleDateRangeReset}
+          />
 
           <Link
             href="/dashboard/cabang"
@@ -330,7 +360,9 @@ export function OwnerHoldingDashboardView({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Total Penjualan {initialData.selectedYear}
+            {initialData.rangeLabel
+              ? `Total Penjualan (${initialData.rangeLabel})`
+              : `Total Penjualan ${initialData.selectedYear}`}
           </div>
           <div className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">
             {formatRupiah(initialData.totalAnnualSales)}
@@ -342,13 +374,17 @@ export function OwnerHoldingDashboardView({
 
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Omset {currentMonthLabel} {initialData.selectedYear}
+            {initialData.rangeLabel
+              ? "Rata-Rata Omset / Hari"
+              : `Omset ${currentMonthLabel} ${initialData.selectedYear}`}
           </div>
           <div className="mt-1.5 text-2xl font-bold text-[#1E88E5] dark:text-sky-400">
             {formatRupiah(initialData.totalCurrentMonthSales)}
           </div>
           <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {initialData.totalCurrentMonthBills.toLocaleString("id-ID")} bill pada bulan ini
+            {initialData.rangeLabel
+              ? `${initialData.totalCurrentMonthBills.toLocaleString("id-ID")} bill dalam ${initialData.rangeDayCount} hari`
+              : `${initialData.totalCurrentMonthBills.toLocaleString("id-ID")} bill pada bulan ini`}
           </div>
         </div>
 
@@ -375,19 +411,21 @@ export function OwnerHoldingDashboardView({
             <TrendingUp className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
             <span>
               {initialData.bestOutletName
-                ? `${formatRupiah(initialData.bestOutletSales)} di ${initialData.selectedYear}`
+                ? `${formatRupiah(initialData.bestOutletSales)} (${initialData.rangeLabel ?? initialData.selectedYear})`
                 : "Menunggu transaksi pertama"}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Grafik Penjualan Per Bulan Tiap Outlet (Warna Berbeda Per Outlet) */}
+      {/* Grafik Penjualan Tiap Outlet (Warna Berbeda Per Outlet) */}
       <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
-              Grafik Penjualan Per Bulan Tiap Outlet ({initialData.selectedYear})
+              {initialData.rangeLabel
+                ? `Grafik Penjualan Outlet (${initialData.rangeLabel})`
+                : `Grafik Penjualan Per Bulan Tiap Outlet (${initialData.selectedYear})`}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               Setiap warna mewakili satu outlet (waktu WIB). Klik nama outlet di legenda untuk menyaring tampilan grafik.
@@ -545,7 +583,7 @@ export function OwnerHoldingDashboardView({
               {/* Mode Grafik Batang Berkelompok */}
               {chartMode === "bar" &&
                 initialData.monthlyChart.map((bucket) => {
-                  const bandW = plotW / 12;
+                  const bandW = plotW / bucketCount;
                   const innerPad = 6;
                   const groupW = Math.max(12, bandW - innerPad * 2);
                   const count = Math.max(1, visibleOutlets.length);
@@ -582,15 +620,17 @@ export function OwnerHoldingDashboardView({
                   );
                 })}
 
-              {/* Label Bulan X-Axis & Zona Interaktif Hover/Klik per Bulan */}
+              {/* Label X-Axis & Zona Interaktif Hover/Klik */}
               {initialData.monthlyChart.map((bucket) => {
                 const cx = getMonthCenterX(bucket.monthIndex);
-                const bandW = plotW / 12;
+                const bandW = plotW / bucketCount;
                 const hitX =
                   chartMode === "line"
-                    ? bucket.monthIndex === 0
+                    ? bucketCount <= 1
                       ? padL
-                      : cx - bandW / 2
+                      : bucket.monthIndex === 0
+                        ? padL
+                        : cx - bandW / 2
                     : padL + bucket.monthIndex * bandW;
 
                 return (
@@ -599,7 +639,7 @@ export function OwnerHoldingDashboardView({
                       x={cx}
                       y={svgH - 12}
                       textAnchor="middle"
-                      className={`text-[12px] font-semibold ${
+                      className={`text-[11px] font-semibold ${
                         hoveredMonthIdx === bucket.monthIndex
                           ? "fill-[#1E88E5] dark:fill-sky-400"
                           : "fill-slate-500 dark:fill-slate-400"
@@ -626,13 +666,14 @@ export function OwnerHoldingDashboardView({
               })}
             </svg>
 
-            {/* Tooltip Detail Bulan Aktif */}
+            {/* Tooltip Detail Periode Aktif */}
             {activeTooltipMonth && (
               <div className="mt-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/90 px-4 py-3 text-xs shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
                   <span className="font-bold text-slate-900 dark:text-slate-100">
-                    Rincian Bulan {MONTH_FULL_NAMES_ID[activeTooltipMonth.monthIndex]}{" "}
-                    {initialData.selectedYear}
+                    {initialData.rangeLabel
+                      ? `Rincian ${activeTooltipMonth.monthLabel}`
+                      : `Rincian Bulan ${MONTH_FULL_NAMES_ID[activeTooltipMonth.monthIndex]} ${initialData.selectedYear}`}
                   </span>
                   <span className="font-semibold text-[#1E88E5] dark:text-sky-400">
                     Total Gabungan: {formatRupiah(activeTooltipMonth.totalSales)} (
