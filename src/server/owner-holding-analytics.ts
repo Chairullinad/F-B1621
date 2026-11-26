@@ -9,6 +9,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OrderStatus } from "@/lib/types/database";
 import { requireStaffRole } from "@/server/auth";
+import { fetchAllPaginated } from "@/server/query-helpers";
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -134,7 +135,7 @@ export async function getOwnerHoldingAnalytics(params?: {
   const queryStartUtc = new Date(rangeStartUtcMs - 3 * 24 * 60 * 60 * 1000);
   const queryEndUtc = new Date(rangeEndUtcMs + 1);
 
-  const [outletsRes, earliestOrderRes, yearOrdersRes] = await Promise.all([
+  const [outletsRes, earliestOrderRes, yearOrders] = await Promise.all([
     admin
       .from("outlets")
       .select(
@@ -149,12 +150,22 @@ export async function getOwnerHoldingAnalytics(params?: {
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle(),
-    admin
-      .from("orders")
-      .select("outlet_id, status, total, paid_at, created_at")
-      .is("deleted_at", null)
-      .gte("created_at", queryStartUtc.toISOString())
-      .lt("created_at", queryEndUtc.toISOString()),
+    fetchAllPaginated<{
+      outlet_id: string;
+      status: OrderStatus;
+      total: number | null;
+      paid_at: string | null;
+      created_at: string | null;
+    }>((from, to) =>
+      admin
+        .from("orders")
+        .select("outlet_id, status, total, paid_at, created_at")
+        .is("deleted_at", null)
+        .gte("created_at", queryStartUtc.toISOString())
+        .lt("created_at", queryEndUtc.toISOString())
+        .order("created_at", { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
   const rawOutlets = (outletsRes.data ?? []) as Record<string, unknown>[];
@@ -238,7 +249,7 @@ export async function getOwnerHoldingAnalytics(params?: {
     outletMonthlyBills.set(outlet.id, new Array<number>(bucketCount).fill(0));
   }
 
-  for (const row of yearOrdersRes.data ?? []) {
+  for (const row of yearOrders) {
     const status = row.status as OrderStatus;
     if (!isCountedPaidStatus(status)) {
       continue;

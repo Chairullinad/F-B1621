@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
+import { revalidateOutletCatalogCache } from "@/server/outlet-catalog-cache";
 
 const addonOptionInputSchema = z.object({
   id: z.string().uuid().optional(),
@@ -65,7 +66,8 @@ async function applyOwnerAddonAudit(reason: string) {
   return { owner, admin };
 }
 
-function revalidateMenuAndOrderPaths() {
+function revalidateMenuAndOrderPaths(outletId?: string | null) {
+  revalidateOutletCatalogCache(outletId);
   revalidatePath("/dashboard/produk");
   revalidatePath("/order-manual");
   revalidatePath("/m", "layout");
@@ -208,7 +210,7 @@ export async function saveAddonGroupAction(
       .eq("outlet_id", owner.outletId);
   }
 
-  revalidateMenuAndOrderPaths();
+  revalidateMenuAndOrderPaths(owner.outletId);
   return {
     ok: true,
     groupId,
@@ -251,7 +253,7 @@ export async function deleteAddonGroupAction(rawInput: {
     .eq("addon_group_id", parsedId.data)
     .eq("outlet_id", owner.outletId);
 
-  revalidateMenuAndOrderPaths();
+  revalidateMenuAndOrderPaths(owner.outletId);
   return { ok: true, message: "Grup add-on berhasil dihapus." };
 }
 
@@ -291,7 +293,7 @@ export async function toggleAddonOptionAvailabilityAction(rawInput: {
     return { ok: false, message: `Gagal mengubah status opsi: ${error.message}` };
   }
 
-  revalidateMenuAndOrderPaths();
+  revalidateMenuAndOrderPaths(owner.outletId);
   return {
     ok: true,
     message: parsed.data.isAvailable
@@ -361,7 +363,7 @@ export async function setAddonGroupProductsAction(rawInput: {
     }
   }
 
-  revalidateMenuAndOrderPaths();
+  revalidateMenuAndOrderPaths(owner.outletId);
   return {
     ok: true,
     message: `Penetapan menu untuk "${String(grp.name)}" (${uniqueProductIds.length} menu) tersimpan.`,
@@ -416,6 +418,6 @@ export async function setProductAddonGroupsAction(rawInput: {
     }
   }
 
-  revalidateMenuAndOrderPaths();
+  revalidateMenuAndOrderPaths(owner.outletId);
   return { ok: true, message: "Add-on menu berhasil diperbarui." };
 }

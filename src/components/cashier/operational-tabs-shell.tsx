@@ -12,7 +12,10 @@ import { ShiftClosingManager } from "@/components/cashier/shift-closing-manager"
 import { KitchenBoard } from "@/components/kitchen/kitchen-board";
 import { WaiterBoard } from "@/components/waiter/waiter-board";
 import type { CashierWorkspaceData } from "@/server/cashier";
-import type { ShiftClosingWorkspaceData } from "@/server/cashier-shift";
+import {
+  getShiftClosingWorkspaceData,
+  type ShiftClosingWorkspaceData,
+} from "@/server/cashier-shift";
 import type {
   KitchenWorkspaceData,
   WaiterWorkspaceData,
@@ -28,16 +31,47 @@ export function OperationalTabsShell({
   cashierData: CashierWorkspaceData;
   kitchenData: KitchenWorkspaceData;
   waiterData: WaiterWorkspaceData;
-  shiftData: ShiftClosingWorkspaceData;
+  shiftData: ShiftClosingWorkspaceData | null;
   initialTab?: "kasir" | "kitchen" | "antar" | "shift";
 }) {
   const [activeTab, setActiveTab] = React.useState<
     "kasir" | "kitchen" | "antar" | "shift"
   >(initialTab);
+  const [loadedShiftData, setLoadedShiftData] =
+    React.useState<ShiftClosingWorkspaceData | null>(shiftData);
+  const [isLoadingShift, setIsLoadingShift] = React.useState(false);
 
   React.useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  React.useEffect(() => {
+    if (shiftData) {
+      setLoadedShiftData(shiftData);
+    }
+  }, [shiftData]);
+
+  React.useEffect(() => {
+    if (activeTab !== "shift" || loadedShiftData || isLoadingShift) {
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingShift(true);
+    void getShiftClosingWorkspaceData()
+      .then((data) => {
+        if (!cancelled) {
+          setLoadedShiftData(data);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingShift(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, loadedShiftData, isLoadingShift]);
 
   function handleSelectTab(nextTab: "kasir" | "kitchen" | "antar" | "shift") {
     setActiveTab(nextTab);
@@ -160,7 +194,14 @@ export function OperationalTabsShell({
         />
       )}
       {activeTab === "antar" && <WaiterBoard initialData={waiterData} />}
-      {activeTab === "shift" && <ShiftClosingManager initialData={shiftData} />}
+      {activeTab === "shift" &&
+        (loadedShiftData ? (
+          <ShiftClosingManager initialData={loadedShiftData} />
+        ) : (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center text-sm font-medium text-slate-600 dark:text-slate-300">
+            Memuat data Tutupan Shift &amp; rekap transaksi hari ini...
+          </div>
+        ))}
     </div>
   );
 }

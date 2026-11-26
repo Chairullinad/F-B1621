@@ -21,6 +21,7 @@ import type {
   TableRow,
 } from "@/lib/types/database";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
+import { revalidateOutletCatalogCache } from "@/server/outlet-catalog-cache";
 import { dispatchSensitiveEventAlert } from "@/server/owner-notifications";
 
 // ============================================================================
@@ -205,6 +206,7 @@ export async function createCategoryAction(rawInput: {
     return { ok: false, message: `Gagal menambah kategori: ${error?.message}` };
   }
 
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/kategori");
   revalidatePath("/dashboard/produk");
   revalidatePath("/dashboard/stok-menu");
@@ -251,6 +253,7 @@ export async function updateCategoryAction(rawInput: {
     };
   }
 
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/kategori");
   revalidatePath("/dashboard/produk");
   return { ok: true, message: "Kategori berhasil diperbarui." };
@@ -294,6 +297,7 @@ export async function deleteCategoryAction(rawInput: {
     return { ok: false, message: `Gagal menghapus kategori: ${error.message}` };
   }
 
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/kategori");
   return { ok: true, message: "Kategori berhasil dihapus." };
 }
@@ -360,6 +364,7 @@ export async function createProductAction(rawInput: {
     return { ok: false, message: `Gagal menambah produk: ${error?.message}` };
   }
 
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/produk");
   revalidatePath("/dashboard/stok-menu");
   revalidatePath("/order-manual");
@@ -429,6 +434,7 @@ export async function updateProductAction(rawInput: {
     },
   });
 
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/produk");
   return { ok: true, message: "Data produk berhasil diperbarui." };
 }
@@ -466,6 +472,7 @@ export async function toggleProductAvailabilityAction(rawInput: {
     };
   }
 
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/produk");
   return {
     ok: true,
@@ -499,6 +506,7 @@ export async function deleteProductAction(rawInput: {
     return { ok: false, message: `Gagal menghapus produk: ${error.message}` };
   }
 
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/produk");
   return { ok: true, message: "Produk berhasil dihapus." };
 }
@@ -818,6 +826,7 @@ export async function updateOutletProfileSettingsAction(rawInput: {
   }
 
   revalidateTag("sidebar_outlets");
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard/pengaturan");
   revalidatePath("/order-manual");
@@ -887,6 +896,7 @@ export async function updateTaxAndServiceSettingsAction(rawInput: {
   });
 
   revalidateTag("sidebar_outlets");
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
@@ -964,6 +974,7 @@ export async function updateQrisSettingsAction(rawInput: {
   }
 
   revalidateTag("sidebar_outlets");
+  revalidateOutletCatalogCache(owner.outletId);
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");

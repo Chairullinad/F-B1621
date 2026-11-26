@@ -17,6 +17,7 @@ import type {
   UserRole,
 } from "@/lib/types/database";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
+import { fetchAllPaginated } from "@/server/query-helpers";
 
 // ============================================================================
 // TYPES UNTUK LAPORAN & STRUK TUTUPAN SHIFT KASIR
@@ -202,17 +203,20 @@ export async function computeShiftTransactionMetrics(params: {
 }): Promise<ShiftTransactionMetrics> {
   const admin = createSupabaseAdminClient();
 
-  const [ordersRes, tablesRes] = await Promise.all([
-    admin
-      .from("orders")
-      .select(
-        "id, order_no, status, source, order_type, table_id, subtotal, discount, service_amount, tax_amount, total, payment_choice, created_at, paid_at, cancelled_at, cancel_reason"
-      )
-      .eq("outlet_id", params.outletId)
-      .gte("created_at", params.shiftStartIso)
-      .lte("created_at", params.shiftEndIso)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true }),
+  const [rawOrders, tablesRes] = await Promise.all([
+    fetchAllPaginated<Record<string, unknown>>((from, to) =>
+      admin
+        .from("orders")
+        .select(
+          "id, order_no, status, source, order_type, table_id, subtotal, discount, service_amount, tax_amount, total, payment_choice, created_at, paid_at, cancelled_at, cancel_reason"
+        )
+        .eq("outlet_id", params.outletId)
+        .gte("created_at", params.shiftStartIso)
+        .lte("created_at", params.shiftEndIso)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .range(from, to)
+    ),
     admin
       .from("tables")
       .select("id, table_no, name")
@@ -224,7 +228,6 @@ export async function computeShiftTransactionMetrics(params: {
     tableMap.set(String(t.id), String(t.name));
   }
 
-  const rawOrders = (ordersRes.data ?? []) as Array<Record<string, unknown>>;
   const orderIds = rawOrders.map((o) => String(o.id));
 
   const [itemsRes, paymentsRes, refundsRes, qrisAuditsRes] =
@@ -232,11 +235,17 @@ export async function computeShiftTransactionMetrics(params: {
       ? await Promise.all([
           admin
             .from("order_items")
-            .select("*")
+            .select("order_id, product_name, qty, line_total")
             .in("order_id", orderIds)
             .order("created_at", { ascending: true }),
-          admin.from("payments").select("*").in("order_id", orderIds),
-          admin.from("refunds").select("*").in("order_id", orderIds),
+          admin
+            .from("payments")
+            .select("order_id, method")
+            .in("order_id", orderIds),
+          admin
+            .from("refunds")
+            .select("order_id, amount, reason")
+            .in("order_id", orderIds),
           admin
             .from("audit_logs")
             .select("entity_id")
@@ -500,29 +509,39 @@ export async function getShiftClosingWorkspaceData(): Promise<ShiftClosingWorksp
   const nowIso = new Date().toISOString();
   const todayStartIso = getTodayStartIsoWIB();
 
-  const [outletRes, usersRes, shiftLogsRes] = await Promise.all([
-    admin.from("outlets").select("*").eq("id", staff.outletId).single(),
-    admin
-      .from("users")
-      .select("full_name, role, is_active")
-      .eq("outlet_id", staff.outletId)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .order("full_name", { ascending: true }),
-    admin
-      .from("audit_logs")
-      .select("id, after, created_at")
-      .eq("entity", "cashier_shifts")
-      .eq("action", "shift.closed")
-      .order("id", { ascending: false })
-      .limit(15),
-  ]);
+  const [outletRes, profilesRes, shiftLogsRes, currentMetrics] =
+    await Promise.all([
+      admin
+        .from("outlets")
+        .select("id, name, address")
+        .eq("id", staff.outletId)
+        .single(),
+      admin
+        .from("profiles")
+        .select("full_name, role, is_active")
+        .eq("outlet_id", staff.outletId)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .order("full_name", { ascending: true }),
+      admin
+        .from("audit_logs")
+        .select("id, after, created_at")
+        .eq("entity", "cashier_shifts")
+        .eq("action", "shift.closed")
+        .order("id", { ascending: false })
+        .limit(15),
+      computeShiftTransactionMetrics({
+        outletId: staff.outletId,
+        shiftStartIso: todayStartIso,
+        shiftEndIso: nowIso,
+      }),
+    ]);
 
   const rawOutlet = (outletRes.data ?? {}) as Record<string, unknown>;
   const staffNames = Array.from(
     new Set([
       staff.fullName,
-      ...((usersRes.data ?? []) as Array<Record<string, unknown>>).map((u) =>
+      ...((profilesRes.data ?? []) as Array<Record<string, unknown>>).map((u) =>
         String(u.full_name ?? "").trim()
       ),
     ])
@@ -553,12 +572,6 @@ export async function getShiftClosingWorkspaceData(): Promise<ShiftClosingWorksp
       });
     }
   }
-
-  const currentMetrics = await computeShiftTransactionMetrics({
-    outletId: staff.outletId,
-    shiftStartIso: todayStartIso,
-    shiftEndIso: nowIso,
-  });
 
   return {
     staff: {

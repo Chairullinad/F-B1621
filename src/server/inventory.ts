@@ -378,30 +378,64 @@ export async function recordOrderPaidInventoryAndAccounting(params: {
 
   const productIds = [...new Set(orderItems.map((i) => i.product_id as string))];
 
-  const [{ data: recipes }, { data: ingredients }] = await Promise.all([
-    admin
-      .from("product_recipes")
-      .select("*")
-      .eq("outlet_id", params.outletId)
-      .in("product_id", productIds),
-    admin
-      .from("ingredients")
-      .select("*")
-      .eq("outlet_id", params.outletId)
-      .is("deleted_at", null),
-  ]);
+  const { data: recipes } = await admin
+    .from("product_recipes")
+    .select("product_id, ingredient_id, qty_per_portion")
+    .eq("outlet_id", params.outletId)
+    .in("product_id", productIds);
+
+  const typedRecipes = (recipes ?? []) as Array<{
+    product_id: string;
+    ingredient_id: string;
+    qty_per_portion: number;
+  }>;
+
+  const ingredientIds = [
+    ...new Set(typedRecipes.map((r) => String(r.ingredient_id))),
+  ];
+
+  const { data: ingredients } =
+    ingredientIds.length > 0
+      ? await admin
+          .from("ingredients")
+          .select("id, current_stock, unit_cost, storage_stock")
+          .eq("outlet_id", params.outletId)
+          .in("id", ingredientIds)
+          .is("deleted_at", null)
+      : { data: [] };
 
   const ingMap = new Map(
-    (ingredients ?? []).map((ing) => [ing.id as string, ing as IngredientRow])
+    (ingredients ?? []).map((ing) => [
+      ing.id as string,
+      {
+        id: String(ing.id),
+        current_stock: Number(ing.current_stock ?? 0),
+        unit_cost: Number(ing.unit_cost ?? 0),
+        storage_stock: ing.storage_stock as IngredientStorageStock | null,
+      },
+    ])
   );
-  const recipesByProduct = new Map<string, ProductRecipeRow[]>();
-  for (const r of (recipes ?? []) as ProductRecipeRow[]) {
+  const recipesByProduct = new Map<
+    string,
+    Array<{ ingredient_id: string; qty_per_portion: number }>
+  >();
+  for (const r of typedRecipes) {
     const list = recipesByProduct.get(r.product_id) ?? [];
-    list.push(r);
+    list.push({
+      ingredient_id: String(r.ingredient_id),
+      qty_per_portion: Number(r.qty_per_portion),
+    });
     recipesByProduct.set(r.product_id, list);
   }
 
   let totalOrderCogs = 0;
+  const dirtyIngredientIds = new Set<string>();
+  const stockMovementRows: Array<Record<string, unknown>> = [];
+  const orderItemUpdates: Array<{
+    id: string;
+    cogsUnitSnapshot: number;
+    cogsLineTotal: number;
+  }> = [];
 
   for (const item of orderItems) {
     const prodRecipes = recipesByProduct.get(item.product_id as string) ?? [];
@@ -421,7 +455,7 @@ export async function recordOrderPaidInventoryAndAccounting(params: {
 
       unitCogs += roundRupiah(Number(r.qty_per_portion) * unitCost);
 
-      const currentStorage = (ing.storage_stock as IngredientStorageStock) ?? {
+      const currentStorage = ing.storage_stock ?? {
         gudang: stockBefore,
         dapur: 0,
         bar: 0,
@@ -449,17 +483,9 @@ export async function recordOrderPaidInventoryAndAccounting(params: {
         gudang: nextGudang,
         dapur: nextDapur,
       };
+      dirtyIngredientIds.add(ing.id);
 
-      await admin
-        .from("ingredients")
-        .update({
-          current_stock: stockAfter,
-          storage_stock: ing.storage_stock,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", ing.id);
-
-      await admin.from("stock_movements").insert({
+      stockMovementRows.push({
         outlet_id: params.outletId,
         ingredient_id: ing.id,
         movement_type: "sale_deduct",
@@ -485,43 +511,38 @@ export async function recordOrderPaidInventoryAndAccounting(params: {
     const lineCogs = roundRupiah(unitCogs * Number(item.qty));
     totalOrderCogs += lineCogs;
 
-    await admin
-      .from("order_items")
-      .update({
-        cogs_unit_snapshot: unitCogs,
-        cogs_line_total: lineCogs,
-      })
-      .eq("id", item.id);
+    orderItemUpdates.push({
+      id: String(item.id),
+      cogsUnitSnapshot: unitCogs,
+      cogsLineTotal: lineCogs,
+    });
   }
 
-  await admin
-    .from("orders")
-    .update({ cogs_amount: totalOrderCogs })
-    .eq("id", params.orderId);
-
+  const nowIso = new Date().toISOString();
+  const entryDateWib = nowIso.slice(0, 10);
   const cashAccount =
     params.paymentMethod === "qris" ? "Bank / Kas QRIS" : "Kas Tunai";
 
-  // Jurnal 1: Penerimaan Penjualan
-  await admin.from("accounting_journals").insert({
-    outlet_id: params.outletId,
-    journal_no: makeRefCode("JV-POS"),
-    entry_date: new Date().toISOString().slice(0, 10),
-    description: `Penjualan Order #${params.orderNo} (${params.paymentMethod.toUpperCase()})`,
-    debit_account: cashAccount,
-    credit_account: "Pendapatan Penjualan",
-    amount: params.orderTotal,
-    source_type: "order_paid",
-    reference_id: params.orderNo,
-    created_by: params.actorUserId,
-  });
+  const journalRows: Array<Record<string, unknown>> = [
+    {
+      outlet_id: params.outletId,
+      journal_no: makeRefCode("JV-POS"),
+      entry_date: entryDateWib,
+      description: `Penjualan Order #${params.orderNo} (${params.paymentMethod.toUpperCase()})`,
+      debit_account: cashAccount,
+      credit_account: "Pendapatan Penjualan",
+      amount: params.orderTotal,
+      source_type: "order_paid",
+      reference_id: params.orderNo,
+      created_by: params.actorUserId,
+    },
+  ];
 
-  // Jurnal 2: HPP Bahan Baku
   if (totalOrderCogs > 0) {
-    await admin.from("accounting_journals").insert({
+    journalRows.push({
       outlet_id: params.outletId,
       journal_no: makeRefCode("JV-HPP"),
-      entry_date: new Date().toISOString().slice(0, 10),
+      entry_date: entryDateWib,
       description: `HPP Bahan Baku Order #${params.orderNo}`,
       debit_account: "HPP Bahan Baku",
       credit_account: "Persediaan Bahan Baku",
@@ -531,6 +552,41 @@ export async function recordOrderPaidInventoryAndAccounting(params: {
       created_by: params.actorUserId,
     });
   }
+
+  // Jalankan seluruh pembaruan stok, mutasi, COGS item, order, dan jurnal secara paralel/batch
+  const writeTasks: PromiseLike<unknown>[] = [
+    ...Array.from(dirtyIngredientIds).map((ingId) => {
+      const ing = ingMap.get(ingId)!;
+      return admin
+        .from("ingredients")
+        .update({
+          current_stock: ing.current_stock,
+          storage_stock: ing.storage_stock,
+          updated_at: nowIso,
+        })
+        .eq("id", ingId);
+    }),
+    ...orderItemUpdates.map((u) =>
+      admin
+        .from("order_items")
+        .update({
+          cogs_unit_snapshot: u.cogsUnitSnapshot,
+          cogs_line_total: u.cogsLineTotal,
+        })
+        .eq("id", u.id)
+    ),
+    admin
+      .from("orders")
+      .update({ cogs_amount: totalOrderCogs })
+      .eq("id", params.orderId),
+    admin.from("accounting_journals").insert(journalRows),
+  ];
+
+  if (stockMovementRows.length > 0) {
+    writeTasks.push(admin.from("stock_movements").insert(stockMovementRows));
+  }
+
+  await Promise.all(writeTasks);
 }
 
 /**

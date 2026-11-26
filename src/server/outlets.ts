@@ -15,6 +15,7 @@ import {
 } from "@/lib/outlets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
+import { revalidateOutletCatalogCache } from "@/server/outlet-catalog-cache";
 
 const createOutletSchema = z.object({
   name: z
@@ -469,6 +470,7 @@ export async function createOutletAction(
   }
 
   revalidateTag("sidebar_outlets");
+  revalidateOutletCatalogCache(newOutletId);
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
@@ -606,6 +608,7 @@ export async function updateOutletCustomizationAction(
   });
 
   revalidateTag("sidebar_outlets");
+  revalidateOutletCatalogCache(parsed.data.id);
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/pengaturan");
@@ -707,6 +710,7 @@ export async function updateOutletLandingPageAction(
     hash: "",
   });
 
+  revalidateOutletCatalogCache(parsed.data.outletId);
   revalidatePath("/dashboard/cabang");
   revalidatePath("/dashboard/landing-page");
   revalidatePath("/dashboard/pengaturan");

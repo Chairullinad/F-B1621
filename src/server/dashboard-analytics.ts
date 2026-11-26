@@ -4,6 +4,7 @@ import { parseWibDateRange } from "@/lib/datetime";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OrderStatus, PaymentMethod, UserRole } from "@/lib/types/database";
 import { requireStaffRole } from "@/server/auth";
+import { fetchAllPaginated } from "@/server/query-helpers";
 
 export interface HourlySalesPoint {
   hour: string; // e.g. "10:00"
@@ -208,8 +209,8 @@ export async function getEsbDashboardAnalytics(params?: {
   // Jalankan query daftar outlet, pesanan periode ini & sebelumnya, bahan baku, produk, dan kategori secara paralel
   const [
     outletsRes,
-    curOrdersRes,
-    prevOrdersRes,
+    curOrders,
+    prevOrders,
     ingredientsRes,
     productsRes,
     categoriesRes,
@@ -219,20 +220,28 @@ export async function getEsbDashboardAnalytics(params?: {
       .select("id, name")
       .is("deleted_at", null)
       .order("created_at", { ascending: true }),
-    admin
-      .from("orders")
-      .select("id, order_no, order_type, status, subtotal, discount, total, created_at, paid_at, cancelled_at, outlet_id")
-      .eq("outlet_id", activeOutletId)
-      .is("deleted_at", null)
-      .gte("created_at", bounds.current.startIso)
-      .lte("created_at", bounds.current.endIso),
-    admin
-      .from("orders")
-      .select("id, status, total")
-      .eq("outlet_id", activeOutletId)
-      .is("deleted_at", null)
-      .gte("created_at", bounds.previous.startIso)
-      .lte("created_at", bounds.previous.endIso),
+    fetchAllPaginated<Record<string, unknown>>((from, to) =>
+      admin
+        .from("orders")
+        .select("id, order_no, order_type, status, subtotal, discount, total, created_at, paid_at, cancelled_at, outlet_id")
+        .eq("outlet_id", activeOutletId)
+        .is("deleted_at", null)
+        .gte("created_at", bounds.current.startIso)
+        .lte("created_at", bounds.current.endIso)
+        .order("created_at", { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllPaginated<Record<string, unknown>>((from, to) =>
+      admin
+        .from("orders")
+        .select("id, status, total")
+        .eq("outlet_id", activeOutletId)
+        .is("deleted_at", null)
+        .gte("created_at", bounds.previous.startIso)
+        .lte("created_at", bounds.previous.endIso)
+        .order("created_at", { ascending: true })
+        .range(from, to)
+    ),
     admin
       .from("ingredients")
       .select("id, name, unit, current_stock, min_stock")
@@ -257,9 +266,7 @@ export async function getEsbDashboardAnalytics(params?: {
   const activeOutletName =
     availableOutlets.find((o) => o.id === activeOutletId)?.name ?? "1621F&B Pusat";
 
-  const curOrders = (curOrdersRes.data ?? []) as Array<Record<string, unknown>>;
   const curOrderIds = curOrders.map((o) => String(o.id));
-  const prevOrders = (prevOrdersRes.data ?? []) as Array<Record<string, unknown>>;
 
   // Ambil payments & order items untuk periode saat ini
   const [paymentsRes, itemsRes, refundsRes, qrisAuditsRes] = curOrderIds.length > 0

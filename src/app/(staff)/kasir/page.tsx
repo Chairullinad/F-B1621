@@ -13,14 +13,7 @@ export default async function KasirPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const [{ tab }, cashierData, kitchenData, waiterData, shiftData] =
-    await Promise.all([
-      searchParams,
-      getCashierWorkspaceData(),
-      getKitchenWorkspaceData(),
-      getWaiterWorkspaceData(),
-      getShiftClosingWorkspaceData(),
-    ]);
+  const { tab } = await searchParams;
 
   const initialTab =
     tab === "kitchen" || tab === "dapur"
@@ -30,6 +23,13 @@ export default async function KasirPage({
         : tab === "shift"
           ? "shift"
           : "kasir";
+
+  const [cashierData, kitchenData, waiterData, shiftData] = await Promise.all([
+    getCashierWorkspaceData(),
+    getKitchenWorkspaceData(),
+    getWaiterWorkspaceData(),
+    initialTab === "shift" ? getShiftClosingWorkspaceData() : Promise.resolve(null),
+  ]);
 
   return (
     <OperationalTabsShell

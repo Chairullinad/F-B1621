@@ -37,6 +37,8 @@ import {
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 import type { CashierOrderItemView } from "@/server/cashier";
 import { recordOrderPaidInventoryAndAccounting } from "@/server/inventory";
+import { getCachedOutletMenuCatalog } from "@/server/outlet-catalog-cache";
+import { isUniqueOrderNoViolation } from "@/server/query-helpers";
 
 // ============================================================================
 // ZOD SCHEMAS (Validasi Server sesuai AGENTS.md)
@@ -250,7 +252,7 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
   const staff = await requireStaffRole(["owner", "cashier"], "order_manual");
   const admin = createSupabaseAdminClient();
 
-  const [outletRes, catRes, prodRes, tablesRes, addonCatalog] = await Promise.all([
+  const [outletRes, menuCatalog, tablesRes] = await Promise.all([
     admin
       .from("outlets")
       .select(
@@ -258,20 +260,7 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
       )
       .eq("id", staff.outletId)
       .single(),
-    admin
-      .from("categories")
-      .select("*")
-      .eq("outlet_id", staff.outletId)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .order("sort_order", { ascending: true }),
-    admin
-      .from("products")
-      .select("*")
-      .eq("outlet_id", staff.outletId)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .order("name", { ascending: true }),
+    getCachedOutletMenuCatalog(staff.outletId),
     admin
       .from("tables")
       .select("id, table_no, name, is_active")
@@ -279,7 +268,6 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
       .eq("is_active", true)
       .is("deleted_at", null)
       .order("table_no", { ascending: true }),
-    loadOutletAddonCatalog(staff.outletId),
   ]);
 
   const rawOutlet = (outletRes.data ?? {}) as Record<string, unknown>;
@@ -326,9 +314,9 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
       ),
       qrisRawPayload: (rawOutlet.qris_raw_payload as string | null) ?? null,
     },
-    categories: (catRes.data ?? []) as CategoryRow[],
-    products: (prodRes.data ?? []) as ProductRow[],
-    addonsByProduct: addonCatalog.addonsByProduct,
+    categories: menuCatalog.categories,
+    products: menuCatalog.products,
+    addonsByProduct: menuCatalog.addonsByProduct,
     tables: (tablesRes.data ?? []) as Array<
       Pick<TableRow, "id" | "table_no" | "name" | "is_active">
     >,
@@ -578,30 +566,46 @@ export async function createManualCashierOrderAction(rawInput: {
 
   // 6. Buat baris order (status awal 'pending' agar trigger order_items mengizinkan insert item,
   //    lalu langsung dikunci menjadi 'paid' dalam alur yang sama)
-  const orderNo = `KSR-${Date.now().toString(36).toUpperCase().slice(-5)}-${Math.floor(10 + Math.random() * 89)}`;
+  let createdOrder: { id: string; order_no: string; version: number } | null = null;
+  let createErr: { message: string; code?: string } | null = null;
 
-  const { data: createdOrder, error: createErr } = await admin
-    .from("orders")
-    .insert({
-      outlet_id: staff.outletId,
-      order_no: orderNo,
-      source: "cashier",
-      order_type: orderType,
-      table_id: resolvedTableId,
-      status: "pending",
-      subtotal: totals.subtotal,
-      discount: totals.discount,
-      discount_reason: totals.discount > 0 ? discountReason.trim() : null,
-      service_rate: totals.serviceRate,
-      service_amount: totals.serviceAmount,
-      tax_rate: totals.taxRate,
-      tax_amount: totals.taxAmount,
-      price_includes_tax: totals.priceIncludesTax,
-      total: totals.total,
-      idempotency_key: idempotencyKey,
-    })
-    .select("id, order_no, version")
-    .single();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const orderNo = `KSR-${Date.now().toString(36).toUpperCase().slice(-5)}-${Math.floor(10 + Math.random() * 89)}`;
+
+    const insertRes = await admin
+      .from("orders")
+      .insert({
+        outlet_id: staff.outletId,
+        order_no: orderNo,
+        source: "cashier",
+        order_type: orderType,
+        table_id: resolvedTableId,
+        status: "pending",
+        subtotal: totals.subtotal,
+        discount: totals.discount,
+        discount_reason: totals.discount > 0 ? discountReason.trim() : null,
+        service_rate: totals.serviceRate,
+        service_amount: totals.serviceAmount,
+        tax_rate: totals.taxRate,
+        tax_amount: totals.taxAmount,
+        price_includes_tax: totals.priceIncludesTax,
+        total: totals.total,
+        idempotency_key: idempotencyKey,
+      })
+      .select("id, order_no, version")
+      .single();
+
+    if (!insertRes.error && insertRes.data) {
+      createdOrder = insertRes.data;
+      createErr = null;
+      break;
+    }
+
+    createErr = insertRes.error;
+    if (!isUniqueOrderNoViolation(insertRes.error)) {
+      break;
+    }
+  }
 
   if (createErr || !createdOrder) {
     return {
@@ -611,6 +615,7 @@ export async function createManualCashierOrderAction(rawInput: {
   }
 
   const orderId = String(createdOrder.id);
+  const orderNo = String(createdOrder.order_no);
 
   // 7. Simpan snapshot order_items + add-on
   const { error: itemsErr } = await insertOrderItemsWithAddonFallback(

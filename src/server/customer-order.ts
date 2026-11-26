@@ -28,6 +28,11 @@ import {
   loadOutletAddonCatalog,
   resolveServerOrderItemsWithAddons,
 } from "@/server/addon-helpers";
+import {
+  getCachedCustomerOutletRow,
+  getCachedOutletMenuCatalog,
+} from "@/server/outlet-catalog-cache";
+import { isUniqueOrderNoViolation } from "@/server/query-helpers";
 
 const DEFAULT_FALLBACK_STATIC_QRIS =
   "00020101021126650014ID.CO.QRIS.WWW01189360050300000898240214123456789012340303UMI5204581253033605802ID59101621 GROUP6007JAKARTA6105101106304A1B2";
@@ -190,36 +195,16 @@ export async function getCustomerTableMenuByToken(
     return null;
   }
 
-  const [outletRes, catRes, prodRes, addonCatalog] = await Promise.all([
-    admin
-      .from("outlets")
-      .select("*")
-      .eq("id", tableRow.outlet_id)
-      .is("deleted_at", null)
-      .single(),
-    admin
-      .from("categories")
-      .select("*")
-      .eq("outlet_id", tableRow.outlet_id)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
-    admin
-      .from("products")
-      .select("*")
-      .eq("outlet_id", tableRow.outlet_id)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .order("name", { ascending: true }),
-    loadOutletAddonCatalog(String(tableRow.outlet_id)),
+  const outletId = String(tableRow.outlet_id);
+  const [rawOutlet, menuCatalog] = await Promise.all([
+    getCachedCustomerOutletRow(outletId),
+    getCachedOutletMenuCatalog(outletId),
   ]);
 
-  if (outletRes.error || !outletRes.data) {
+  if (!rawOutlet) {
     return null;
   }
 
-  const rawOutlet = outletRes.data as Record<string, unknown>;
   const outletView = mapOutletRowToView(rawOutlet);
 
   return {
@@ -266,16 +251,19 @@ export async function getCustomerTableMenuByToken(
       reservationUrl: outletView.reservationUrl,
       feedbackUrl: outletView.feedbackUrl,
     },
-    categories: (catRes.data ?? []) as CategoryRow[],
-    products: (prodRes.data ?? []) as ProductRow[],
-    addonsByProduct: addonCatalog.addonsByProduct,
+    categories: menuCatalog.categories,
+    products: menuCatalog.products,
+    addonsByProduct: menuCatalog.addonsByProduct,
   };
 }
 
 /**
  * Helper pembuat nomor order berurutan per outlet per hari (contoh: 20261107-0001).
  */
-async function generateNextOrderNo(outletId: string): Promise<string> {
+async function generateNextOrderNo(
+  outletId: string,
+  seqOffset = 0
+): Promise<string> {
   const admin = createSupabaseAdminClient();
   const prefix = getTodayPrefixWIB(new Date());
 
@@ -298,7 +286,7 @@ async function generateNextOrderNo(outletId: string): Promise<string> {
     }
   }
 
-  return `${prefix}-${String(nextSeq).padStart(4, "0")}`;
+  return `${prefix}-${String(nextSeq + seqOffset).padStart(4, "0")}`;
 }
 
 /**
@@ -638,7 +626,6 @@ export async function createCustomerOrderAction(rawInput: {
   });
 
   // 7. Siapkan nomor order & waktu kedaluwarsa (default 15 menit)
-  const orderNo = await generateNextOrderNo(String(tableRow.outlet_id));
   const expiryMinutes = Number(rawOutlet.order_expiry_minutes ?? 15);
   const expiresAt = new Date(
     Date.now() + expiryMinutes * 60 * 1000
@@ -653,54 +640,78 @@ export async function createCustomerOrderAction(rawInput: {
     p_reason: `Pesanan mandiri pelanggan dari ${tableRow.name} (${paymentChoice.toUpperCase()})`,
   });
 
-  // 8. Simpan ke tabel orders
+  // 8. Simpan ke tabel orders (dengan retry otomatis jika nomor order bentrok saat traffic padat)
   let insertedOrder: Record<string, unknown> | null = null;
+  let orderNo = "";
+  let lastOrderInsertError: string | null = null;
 
-  const baseOrderPayload = {
-    outlet_id: tableRow.outlet_id,
-    order_no: orderNo,
-    source: "customer_qr" as const,
-    order_type: "dine_in" as const,
-    table_id: tableRow.id,
-    status: "pending" as const,
-    subtotal: totals.subtotal,
-    discount: 0,
-    discount_reason: null,
-    service_rate: totals.serviceRate,
-    service_amount: totals.serviceAmount,
-    tax_rate: totals.taxRate,
-    tax_amount: totals.taxAmount,
-    price_includes_tax: totals.priceIncludesTax,
-    total: totals.total,
-    idempotency_key: idempotencyKey,
-    expires_at: expiresAt,
-  };
+  for (let attempt = 0; attempt < 4; attempt++) {
+    orderNo = await generateNextOrderNo(String(tableRow.outlet_id), attempt);
+    const baseOrderPayload = {
+      outlet_id: tableRow.outlet_id,
+      order_no: orderNo,
+      source: "customer_qr" as const,
+      order_type: "dine_in" as const,
+      table_id: tableRow.id,
+      status: "pending" as const,
+      subtotal: totals.subtotal,
+      discount: 0,
+      discount_reason: null,
+      service_rate: totals.serviceRate,
+      service_amount: totals.serviceAmount,
+      tax_rate: totals.taxRate,
+      tax_amount: totals.taxAmount,
+      price_includes_tax: totals.priceIncludesTax,
+      total: totals.total,
+      idempotency_key: idempotencyKey,
+      expires_at: expiresAt,
+    };
 
-  const { data: tryWithPaymentChoice, error: errWithChoice } = await admin
-    .from("orders")
-    .insert({
-      ...baseOrderPayload,
-      payment_choice: paymentChoice,
-    })
-    .select("*")
-    .single();
+    const { data: tryWithPaymentChoice, error: errWithChoice } = await admin
+      .from("orders")
+      .insert({
+        ...baseOrderPayload,
+        payment_choice: paymentChoice,
+      })
+      .select("*")
+      .single();
 
-  if (!errWithChoice && tryWithPaymentChoice) {
-    insertedOrder = tryWithPaymentChoice as Record<string, unknown>;
-  } else {
+    if (!errWithChoice && tryWithPaymentChoice) {
+      insertedOrder = tryWithPaymentChoice as Record<string, unknown>;
+      break;
+    }
+
+    if (isUniqueOrderNoViolation(errWithChoice)) {
+      lastOrderInsertError = errWithChoice?.message ?? null;
+      continue;
+    }
+
     const { data: fallbackOrder, error: fallbackErr } = await admin
       .from("orders")
       .insert(baseOrderPayload)
       .select("*")
       .single();
 
-    if (fallbackErr || !fallbackOrder) {
-      return {
-        ok: false,
-        message: `Gagal membuat pesanan: ${fallbackErr?.message ?? errWithChoice?.message ?? "Unknown error"}`,
-      };
+    if (!fallbackErr && fallbackOrder) {
+      insertedOrder = fallbackOrder as Record<string, unknown>;
+      break;
     }
-    insertedOrder = fallbackOrder as Record<string, unknown>;
+
+    if (isUniqueOrderNoViolation(fallbackErr)) {
+      lastOrderInsertError = fallbackErr?.message ?? null;
+      continue;
+    }
+
+    lastOrderInsertError =
+      fallbackErr?.message ?? errWithChoice?.message ?? "Unknown error";
+    break;
+  }
+
+  if (!insertedOrder) {
+    return {
+      ok: false,
+      message: `Gagal membuat pesanan: ${lastOrderInsertError ?? "Unknown error"}`,
+    };
   }
 
   const orderId = String(insertedOrder.id);
@@ -842,17 +853,13 @@ export async function confirmCustomerQrisPaidAction(rawInput: {
     hash: "",
   });
 
-  const { data: outletRow } = await admin
-    .from("outlets")
-    .select("*")
-    .eq("id", tableRow.outlet_id)
-    .single();
+  const outletRow = await getCachedCustomerOutletRow(String(tableRow.outlet_id));
 
   const view = await buildCustomerOrderTrackingView({
     orderRecord: (updatedOrder ?? rawOrder) as Record<string, unknown>,
     tableNo: Number(tableRow.table_no),
     tableName: String(tableRow.name),
-    outletRecord: (outletRow ?? {}) as Record<string, unknown>,
+    outletRecord: outletRow ?? {},
   });
 
   return {
@@ -961,17 +968,13 @@ export async function getCustomerOrderStatusAction(rawInput: {
     });
   }
 
-  const { data: outletRow } = await admin
-    .from("outlets")
-    .select("*")
-    .eq("id", tableRow.outlet_id)
-    .single();
+  const outletRow = await getCachedCustomerOutletRow(String(tableRow.outlet_id));
 
   const view = await buildCustomerOrderTrackingView({
     orderRecord: currentOrder,
     tableNo: Number(tableRow.table_no),
     tableName: String(tableRow.name),
-    outletRecord: (outletRow ?? {}) as Record<string, unknown>,
+    outletRecord: outletRow ?? {},
   });
 
   return {

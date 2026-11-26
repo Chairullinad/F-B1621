@@ -30,6 +30,7 @@ import type {
 } from "@/lib/types/database";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
 import { runExpireOverdueOrdersJob } from "@/server/order-expiry";
+import { getCachedCashierLiteMenuCatalog } from "@/server/outlet-catalog-cache";
 import { dispatchSensitiveEventAlert } from "@/server/owner-notifications";
 import {
   recordOrderPaidInventoryAndAccounting,
@@ -276,8 +277,7 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
     pendingRes,
     recentRes,
     tablesRes,
-    catRes,
-    prodRes,
+    liteCatalog,
   ] = await Promise.all([
     admin
       .from("outlets")
@@ -305,23 +305,10 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
       .from("tables")
       .select("id, table_no, name")
       .eq("outlet_id", staff.outletId),
-    admin
-      .from("categories")
-      .select("id, outlet_id, name, sort_order, is_active, created_at, updated_at, deleted_at")
-      .eq("outlet_id", staff.outletId)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .order("sort_order", { ascending: true }),
-    admin
-      .from("products")
-      .select(
-        "id, outlet_id, category_id, name, price, is_available, is_active, created_at, updated_at, deleted_at"
-      )
-      .eq("outlet_id", staff.outletId)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .order("name", { ascending: true }),
+    getCachedCashierLiteMenuCatalog(staff.outletId),
   ]);
+  const catRes = { data: liteCatalog.categories };
+  const prodRes = { data: liteCatalog.products };
 
   const rawOutlet = (outletRes.data ?? {}) as Record<string, unknown>;
   const tableMap = new Map<string, { tableNo: number; name: string }>();
