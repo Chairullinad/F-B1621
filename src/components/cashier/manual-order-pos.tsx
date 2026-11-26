@@ -1085,44 +1085,26 @@ export function ManualOrderPos({
 
             <div className="mt-5 flex flex-col gap-2">
               {paymentResultModal.status === "success" ? (
-                <>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setPaymentResultModal(null)}
-                      className="min-h-11 flex-1 font-semibold"
-                    >
-                      Kembali
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setPaymentResultModal(null);
-                        router.push("/kasir");
-                      }}
-                      className="min-h-11 flex-1 bg-emerald-700 font-bold text-white hover:bg-emerald-800"
-                    >
-                      Lanjut
-                    </Button>
-                  </div>
-                  {paymentResultModal.orderId && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setPaymentResultModal(null);
-                        router.push(
-                          `/struk/${paymentResultModal.orderId}?autoprint=1`
-                        );
-                      }}
-                      className="min-h-11 w-full font-semibold"
-                    >
-                      <Printer className="mr-1.5 h-4 w-4" />
-                      Cetak Struk (#{paymentResultModal.orderNo})
-                    </Button>
-                  )}
-                </>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setPaymentResultModal(null)}
+                    className="min-h-11 flex-1 font-semibold"
+                  >
+                    Kembali
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setPaymentResultModal(null);
+                      router.push("/kasir");
+                    }}
+                    className="min-h-11 flex-1 bg-emerald-700 font-bold text-white hover:bg-emerald-800"
+                  >
+                    Lanjut
+                  </Button>
+                </div>
               ) : (
                 <Button
                   type="button"
