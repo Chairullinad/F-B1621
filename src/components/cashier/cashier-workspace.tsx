@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   Banknote,
   Bell,
@@ -26,7 +33,17 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDateTimeWIB, formatTimeWIB } from "@/lib/datetime";
-import { playToneSequence } from "@/lib/audio";
+import {
+  isAudioContextUnlocked,
+  playToneSequence,
+  subscribeAudioUnlockState,
+  unlockAudioContext,
+} from "@/lib/audio";
+import {
+  collectNewIncomingOrderAlerts,
+  mergeIncomingAlertQueue,
+  type IncomingOrderAlertItem,
+} from "@/lib/cashier-alerts";
 import { formatRupiah } from "@/lib/money";
 import { generateQrSvgString } from "@/lib/qrcode";
 import { DEFAULT_FALLBACK_STATIC_QRIS } from "@/lib/qris";
@@ -80,28 +97,28 @@ const STATUS_VARIANTS: Record<
 
 function playNotificationBeep(isQrisClaim: boolean) {
   if (isQrisClaim) {
-    // 3 nada ceria untuk konfirmasi pembayaran QRIS: C5 -> E5 -> G5
+    // 3 nada tegas untuk konfirmasi pembayaran QRIS: C5 -> E5 -> G5
     playToneSequence(
       [
-        { freq: 523.25, delaySec: 0, durationSec: 0.22 },
-        { freq: 659.25, delaySec: 0.16, durationSec: 0.22 },
-        { freq: 783.99, delaySec: 0.32, durationSec: 0.38 },
+        { freq: 523.25, delaySec: 0, durationSec: 0.16 },
+        { freq: 659.25, delaySec: 0.14, durationSec: 0.16 },
+        { freq: 783.99, delaySec: 0.28, durationSec: 0.28 },
       ],
-      { type: "triangle", gain: 0.25 }
+      { type: "triangle", gain: 0.28, vibratePattern: [140, 80, 140] }
     );
   } else {
-    // 2 nada ding-dong untuk pesanan baru: D5 -> A5
+    // 2 nada beep-beep tajam untuk pesanan baru dari pelanggan: B5 -> E6
     playToneSequence(
       [
-        { freq: 587.33, delaySec: 0, durationSec: 0.22 },
-        { freq: 880.0, delaySec: 0.18, durationSec: 0.35 },
+        { freq: 987.77, delaySec: 0, durationSec: 0.14 },
+        { freq: 1318.51, delaySec: 0.18, durationSec: 0.22 },
       ],
-      { type: "sine", gain: 0.25 }
+      { type: "square", gain: 0.2, vibratePattern: [160, 90, 160] }
     );
   }
 }
 
-// Alarm terus-menerus (looping chimes) sampai kasir mematikan atau menerima order
+// Alarm terus-menerus (looping beep) sampai kasir klik "Terima Pesanan"
 class ContinuousOrderAlarm {
   private intervalId: number | null = null;
   private isQris = false;
@@ -112,7 +129,7 @@ class ContinuousOrderAlarm {
     playNotificationBeep(this.isQris);
     this.intervalId = window.setInterval(() => {
       playNotificationBeep(this.isQris);
-    }, 1800);
+    }, 1350);
   }
 
   stop() {
@@ -135,6 +152,7 @@ export function CashierWorkspace({
   initialData: CashierWorkspaceData;
 }) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
@@ -143,6 +161,9 @@ export function CashierWorkspace({
       null
   );
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() =>
+    isAudioContextUnlocked()
+  );
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     text: string;
@@ -188,11 +209,42 @@ export function CashierWorkspace({
   const [cancelReason, setCancelReason] = useState<string>("");
   const [showQrisPopup, setShowQrisPopup] = useState<boolean>(false);
 
-  // Pop-up Order Baru Masuk & Alarm Aktif
-  const [incomingOrderAlert, setIncomingOrderAlert] =
-    useState<CashierOrderCardView | null>(null);
+  // Antrean Pop-up Order Baru Masuk & Alarm Aktif (tidak berhenti sebelum klik Terima Pesanan)
+  const [incomingAlertQueue, setIncomingAlertQueue] = useState<
+    IncomingOrderAlertItem[]
+  >([]);
 
-  // Deteksi order baru / klaim QRIS baru untuk bunyi notifikasi terus-menerus
+  const activeIncomingQueueItem = incomingAlertQueue[0] ?? null;
+  const incomingOrderAlert = useMemo(() => {
+    if (!activeIncomingQueueItem) return null;
+    return (
+      initialData.pendingOrders.find(
+        (o) => o.id === activeIncomingQueueItem.orderId
+      ) ?? null
+    );
+  }, [activeIncomingQueueItem, initialData.pendingOrders]);
+
+  // Buka kunci AudioContext otomatis pada interaksi pertama di halaman kasir
+  useEffect(() => {
+    const unsubscribe = subscribeAudioUnlockState(setAudioUnlocked);
+    const handleFirstInteraction = () => {
+      void unlockAudioContext();
+    };
+    window.addEventListener("pointerdown", handleFirstInteraction, {
+      passive: true,
+    });
+    window.addEventListener("keydown", handleFirstInteraction, {
+      passive: true,
+    });
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
+    };
+  }, []);
+
+  // Deteksi order baru / klaim QRIS baru untuk pop-up dan alarm beep berkelanjutan
   const prevPendingIdsRef = useRef<Set<string>>(
     new Set(initialData.pendingOrders.map((o) => o.id))
   );
@@ -205,40 +257,41 @@ export function CashierWorkspace({
   );
 
   useEffect(() => {
-    const currentPendingIds = new Set(
+    const newAlerts = collectNewIncomingOrderAlerts({
+      prevPendingIds: prevPendingIdsRef.current,
+      prevClaimedIds: prevClaimedIdsRef.current,
+      pendingOrders: initialData.pendingOrders,
+    });
+
+    setIncomingAlertQueue((prev) =>
+      mergeIncomingAlertQueue({
+        currentQueue: prev,
+        newAlerts,
+        activePendingOrders: initialData.pendingOrders,
+      })
+    );
+
+    prevPendingIdsRef.current = new Set(
       initialData.pendingOrders.map((o) => o.id)
     );
-    const currentClaimedIds = new Set(
+    prevClaimedIdsRef.current = new Set(
       initialData.pendingOrders
         .filter((o) => Boolean(o.customerClaimedPaidAt))
         .map((o) => o.id)
     );
+  }, [initialData.pendingOrders]);
 
-    let newlyClaimedOrder: CashierOrderCardView | undefined;
-    let newlyCreatedOrder: CashierOrderCardView | undefined;
-
-    for (const id of currentClaimedIds) {
-      if (!prevClaimedIdsRef.current.has(id)) {
-        newlyClaimedOrder = initialData.pendingOrders.find((o) => o.id === id);
-        break;
-      }
+  // Pastikan bunyi beep berjalan terus selama masih ada antrean order masuk yang belum diklik Terima Pesanan
+  useEffect(() => {
+    if (soundEnabled && incomingAlertQueue.length > 0) {
+      const hasQrisClaim = incomingAlertQueue.some(
+        (a) => a.kind === "qris_claimed"
+      );
+      orderAlarmService.start(hasQrisClaim);
+    } else {
+      orderAlarmService.stop();
     }
-    for (const id of currentPendingIds) {
-      if (!prevPendingIdsRef.current.has(id)) {
-        newlyCreatedOrder = initialData.pendingOrders.find((o) => o.id === id);
-        break;
-      }
-    }
-
-    if (soundEnabled && (newlyClaimedOrder || newlyCreatedOrder)) {
-      const targetAlert = newlyClaimedOrder ?? newlyCreatedOrder!;
-      setIncomingOrderAlert(targetAlert);
-      orderAlarmService.start(Boolean(newlyClaimedOrder));
-    }
-
-    prevPendingIdsRef.current = currentPendingIds;
-    prevClaimedIdsRef.current = currentClaimedIds;
-  }, [initialData.pendingOrders, soundEnabled]);
+  }, [incomingAlertQueue, soundEnabled]);
 
   // Hentikan alarm saat komponen dilepas (unmount)
   useEffect(() => {
@@ -247,13 +300,14 @@ export function CashierWorkspace({
     };
   }, []);
 
-  const dismissAlarmOnly = useCallback(() => {
-    orderAlarmService.stop();
+  const acknowledgeIncomingOrder = useCallback((orderId: string) => {
+    setIncomingAlertQueue((prev) =>
+      prev.filter((item) => item.orderId !== orderId)
+    );
   }, []);
 
-  const handleDismissOrderAlert = useCallback(() => {
-    orderAlarmService.stop();
-    setIncomingOrderAlert(null);
+  const acknowledgeAllIncomingOrders = useCallback(() => {
+    setIncomingAlertQueue([]);
   }, []);
 
   const allOrders = useMemo(
@@ -267,8 +321,6 @@ export function CashierWorkspace({
   }, [allOrders, selectedOrderId]);
 
   const selectOrder = useCallback((order: CashierOrderCardView) => {
-    orderAlarmService.stop();
-    setIncomingOrderAlert(null);
     setSelectedOrderId(order.id);
     setActionMode("payment");
     setCashReceivedInput(String(order.total));
@@ -327,19 +379,21 @@ export function CashierWorkspace({
     });
   }, [selectedOrderId, initialData.staff.userId, initialData.staff.fullName]);
 
-  // Langganan Supabase Realtime (orders + audit_logs + presence antar kasir)
-  // Tanpa memasukkan selectedOrderId agar perpindahan klik order tidak memutus & menyambung ulang WebSocket
+  // Langganan Supabase Realtime (orders + audit_logs klaim QRIS + presence antar kasir)
+  // Memakai trailing debounce + startTransition agar beberapa order yang masuk bersamaan digabung menjadi satu refresh ringan
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleRefresh = () => {
       if (typeof document !== "undefined" && document.hidden) return;
-      if (debounceTimer) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        router.refresh();
-      }, 600);
+        startTransition(() => {
+          router.refresh();
+        });
+      }, 350);
     };
 
     const dbChannel = supabase
@@ -364,8 +418,11 @@ export function CashierWorkspace({
           table: "audit_logs",
           filter: `outlet_id=eq.${initialData.outlet.id}`,
         },
-        () => {
-          scheduleRefresh();
+        (payload) => {
+          const action = (payload.new as { action?: unknown } | undefined)?.action;
+          if (action === "order.customer_claimed_qris_paid") {
+            scheduleRefresh();
+          }
         }
       )
       .subscribe();
@@ -498,8 +555,7 @@ export function CashierWorkspace({
 
   async function handleVerifyQrisPayment() {
     if (!selectedOrder) return;
-    orderAlarmService.stop();
-    setIncomingOrderAlert(null);
+    acknowledgeIncomingOrder(selectedOrder.id);
     setIsSubmitting(true);
     setFeedback(null);
     try {
@@ -522,8 +578,7 @@ export function CashierWorkspace({
 
   async function handleAcceptCashPayment() {
     if (!selectedOrder) return;
-    orderAlarmService.stop();
-    setIncomingOrderAlert(null);
+    acknowledgeIncomingOrder(selectedOrder.id);
     setIsSubmitting(true);
     setFeedback(null);
     try {
@@ -744,6 +799,32 @@ export function CashierWorkspace({
 
   return (
     <div className="space-y-4">
+      {/* Peringatan Autoplay Browser jika Suara Beep Belum Dibuka Kuncinya */}
+      {soundEnabled && !audioUnlocked && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="flex items-center gap-2 font-medium">
+            <Volume2 className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+            <span>
+              Browser menahan bunyi alarm sebelum ada interaksi. Klik tombol di
+              samping agar suara <strong>beep</strong> order masuk berbunyi
+              otomatis.
+            </span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              void unlockAudioContext().then((unlocked) => {
+                if (unlocked) playNotificationBeep(false);
+              });
+            }}
+            className="min-h-11 bg-amber-600 font-bold text-white hover:bg-amber-700"
+          >
+            Aktifkan Suara Alarm Kasir
+          </Button>
+        </div>
+      )}
+
       {/* Banner Notifikasi Real-time Konfirmasi QRIS dari Meja */}
       {qrisClaimedPendingOrders.length > 0 && (
         <div className="rounded-xl border-2 border-emerald-500 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 p-4 shadow-sm">
@@ -851,7 +932,11 @@ export function CashierWorkspace({
             onClick={() => {
               const next = !soundEnabled;
               setSoundEnabled(next);
-              if (next) playNotificationBeep(false);
+              if (next) {
+                void unlockAudioContext().then(() => {
+                  playNotificationBeep(false);
+                });
+              }
             }}
           >
             {soundEnabled ? (
@@ -2111,26 +2196,25 @@ export function CashierWorkspace({
                   <Bell className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                    {incomingOrderAlert.customerClaimedPaidAt
-                      ? "Konfirmasi Pembayaran QRIS Masuk!"
-                      : "Pesanan Baru Masuk dari Meja!"}
-                  </h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                      {activeIncomingQueueItem?.kind === "qris_claimed"
+                        ? "Konfirmasi Pembayaran QRIS Masuk!"
+                        : "Order Masuk dari Meja!"}
+                    </h3>
+                    {incomingAlertQueue.length > 1 && (
+                      <Badge variant="warning" className="font-bold">
+                        Antrean 1 dari {incomingAlertQueue.length}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {incomingOrderAlert.customerClaimedPaidAt
-                      ? "Pelanggan telah menekan tombol 'Saya Sudah Bayar' pada layar meja."
-                      : "Pelanggan baru saja mengirim pesanan dari layar meja."}
+                    {activeIncomingQueueItem?.kind === "qris_claimed"
+                      ? "Pelanggan menekan tombol 'Saya Sudah Bayar'. Bunyi beep terus berdering sampai Anda klik Terima Pesanan."
+                      : "Pesanan baru masuk dari pelanggan. Bunyi beep tidak akan berhenti sampai Anda klik Terima Pesanan."}
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleDismissOrderAlert}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200"
-                aria-label="Tutup Notifikasi"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
 
             <div className="my-4 space-y-3">
@@ -2185,26 +2269,31 @@ export function CashierWorkspace({
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={dismissAlarmOnly}
-                className="min-h-11 sm:w-1/3 border-slate-300 font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                <VolumeX className="mr-1.5 h-4 w-4" />
-                Matikan Alarm
-              </Button>
+              {incomingAlertQueue.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    selectOrder(incomingOrderAlert);
+                    setActiveTab("pending");
+                    acknowledgeAllIncomingOrders();
+                  }}
+                  className="min-h-11 sm:w-auto font-semibold"
+                >
+                  Terima Semua ({incomingAlertQueue.length})
+                </Button>
+              )}
               <Button
                 type="button"
                 onClick={() => {
                   selectOrder(incomingOrderAlert);
                   setActiveTab("pending");
-                  handleDismissOrderAlert();
+                  acknowledgeIncomingOrder(incomingOrderAlert.id);
                 }}
                 className="min-h-11 flex-1 bg-emerald-700 font-bold text-white hover:bg-emerald-800 shadow-sm"
               >
                 <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                Terima Pesanan &amp; Buka Order
+                Terima Pesanan
               </Button>
             </div>
           </div>

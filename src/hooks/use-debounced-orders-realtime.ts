@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -33,10 +33,11 @@ export function isOperationalOrderRealtimeEvent(
 export function useDebouncedOrdersRealtime({
   channelName,
   outletId,
-  debounceMs = 450,
+  debounceMs = 350,
   shouldRefreshOnOrderEvent,
 }: UseDebouncedOrdersRealtimeOptions): void {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const predicateRef = useRef(shouldRefreshOnOrderEvent);
 
   useEffect(() => {
@@ -47,12 +48,15 @@ export function useDebouncedOrdersRealtime({
     const supabase = createSupabaseBrowserClient();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+    // Trailing debounce agar beberapa event beruntun digabung menjadi satu refresh ringan
     const scheduleRefresh = () => {
       if (typeof document !== "undefined" && document.hidden) return;
-      if (debounceTimer) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        router.refresh();
+        startTransition(() => {
+          router.refresh();
+        });
       }, debounceMs);
     };
 

@@ -1,0 +1,64 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  collectNewIncomingOrderAlerts,
+  mergeIncomingAlertQueue,
+  type IncomingAlertOrderSnapshot,
+} from "../cashier-alerts.ts";
+
+describe("src/lib/cashier-alerts.ts", () => {
+  it("mendeteksi semua order pelanggan yang masuk bersamaan dalam satu batch", () => {
+    const prevPendingIds = new Set<string>(["ord-existing"]);
+    const prevClaimedIds = new Set<string>();
+
+    const pendingOrders: IncomingAlertOrderSnapshot[] = [
+      { id: "ord-existing", source: "customer_qr", customerClaimedPaidAt: null },
+      { id: "ord-burst-1", source: "customer_qr", customerClaimedPaidAt: null },
+      {
+        id: "ord-burst-2",
+        source: "customer_qr",
+        customerClaimedPaidAt: "2026-11-26T03:00:00Z",
+      },
+      { id: "ord-manual", source: "cashier", customerClaimedPaidAt: null },
+    ];
+
+    const alerts = collectNewIncomingOrderAlerts({
+      prevPendingIds,
+      prevClaimedIds,
+      pendingOrders,
+    });
+
+    assert.deepEqual(alerts, [
+      { orderId: "ord-burst-1", kind: "new_order" },
+      { orderId: "ord-burst-2", kind: "qris_claimed" },
+    ]);
+  });
+
+  it("menggabungkan antrean alert tanpa duplikat dan membuang order yang sudah diselesaikan kasir lain", () => {
+    const activePendingOrders: IncomingAlertOrderSnapshot[] = [
+      {
+        id: "ord-1",
+        source: "customer_qr",
+        customerClaimedPaidAt: "2026-11-26T03:01:00Z",
+      },
+      { id: "ord-3", source: "customer_qr", customerClaimedPaidAt: null },
+    ];
+
+    const merged = mergeIncomingAlertQueue({
+      currentQueue: [
+        { orderId: "ord-1", kind: "new_order" },
+        { orderId: "ord-paid-elsewhere", kind: "new_order" },
+      ],
+      newAlerts: [
+        { orderId: "ord-1", kind: "qris_claimed" },
+        { orderId: "ord-3", kind: "new_order" },
+      ],
+      activePendingOrders,
+    });
+
+    assert.deepEqual(merged, [
+      { orderId: "ord-1", kind: "qris_claimed" },
+      { orderId: "ord-3", kind: "new_order" },
+    ]);
+  });
+});

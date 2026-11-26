@@ -249,11 +249,14 @@ async function applyCashierAuditContext(
   return { staff, admin, ip, device };
 }
 
+const CASHIER_ORDER_SELECT_COLUMNS =
+  "id, outlet_id, order_no, source, order_type, table_id, payment_choice, status, subtotal, discount, discount_reason, service_rate, service_amount, tax_rate, tax_amount, price_includes_tax, total, version, expires_at, created_at, paid_at, ready_at, served_at, cancelled_at, cancel_reason";
+
 /**
  * Mengambil seluruh data yang dibutuhkan Layar Kasir:
  * - Order PENDING (urut dari yang terlama sesuai PRD 5.4)
- * - Order hari ini (PAID, READY, SERVED, CANCELLED)
- * - Produk & Kategori aktif untuk keperluan revisi item
+ * - Order terbaru (PAID, READY, SERVED, CANCELLED, EXPIRED)
+ * - Produk aktif (tanpa image_url berat) untuk keperluan revisi item
  * - Batas diskon kasir & konfigurasi pajak outlet
  */
 export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
@@ -277,33 +280,35 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
       .single(),
     admin
       .from("orders")
-      .select("*")
+      .select(CASHIER_ORDER_SELECT_COLUMNS)
       .eq("outlet_id", staff.outletId)
       .eq("status", "pending")
       .is("deleted_at", null)
       .order("created_at", { ascending: true }),
     admin
       .from("orders")
-      .select("*")
+      .select(CASHIER_ORDER_SELECT_COLUMNS)
       .eq("outlet_id", staff.outletId)
       .in("status", ["paid", "ready", "served", "cancelled", "expired"])
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
-      .limit(40),
+      .limit(25),
     admin
       .from("tables")
       .select("id, table_no, name")
       .eq("outlet_id", staff.outletId),
     admin
       .from("categories")
-      .select("*")
+      .select("id, outlet_id, name, sort_order, is_active, created_at, updated_at, deleted_at")
       .eq("outlet_id", staff.outletId)
       .eq("is_active", true)
       .is("deleted_at", null)
       .order("sort_order", { ascending: true }),
     admin
       .from("products")
-      .select("*")
+      .select(
+        "id, outlet_id, category_id, name, price, is_available, is_active, created_at, updated_at, deleted_at"
+      )
       .eq("outlet_id", staff.outletId)
       .eq("is_active", true)
       .is("deleted_at", null)
@@ -341,12 +346,12 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
       );
       const { data: refreshedRecent } = await admin
         .from("orders")
-        .select("*")
+        .select(CASHIER_ORDER_SELECT_COLUMNS)
         .eq("outlet_id", staff.outletId)
         .in("status", ["paid", "ready", "served", "cancelled", "expired"])
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
-        .limit(40);
+        .limit(25);
       if (refreshedRecent) {
         recentRows = refreshedRecent as Array<Record<string, unknown>>;
       }
@@ -361,11 +366,19 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
       ? await Promise.all([
           admin
             .from("order_items")
-            .select("*")
+            .select(
+              "id, order_id, product_id, product_name, unit_price, qty, note, line_total"
+            )
             .in("order_id", allOrderIds)
             .order("created_at", { ascending: true }),
-          admin.from("payments").select("*").in("order_id", allOrderIds),
-          admin.from("refunds").select("*").in("order_id", allOrderIds),
+          admin
+            .from("payments")
+            .select("id, order_id, method, amount_received, change_amount, created_at")
+            .in("order_id", allOrderIds),
+          admin
+            .from("refunds")
+            .select("id, order_id, amount, reason_category, reason, created_at")
+            .in("order_id", allOrderIds),
           admin
             .from("audit_logs")
             .select("entity_id, action, after, created_at")
@@ -566,7 +579,12 @@ export async function getCashierWorkspaceData(): Promise<CashierWorkspaceData> {
     pendingOrders: pendingRows.map(mapOrderToCardView),
     recentOrders: recentRows.map(mapOrderToCardView),
     categories: (catRes.data ?? []) as CategoryRow[],
-    products: (prodRes.data ?? []) as ProductRow[],
+    products: ((prodRes.data ?? []) as Array<Omit<ProductRow, "image_url">>).map(
+      (p) => ({
+        ...p,
+        image_url: null,
+      })
+    ),
   };
 }
 
