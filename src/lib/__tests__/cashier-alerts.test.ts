@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  collectInitialUnacknowledgedAlerts,
   collectNewIncomingOrderAlerts,
   mergeIncomingAlertQueue,
   type IncomingAlertOrderSnapshot,
@@ -59,6 +60,30 @@ describe("src/lib/cashier-alerts.ts", () => {
     assert.deepEqual(merged, [
       { orderId: "ord-1", kind: "qris_claimed" },
       { orderId: "ord-3", kind: "new_order" },
+    ]);
+  });
+
+  it("mendeteksi order pelanggan aktif saat mount yang belum di-acknowledge pada sesi kasir", () => {
+    const pendingOrders: IncomingAlertOrderSnapshot[] = [
+      { id: "ord-acked", source: "customer_qr", customerClaimedPaidAt: null },
+      { id: "ord-unacked", source: "customer_qr", customerClaimedPaidAt: null },
+      {
+        id: "ord-acked-but-claimed",
+        source: "customer_qr",
+        customerClaimedPaidAt: "2026-11-26T09:05:00Z",
+      },
+      { id: "ord-manual", source: "cashier", customerClaimedPaidAt: null },
+    ];
+
+    const initialAlerts = collectInitialUnacknowledgedAlerts({
+      pendingOrders,
+      acknowledgedOrderIds: new Set(["ord-acked", "ord-acked-but-claimed"]),
+      acknowledgedClaimOrderIds: new Set(),
+    });
+
+    assert.deepEqual(initialAlerts, [
+      { orderId: "ord-unacked", kind: "new_order" },
+      { orderId: "ord-acked-but-claimed", kind: "qris_claimed" },
     ]);
   });
 });

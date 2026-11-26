@@ -32,6 +32,7 @@ import { requireStaffRole, type ActionResult } from "@/server/auth";
 import { runExpireOverdueOrdersJob } from "@/server/order-expiry";
 import { getCachedCashierLiteMenuCatalog } from "@/server/outlet-catalog-cache";
 import { dispatchSensitiveEventAlert } from "@/server/owner-notifications";
+import { broadcastOutletOrderChange } from "@/server/realtime-broadcast";
 import {
   recordOrderPaidInventoryAndAccounting,
   recordOrderRefundInventoryAndAccounting,
@@ -902,6 +903,13 @@ export async function revisePendingOrderItemsAction(rawInput: {
     );
   }
 
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId,
+    eventType: "order.updated",
+    status: "pending",
+  });
+
   revalidatePath("/kasir");
   revalidatePath("/dashboard/transaksi");
   return {
@@ -1097,6 +1105,13 @@ export async function applyOrderDiscountAction(rawInput: {
     });
   }
 
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId,
+    eventType: "order.updated",
+    status: "pending",
+  });
+
   revalidatePath("/kasir");
   return {
     ok: true,
@@ -1282,6 +1297,13 @@ export async function processOrderPaymentAction(rawInput: {
   } catch {
     // Jangan gagalkan transaksi kasir bila pencatatan jurnal sekunder gagal
   }
+
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId,
+    eventType: "order.paid",
+    status: "paid",
+  });
 
   revalidatePath("/kasir");
   revalidatePath("/dapur");
@@ -1523,6 +1545,13 @@ export async function cancelOrderWithRefundAction(rawInput: {
     });
   }
 
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId,
+    eventType: "order.cancelled",
+    status: "cancelled",
+  });
+
   revalidatePath("/kasir");
   revalidatePath("/dapur");
   revalidatePath("/dashboard/produk");
@@ -1733,6 +1762,13 @@ export async function rebillOrderAction(rawInput: {
       };
     }
 
+    await broadcastOutletOrderChange({
+      outletId: staff.outletId,
+      orderId,
+      eventType: "order.updated",
+      status: "pending",
+    });
+
     revalidatePath("/kasir");
     revalidatePath("/dashboard/produk");
     return {
@@ -1866,6 +1902,13 @@ export async function rebillOrderAction(rawInput: {
       : diffAmount < 0
         ? `Kembalian Tunai ke Pelanggan: ${formatRupiah(Math.abs(diffAmount))}.`
         : `Tambahan Bayar Diterima: ${formatRupiah(diffAmount)}.`;
+
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId: newOrderId,
+    eventType: "order.paid",
+    status: "paid",
+  });
 
   revalidatePath("/kasir");
   revalidatePath("/dapur");

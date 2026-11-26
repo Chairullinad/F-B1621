@@ -58,6 +58,18 @@ export async function unlockAudioContext(): Promise<boolean> {
     if (ctx.state === "suspended") {
       await ctx.resume();
     }
+    if (ctx.state === "running") {
+      // Mainkan buffer senyap 1-sample untuk mengunci-buka saluran WebAudio lintas browser
+      try {
+        const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        src.start(0);
+      } catch {
+        // Abaikan jika gagal membuat buffer senyap
+      }
+    }
     notifyAudioUnlockState();
     return ctx.state === "running";
   } catch {

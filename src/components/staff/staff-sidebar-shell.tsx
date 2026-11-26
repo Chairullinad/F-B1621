@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { unlockAudioContext } from "@/lib/audio";
 import {
   getRequiredPermissionForPathname,
   hasUserPermission,
@@ -105,7 +106,16 @@ export function StaffSidebarShell({
   }, []);
 
   React.useEffect(() => {
-    return () => cancelPendingPrefetch();
+    const handleUnlockAudio = () => {
+      void unlockAudioContext();
+    };
+    window.addEventListener("pointerdown", handleUnlockAudio, { passive: true });
+    window.addEventListener("keydown", handleUnlockAudio, { passive: true });
+    return () => {
+      cancelPendingPrefetch();
+      window.removeEventListener("pointerdown", handleUnlockAudio);
+      window.removeEventListener("keydown", handleUnlockAudio);
+    };
   }, [cancelPendingPrefetch]);
 
   const prefetchRouteOnce = React.useCallback(

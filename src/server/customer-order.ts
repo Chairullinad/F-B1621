@@ -33,6 +33,7 @@ import {
   getCachedOutletMenuCatalog,
 } from "@/server/outlet-catalog-cache";
 import { isUniqueOrderNoViolation } from "@/server/query-helpers";
+import { broadcastOutletOrderChange } from "@/server/realtime-broadcast";
 
 const DEFAULT_FALLBACK_STATIC_QRIS =
   "00020101021126650014ID.CO.QRIS.WWW01189360050300000898240214123456789012340303UMI5204581253033605802ID59101621 GROUP6007JAKARTA6105101106304A1B2";
@@ -752,6 +753,15 @@ export async function createCustomerOrderAction(rawInput: {
     };
   }
 
+  // Kirim broadcast instan SETELAH order_items selesai tersimpan agar Kasir menerima item lengkap
+  await broadcastOutletOrderChange({
+    outletId: String(tableRow.outlet_id),
+    orderId,
+    eventType: "order.created",
+    source: "customer_qr",
+    status: "pending",
+  });
+
   const view = await buildCustomerOrderTrackingView({
     orderRecord: insertedOrder,
     tableNo: Number(tableRow.table_no),
@@ -851,6 +861,14 @@ export async function confirmCustomerQrisPaidAction(rawInput: {
     reason: `Pelanggan di ${tableRow.name} menekan 'Saya Sudah Bayar' untuk QRIS sebesar Rp ${Number(rawOrder.total).toLocaleString("id-ID")}`,
     prev_hash: "",
     hash: "",
+  });
+
+  await broadcastOutletOrderChange({
+    outletId: String(tableRow.outlet_id),
+    orderId,
+    eventType: "order.qris_claimed",
+    source: "customer_qr",
+    status: "pending",
   });
 
   const outletRow = await getCachedCustomerOutletRow(String(tableRow.outlet_id));

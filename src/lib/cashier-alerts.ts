@@ -41,6 +41,38 @@ export function collectNewIncomingOrderAlerts<
 }
 
 /**
+ * Mengumpulkan order pelanggan aktif saat halaman /kasir pertama kali dibuka
+ * yang belum pernah diklik "Terima Pesanan" oleh kasir di sesi browser ini,
+ * agar perpindahan halaman dari menu lain tetap memicu pop-up & alarm beep.
+ */
+export function collectInitialUnacknowledgedAlerts<
+  T extends IncomingAlertOrderSnapshot,
+>(params: {
+  pendingOrders: ReadonlyArray<T>;
+  acknowledgedOrderIds: ReadonlySet<string>;
+  acknowledgedClaimOrderIds: ReadonlySet<string>;
+}): IncomingOrderAlertItem[] {
+  const alerts: IncomingOrderAlertItem[] = [];
+
+  for (const order of params.pendingOrders) {
+    const isClaimed = Boolean(order.customerClaimedPaidAt);
+    if (isClaimed && !params.acknowledgedClaimOrderIds.has(order.id)) {
+      alerts.push({ orderId: order.id, kind: "qris_claimed" });
+      continue;
+    }
+
+    if (
+      order.source === "customer_qr" &&
+      !params.acknowledgedOrderIds.has(order.id)
+    ) {
+      alerts.push({ orderId: order.id, kind: "new_order" });
+    }
+  }
+
+  return alerts;
+}
+
+/**
  * Menggabungkan antrean pop-up order masuk dengan order baru yang datang,
  * membuang order yang sudah tidak pending (mis. dibayar kasir lain), dan mencegah duplikasi.
  */

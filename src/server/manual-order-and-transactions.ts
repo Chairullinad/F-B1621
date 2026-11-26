@@ -39,6 +39,7 @@ import type { CashierOrderItemView } from "@/server/cashier";
 import { recordOrderPaidInventoryAndAccounting } from "@/server/inventory";
 import { getCachedOutletMenuCatalog } from "@/server/outlet-catalog-cache";
 import { isUniqueOrderNoViolation } from "@/server/query-helpers";
+import { broadcastOutletOrderChange } from "@/server/realtime-broadcast";
 
 // ============================================================================
 // ZOD SCHEMAS (Validasi Server sesuai AGENTS.md)
@@ -291,26 +292,26 @@ export async function getManualOrderWorkspaceData(): Promise<ManualOrderWorkspac
         serviceEnabled: Boolean(rawOutlet.service_enabled),
         servicePercent:
           rawOutlet.service_percent !== null &&
-          rawOutlet.service_percent !== undefined
+            rawOutlet.service_percent !== undefined
             ? Number(rawOutlet.service_percent)
             : null,
         priceIncludesTax: Boolean(rawOutlet.price_includes_tax),
       },
       maxCashierDiscountPercent:
         rawOutlet.max_cashier_discount_percent !== null &&
-        rawOutlet.max_cashier_discount_percent !== undefined
+          rawOutlet.max_cashier_discount_percent !== undefined
           ? Number(rawOutlet.max_cashier_discount_percent)
           : null,
       maxCashierDiscountAmount:
         rawOutlet.max_cashier_discount_amount !== null &&
-        rawOutlet.max_cashier_discount_amount !== undefined
+          rawOutlet.max_cashier_discount_amount !== undefined
           ? Number(rawOutlet.max_cashier_discount_amount)
           : null,
       qrisEnabled: Boolean(rawOutlet.qris_enabled ?? false),
       qrisMerchantName: String(
         (rawOutlet.qris_merchant_name as string | null) ??
-          rawOutlet.name ??
-          "1621 GROUP"
+        rawOutlet.name ??
+        "1621 GROUP"
       ),
       qrisRawPayload: (rawOutlet.qris_raw_payload as string | null) ?? null,
     },
@@ -495,12 +496,12 @@ export async function createManualCashierOrderAction(rawInput: {
   if (staff.role === "cashier" && computedDiscount > 0) {
     const maxPct =
       rawOutlet.max_cashier_discount_percent !== null &&
-      rawOutlet.max_cashier_discount_percent !== undefined
+        rawOutlet.max_cashier_discount_percent !== undefined
         ? Number(rawOutlet.max_cashier_discount_percent)
         : null;
     const maxAmt =
       rawOutlet.max_cashier_discount_amount !== null &&
-      rawOutlet.max_cashier_discount_amount !== undefined
+        rawOutlet.max_cashier_discount_amount !== undefined
         ? Number(rawOutlet.max_cashier_discount_amount)
         : null;
 
@@ -531,7 +532,7 @@ export async function createManualCashierOrderAction(rawInput: {
     serviceEnabled: Boolean(rawOutlet.service_enabled),
     servicePercent:
       rawOutlet.service_percent !== null &&
-      rawOutlet.service_percent !== undefined
+        rawOutlet.service_percent !== undefined
         ? Number(rawOutlet.service_percent)
         : null,
     priceIncludesTax: Boolean(rawOutlet.price_includes_tax),
@@ -615,7 +616,6 @@ export async function createManualCashierOrderAction(rawInput: {
   }
 
   const orderId = String(createdOrder.id);
-  const orderNo = String(createdOrder.order_no);
 
   // 7. Simpan snapshot order_items + add-on
   const { error: itemsErr } = await insertOrderItemsWithAddonFallback(
@@ -710,6 +710,14 @@ export async function createManualCashierOrderAction(rawInput: {
     // Jangan gagalkan transaksi POS kasir bila pencatatan jurnal sekunder gagal
   }
 
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId,
+    eventType: "order.paid",
+    source: "cashier",
+    status: "paid",
+  });
+
   revalidatePath("/order-manual");
   revalidatePath("/kasir");
   revalidatePath("/dapur");
@@ -761,8 +769,8 @@ export async function getTransactionsDashboardData(rawFilters?: {
   const requestedOutlet = rawFilters?.outletId?.trim();
   const isValidOutletParam = Boolean(
     staff.role === "owner" &&
-      requestedOutlet &&
-      outlets.some((o) => o.id === requestedOutlet)
+    requestedOutlet &&
+    outlets.some((o) => o.id === requestedOutlet)
   );
 
   const selectedOutletId =
@@ -784,10 +792,10 @@ export async function getTransactionsDashboardData(rawFilters?: {
   const period = rawFilters?.period ?? "today";
   const bounds = customRange
     ? {
-        startIso: customRange.startIso,
-        endIso: customRange.endIso,
-        label: customRange.label,
-      }
+      startIso: customRange.startIso,
+      endIso: customRange.endIso,
+      label: customRange.label,
+    }
     : period === "today"
       ? getWibDayBoundsIso(0)
       : period === "7d"
@@ -873,26 +881,26 @@ export async function getTransactionsDashboardData(rawFilters?: {
   const [itemsRes, paymentsRes, refundsRes, qrisAuditsRes] =
     orderIds.length > 0
       ? await Promise.all([
-          admin
-            .from("order_items")
-            .select("*")
-            .in("order_id", orderIds)
-            .order("created_at", { ascending: true }),
-          admin.from("payments").select("*").in("order_id", orderIds),
-          admin.from("refunds").select("*").in("order_id", orderIds),
-          admin
-            .from("audit_logs")
-            .select("entity_id")
-            .eq("entity", "orders")
-            .in("entity_id", orderIds)
-            .eq("action", "payment.qris_verified"),
-        ])
+        admin
+          .from("order_items")
+          .select("*")
+          .in("order_id", orderIds)
+          .order("created_at", { ascending: true }),
+        admin.from("payments").select("*").in("order_id", orderIds),
+        admin.from("refunds").select("*").in("order_id", orderIds),
+        admin
+          .from("audit_logs")
+          .select("entity_id")
+          .eq("entity", "orders")
+          .in("entity_id", orderIds)
+          .eq("action", "payment.qris_verified"),
+      ])
       : [
-          { data: [] },
-          { data: [] },
-          { data: [] },
-          { data: [] },
-        ];
+        { data: [] },
+        { data: [] },
+        { data: [] },
+        { data: [] },
+      ];
 
   const qrisOrderIds = new Set<string>(
     ((qrisAuditsRes.data ?? []) as Array<{ entity_id: string }>).map((a) =>
@@ -1053,75 +1061,75 @@ export async function getTransactionsDashboardData(rawFilters?: {
   // Susun daftar pembatalan pesanan & void item (dengan fallback aman bila migrasi 0014 belum dijalankan)
   const voidTableMissing = Boolean(
     voidRes.error &&
-      (voidRes.error.message.toLowerCase().includes("order_void_records") ||
-        voidRes.error.message.toLowerCase().includes("schema cache") ||
-        voidRes.error.message.toLowerCase().includes("relation"))
+    (voidRes.error.message.toLowerCase().includes("order_void_records") ||
+      voidRes.error.message.toLowerCase().includes("schema cache") ||
+      voidRes.error.message.toLowerCase().includes("relation"))
   );
   const voidTableReady = !voidTableMissing;
 
   const voidRecords: OrderVoidRecordView[] = voidTableReady
     ? ((voidRes.data ?? []) as Array<Record<string, unknown>>).map((row) => {
-        const rowOutletId = String(row.outlet_id ?? "");
-        const rawScope = String(row.void_scope ?? "full_order");
-        return {
-          id: String(row.id),
-          outletId: rowOutletId,
-          outletName: outletNameMap.get(rowOutletId) ?? "Outlet",
-          orderId: String(row.order_id),
-          orderNo: String(row.order_no ?? "-"),
-          tableName: String(row.table_name ?? "-"),
-          voidScope: rawScope === "partial_item" ? "partial_item" : "full_order",
-          orderStatusAtVoid: String(row.order_status_at_void ?? "cancelled"),
-          productId: row.product_id ? String(row.product_id) : null,
-          productName: String(row.product_name ?? "-"),
-          qtyBefore: Number(row.qty_before ?? 0),
-          qtyAfter: Number(row.qty_after ?? 0),
-          qtyCancelled: Number(row.qty_cancelled ?? 0),
-          unitPrice: Number(row.unit_price ?? 0),
-          voidAmount: Number(row.void_amount ?? 0),
-          reasonCategory: String(row.reason_category ?? "other"),
-          reason: String(row.reason ?? "-"),
-          actorUserId: row.actor_user_id ? String(row.actor_user_id) : null,
-          actorName: String(row.actor_name ?? "-"),
-          createdAt: String(row.created_at),
-        };
-      })
+      const rowOutletId = String(row.outlet_id ?? "");
+      const rawScope = String(row.void_scope ?? "full_order");
+      return {
+        id: String(row.id),
+        outletId: rowOutletId,
+        outletName: outletNameMap.get(rowOutletId) ?? "Outlet",
+        orderId: String(row.order_id),
+        orderNo: String(row.order_no ?? "-"),
+        tableName: String(row.table_name ?? "-"),
+        voidScope: rawScope === "partial_item" ? "partial_item" : "full_order",
+        orderStatusAtVoid: String(row.order_status_at_void ?? "cancelled"),
+        productId: row.product_id ? String(row.product_id) : null,
+        productName: String(row.product_name ?? "-"),
+        qtyBefore: Number(row.qty_before ?? 0),
+        qtyAfter: Number(row.qty_after ?? 0),
+        qtyCancelled: Number(row.qty_cancelled ?? 0),
+        unitPrice: Number(row.unit_price ?? 0),
+        voidAmount: Number(row.void_amount ?? 0),
+        reasonCategory: String(row.reason_category ?? "other"),
+        reason: String(row.reason ?? "-"),
+        actorUserId: row.actor_user_id ? String(row.actor_user_id) : null,
+        actorName: String(row.actor_name ?? "-"),
+        createdAt: String(row.created_at),
+      };
+    })
     : allTransactions
-        .filter((tx) => tx.status === "cancelled")
-        .map((tx) => {
-          const draft = buildFullOrderVoidDraft({
-            items: tx.items.map((item) => ({
-              productId: item.productId,
-              productName: item.productName,
-              unitPrice: item.unitPrice,
-              qty: item.qty,
-              lineTotal: item.lineTotal,
-            })),
-            orderTotal: tx.refund?.amount ?? tx.total,
-          });
-          return {
-            id: `fallback-${tx.id}`,
-            outletId: tx.outletId,
-            outletName: tx.outletName,
-            orderId: tx.id,
-            orderNo: tx.orderNo,
-            tableName: tx.tableName,
-            voidScope: "full_order",
-            orderStatusAtVoid: tx.refund ? "paid" : "pending",
-            productId: draft.productId,
-            productName: draft.productName,
-            qtyBefore: draft.qtyBefore,
-            qtyAfter: 0,
-            qtyCancelled: draft.qtyCancelled,
-            unitPrice: draft.unitPrice,
-            voidAmount: draft.voidAmount,
-            reasonCategory: tx.refund?.reasonCategory ?? "other",
-            reason: tx.refund?.reason ?? tx.cancelReason ?? "Order dibatalkan",
-            actorUserId: tx.cashierId,
-            actorName: tx.cashierName,
-            createdAt: tx.cancelledAt ?? tx.createdAt,
-          };
+      .filter((tx) => tx.status === "cancelled")
+      .map((tx) => {
+        const draft = buildFullOrderVoidDraft({
+          items: tx.items.map((item) => ({
+            productId: item.productId,
+            productName: item.productName,
+            unitPrice: item.unitPrice,
+            qty: item.qty,
+            lineTotal: item.lineTotal,
+          })),
+          orderTotal: tx.refund?.amount ?? tx.total,
         });
+        return {
+          id: `fallback-${tx.id}`,
+          outletId: tx.outletId,
+          outletName: tx.outletName,
+          orderId: tx.id,
+          orderNo: tx.orderNo,
+          tableName: tx.tableName,
+          voidScope: "full_order",
+          orderStatusAtVoid: tx.refund ? "paid" : "pending",
+          productId: draft.productId,
+          productName: draft.productName,
+          qtyBefore: draft.qtyBefore,
+          qtyAfter: 0,
+          qtyCancelled: draft.qtyCancelled,
+          unitPrice: draft.unitPrice,
+          voidAmount: draft.voidAmount,
+          reasonCategory: tx.refund?.reasonCategory ?? "other",
+          reason: tx.refund?.reason ?? tx.cancelReason ?? "Order dibatalkan",
+          actorUserId: tx.cashierId,
+          actorName: tx.cashierName,
+          createdAt: tx.cancelledAt ?? tx.createdAt,
+        };
+      });
 
   return {
     staff: {

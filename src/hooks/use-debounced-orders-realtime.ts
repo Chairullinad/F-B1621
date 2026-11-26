@@ -3,6 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useTransition } from "react";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import {
+  getOutletOrdersLiveTopic,
+  isOperationalBroadcastEvent,
+  ORDER_REALTIME_EVENT,
+  type OrderRealtimeBroadcastPayload,
+} from "@/lib/realtime-channels";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface UseDebouncedOrdersRealtimeOptions {
@@ -28,12 +34,12 @@ export function isOperationalOrderRealtimeEvent(
 
 /**
  * Berlangganan perubahan tabel `orders` per outlet lewat Supabase Realtime
- * dan men-debounce `router.refresh()` agar perubahan batch tidak memicu SSR berulang.
+ * (Postgres Changes + Broadcast instan) dengan auto-reconnect dan fallback polling adaptif.
  */
 export function useDebouncedOrdersRealtime({
   channelName,
   outletId,
-  debounceMs = 350,
+  debounceMs = 250,
   shouldRefreshOnOrderEvent,
 }: UseDebouncedOrdersRealtimeOptions): void {
   const router = useRouter();
@@ -47,53 +53,150 @@ export function useDebouncedOrdersRealtime({
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let fallbackPollTimer: ReturnType<typeof setInterval> | null = null;
+    let disposed = false;
+    let reconnectAttempt = 0;
+    let isSubscribed = false;
+    let activeDbChannel: ReturnType<typeof supabase.channel> | null = null;
+    let activeBroadcastChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    // Trailing debounce agar beberapa event beruntun digabung menjadi satu refresh ringan
+    const triggerRefreshNow = () => {
+      if (disposed) return;
+      if (typeof document !== "undefined" && document.hidden) return;
+      startTransition(() => {
+        router.refresh();
+      });
+    };
+
     const scheduleRefresh = () => {
+      if (disposed) return;
       if (typeof document !== "undefined" && document.hidden) return;
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        startTransition(() => {
-          router.refresh();
-        });
+        triggerRefreshNow();
       }, debounceMs);
     };
 
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `outlet_id=eq.${outletId}`,
-        },
-        (payload) => {
-          const typedPayload = payload as RealtimePostgresChangesPayload<
-            Record<string, unknown>
-          >;
-          if (predicateRef.current && !predicateRef.current(typedPayload)) {
-            return;
-          }
-          scheduleRefresh();
-        }
-      )
-      .subscribe();
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        scheduleRefresh();
+    const cleanupChannels = () => {
+      if (activeDbChannel) {
+        void supabase.removeChannel(activeDbChannel);
+        activeDbChannel = null;
+      }
+      if (activeBroadcastChannel) {
+        void supabase.removeChannel(activeBroadcastChannel);
+        activeBroadcastChannel = null;
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimer) return;
+      const delayMs = Math.min(5000, 1200 * Math.pow(1.5, reconnectAttempt));
+      reconnectAttempt += 1;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectChannels();
+      }, delayMs);
+    };
+
+    const connectChannels = () => {
+      if (disposed) return;
+      cleanupChannels();
+
+      const suffix = reconnectAttempt > 0 ? `-r${reconnectAttempt}` : "";
+
+      const dbChannel = supabase
+        .channel(`${channelName}${suffix}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+            filter: `outlet_id=eq.${outletId}`,
+          },
+          (payload) => {
+            const typedPayload = payload as RealtimePostgresChangesPayload<
+              Record<string, unknown>
+            >;
+            if (predicateRef.current && !predicateRef.current(typedPayload)) {
+              return;
+            }
+            scheduleRefresh();
+          }
+        )
+        .subscribe((status) => {
+          if (disposed) return;
+          if (status === "SUBSCRIBED") {
+            isSubscribed = true;
+            reconnectAttempt = 0;
+          } else if (
+            status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT" ||
+            status === "CLOSED"
+          ) {
+            isSubscribed = false;
+            scheduleReconnect();
+          }
+        });
+
+      const broadcastChannel = supabase
+        .channel(`${getOutletOrdersLiveTopic(outletId)}${suffix}`, {
+          config: { broadcast: { self: false } },
+        })
+        .on("broadcast", { event: ORDER_REALTIME_EVENT }, ({ payload }) => {
+          const typed = payload as Partial<OrderRealtimeBroadcastPayload> | undefined;
+          if (predicateRef.current && !isOperationalBroadcastEvent(typed)) {
+            return;
+          }
+          scheduleRefresh();
+        })
+        .subscribe((status) => {
+          if (disposed) return;
+          if (status === "SUBSCRIBED") {
+            isSubscribed = true;
+            reconnectAttempt = 0;
+          }
+        });
+
+      activeDbChannel = dbChannel;
+      activeBroadcastChannel = broadcastChannel;
+    };
+
+    connectChannels();
+
+    // Polling adaptif: 4 detik saat WebSocket belum SUBSCRIBED, 25 detik saat WebSocket sehat
+    let tickCount = 0;
+    fallbackPollTimer = setInterval(() => {
+      if (disposed || (typeof document !== "undefined" && document.hidden)) return;
+      tickCount += 1;
+      if (!isSubscribed) {
+        triggerRefreshNow();
+      } else if (tickCount % 6 === 0) {
+        triggerRefreshNow();
+      }
+    }, 4000);
+
+    const handleVisibilityOrOnline = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      if (!isSubscribed) {
+        connectChannels();
+      }
+      scheduleRefresh();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityOrOnline);
+    window.addEventListener("online", handleVisibilityOrOnline);
 
     return () => {
+      disposed = true;
       if (debounceTimer) clearTimeout(debounceTimer);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      supabase.removeChannel(channel);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (fallbackPollTimer) clearInterval(fallbackPollTimer);
+      document.removeEventListener("visibilitychange", handleVisibilityOrOnline);
+      window.removeEventListener("online", handleVisibilityOrOnline);
+      cleanupChannels();
     };
   }, [channelName, outletId, debounceMs, router]);
 }

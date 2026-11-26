@@ -15,11 +15,14 @@ import {
   Bell,
   CheckCircle2,
   Eye,
+  Maximize2,
   Printer,
   QrCode,
   RefreshCw,
   Volume2,
   VolumeX,
+  Wifi,
+  WifiOff,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +43,7 @@ import {
   unlockAudioContext,
 } from "@/lib/audio";
 import {
+  collectInitialUnacknowledgedAlerts,
   collectNewIncomingOrderAlerts,
   mergeIncomingAlertQueue,
   type IncomingOrderAlertItem,
@@ -47,6 +51,10 @@ import {
 import { formatRupiah } from "@/lib/money";
 import { generateQrSvgString } from "@/lib/qrcode";
 import { DEFAULT_FALLBACK_STATIC_QRIS } from "@/lib/qris";
+import {
+  getOutletOrdersLiveTopic,
+  ORDER_REALTIME_EVENT,
+} from "@/lib/realtime-channels";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { OrderStatus, RefundReasonCategory } from "@/lib/types/database";
 import {
@@ -124,12 +132,22 @@ class ContinuousOrderAlarm {
   private isQris = false;
 
   start(isQris: boolean) {
+    if (this.intervalId !== null) {
+      if (this.isQris !== isQris) {
+        this.restart(isQris);
+      }
+      return;
+    }
     this.isQris = isQris;
-    if (this.intervalId !== null) return;
     playNotificationBeep(this.isQris);
     this.intervalId = window.setInterval(() => {
       playNotificationBeep(this.isQris);
     }, 1350);
+  }
+
+  restart(isQris: boolean) {
+    this.stop();
+    this.start(isQris);
   }
 
   stop() {
@@ -146,10 +164,42 @@ class ContinuousOrderAlarm {
 
 const orderAlarmService = new ContinuousOrderAlarm();
 
+function readAckIdSet(storageKey: string): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.sessionStorage.getItem(storageKey);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? new Set(parsed.filter((v): v is string => typeof v === "string"))
+      : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function writeAckIdSet(
+  storageKey: string,
+  ids: ReadonlySet<string>,
+  activePendingIds: ReadonlySet<string>
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const pruned = Array.from(ids).filter((id) => activePendingIds.has(id));
+    window.sessionStorage.setItem(storageKey, JSON.stringify(pruned));
+  } catch {
+    // Abaikan kuota/pembatasan sessionStorage browser
+  }
+}
+
 export function CashierWorkspace({
   initialData,
+  isActiveTab = true,
+  onSwitchToKasirTab,
 }: {
   initialData: CashierWorkspaceData;
+  isActiveTab?: boolean;
+  onSwitchToKasirTab?: () => void;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -160,9 +210,16 @@ export function CashierWorkspace({
       initialData.recentOrders[0]?.id ??
       null
   );
+  const [realtimeStatus, setRealtimeStatus] = useState<
+    "connecting" | "connected" | "reconnecting"
+  >("connecting");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() =>
     isAudioContextUnlocked()
+  );
+  const [selectedPayMethod, setSelectedPayMethod] = useState<"cash" | "qris">(
+    () =>
+      initialData.pendingOrders[0]?.paymentChoice === "qris" ? "qris" : "cash"
   );
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
@@ -224,11 +281,40 @@ export function CashierWorkspace({
     );
   }, [activeIncomingQueueItem, initialData.pendingOrders]);
 
-  // Buka kunci AudioContext otomatis pada interaksi pertama di halaman kasir
+  const ackOrderStorageKey = `cashier_ack_orders_${initialData.outlet.id}`;
+  const ackClaimStorageKey = `cashier_ack_claims_${initialData.outlet.id}`;
+  const incomingQueueLenRef = useRef(0);
+  const hasQrisClaimAlertRef = useRef(false);
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
+  incomingQueueLenRef.current = incomingAlertQueue.length;
+  hasQrisClaimAlertRef.current = incomingAlertQueue.some(
+    (a) => a.kind === "qris_claimed"
+  );
+
+  // Buka kunci AudioContext otomatis saat mount & interaksi pertama, dan langsung bunyikan alarm jika antrean menunggu
   useEffect(() => {
     const unsubscribe = subscribeAudioUnlockState(setAudioUnlocked);
+    void unlockAudioContext().then((unlocked) => {
+      if (
+        unlocked &&
+        soundEnabledRef.current &&
+        incomingQueueLenRef.current > 0
+      ) {
+        orderAlarmService.restart(hasQrisClaimAlertRef.current);
+      }
+    });
+
     const handleFirstInteraction = () => {
-      void unlockAudioContext();
+      void unlockAudioContext().then((unlocked) => {
+        if (
+          unlocked &&
+          soundEnabledRef.current &&
+          incomingQueueLenRef.current > 0
+        ) {
+          orderAlarmService.restart(hasQrisClaimAlertRef.current);
+        }
+      });
     };
     window.addEventListener("pointerdown", handleFirstInteraction, {
       passive: true,
@@ -244,7 +330,8 @@ export function CashierWorkspace({
     };
   }, []);
 
-  // Deteksi order baru / klaim QRIS baru untuk pop-up dan alarm beep berkelanjutan
+  // Deteksi order baru / klaim QRIS baru (termasuk order meja aktif yang masuk sebelum kasir membuka halaman ini)
+  const hasCheckedInitialAlertsRef = useRef(false);
   const prevPendingIdsRef = useRef<Set<string>>(
     new Set(initialData.pendingOrders.map((o) => o.id))
   );
@@ -257,6 +344,37 @@ export function CashierWorkspace({
   );
 
   useEffect(() => {
+    const activePendingIds = new Set(
+      initialData.pendingOrders.map((o) => o.id)
+    );
+
+    if (!hasCheckedInitialAlertsRef.current) {
+      hasCheckedInitialAlertsRef.current = true;
+      const ackedOrders = readAckIdSet(ackOrderStorageKey);
+      const ackedClaims = readAckIdSet(ackClaimStorageKey);
+      const initialAlerts = collectInitialUnacknowledgedAlerts({
+        pendingOrders: initialData.pendingOrders,
+        acknowledgedOrderIds: ackedOrders,
+        acknowledgedClaimOrderIds: ackedClaims,
+      });
+      if (initialAlerts.length > 0) {
+        setIncomingAlertQueue((prev) =>
+          mergeIncomingAlertQueue({
+            currentQueue: prev,
+            newAlerts: initialAlerts,
+            activePendingOrders: initialData.pendingOrders,
+          })
+        );
+      }
+      prevPendingIdsRef.current = activePendingIds;
+      prevClaimedIdsRef.current = new Set(
+        initialData.pendingOrders
+          .filter((o) => Boolean(o.customerClaimedPaidAt))
+          .map((o) => o.id)
+      );
+      return;
+    }
+
     const newAlerts = collectNewIncomingOrderAlerts({
       prevPendingIds: prevPendingIdsRef.current,
       prevClaimedIds: prevClaimedIdsRef.current,
@@ -271,27 +389,29 @@ export function CashierWorkspace({
       })
     );
 
-    prevPendingIdsRef.current = new Set(
-      initialData.pendingOrders.map((o) => o.id)
-    );
+    prevPendingIdsRef.current = activePendingIds;
     prevClaimedIdsRef.current = new Set(
       initialData.pendingOrders
         .filter((o) => Boolean(o.customerClaimedPaidAt))
         .map((o) => o.id)
     );
-  }, [initialData.pendingOrders]);
+  }, [initialData.pendingOrders, ackOrderStorageKey, ackClaimStorageKey]);
 
-  // Pastikan bunyi beep berjalan terus selama masih ada antrean order masuk yang belum diklik Terima Pesanan
+  // Pastikan bunyi beep berjalan terus selama masih ada antrean order masuk & restart saat AudioContext baru terbuka
   useEffect(() => {
     if (soundEnabled && incomingAlertQueue.length > 0) {
       const hasQrisClaim = incomingAlertQueue.some(
         (a) => a.kind === "qris_claimed"
       );
-      orderAlarmService.start(hasQrisClaim);
+      if (audioUnlocked) {
+        orderAlarmService.restart(hasQrisClaim);
+      } else {
+        orderAlarmService.start(hasQrisClaim);
+      }
     } else {
       orderAlarmService.stop();
     }
-  }, [incomingAlertQueue, soundEnabled]);
+  }, [incomingAlertQueue, soundEnabled, audioUnlocked]);
 
   // Hentikan alarm saat komponen dilepas (unmount)
   useEffect(() => {
@@ -300,15 +420,41 @@ export function CashierWorkspace({
     };
   }, []);
 
-  const acknowledgeIncomingOrder = useCallback((orderId: string) => {
-    setIncomingAlertQueue((prev) =>
-      prev.filter((item) => item.orderId !== orderId)
-    );
-  }, []);
+  const acknowledgeIncomingOrder = useCallback(
+    (orderId: string) => {
+      const activeIds = new Set(initialData.pendingOrders.map((o) => o.id));
+      const order = initialData.pendingOrders.find((o) => o.id === orderId);
+      const ackedOrders = readAckIdSet(ackOrderStorageKey);
+      ackedOrders.add(orderId);
+      writeAckIdSet(ackOrderStorageKey, ackedOrders, activeIds);
+
+      if (order?.customerClaimedPaidAt) {
+        const ackedClaims = readAckIdSet(ackClaimStorageKey);
+        ackedClaims.add(orderId);
+        writeAckIdSet(ackClaimStorageKey, ackedClaims, activeIds);
+      }
+
+      setIncomingAlertQueue((prev) =>
+        prev.filter((item) => item.orderId !== orderId)
+      );
+    },
+    [initialData.pendingOrders, ackOrderStorageKey, ackClaimStorageKey]
+  );
 
   const acknowledgeAllIncomingOrders = useCallback(() => {
+    const activeIds = new Set(initialData.pendingOrders.map((o) => o.id));
+    const ackedOrders = readAckIdSet(ackOrderStorageKey);
+    const ackedClaims = readAckIdSet(ackClaimStorageKey);
+    for (const o of initialData.pendingOrders) {
+      ackedOrders.add(o.id);
+      if (o.customerClaimedPaidAt) {
+        ackedClaims.add(o.id);
+      }
+    }
+    writeAckIdSet(ackOrderStorageKey, ackedOrders, activeIds);
+    writeAckIdSet(ackClaimStorageKey, ackedClaims, activeIds);
     setIncomingAlertQueue([]);
-  }, []);
+  }, [initialData.pendingOrders, ackOrderStorageKey, ackClaimStorageKey]);
 
   const allOrders = useMemo(
     () => [...initialData.pendingOrders, ...initialData.recentOrders],
@@ -323,6 +469,7 @@ export function CashierWorkspace({
   const selectOrder = useCallback((order: CashierOrderCardView) => {
     setSelectedOrderId(order.id);
     setActionMode("payment");
+    setSelectedPayMethod(order.paymentChoice === "qris" ? "qris" : "cash");
     setCashReceivedInput(String(order.total));
     setDraftItems(
       order.items.map((item) => ({
@@ -341,7 +488,9 @@ export function CashierWorkspace({
     setCancelReason("");
   }, []);
 
-  // Sinkronisasi default input ketika order yang dipilih berubah dari server
+  const prevSelectedIdRef = useRef<string | null>(selectedOrderId);
+
+  // Sinkronisasi default input ketika order yang dipilih berubah atau baru tersedia dari server
   useEffect(() => {
     if (!selectedOrder) {
       const fallback =
@@ -352,6 +501,12 @@ export function CashierWorkspace({
         selectOrder(fallback);
       }
       return;
+    }
+    if (prevSelectedIdRef.current !== selectedOrder.id) {
+      prevSelectedIdRef.current = selectedOrder.id;
+      setSelectedPayMethod(
+        selectedOrder.paymentChoice === "qris" ? "qris" : "cash"
+      );
     }
     setCashReceivedInput(String(selectedOrder.total));
   }, [
@@ -379,53 +534,143 @@ export function CashierWorkspace({
     });
   }, [selectedOrderId, initialData.staff.userId, initialData.staff.fullName]);
 
-  // Langganan Supabase Realtime (orders + audit_logs klaim QRIS + presence antar kasir)
-  // Memakai trailing debounce + startTransition agar beberapa order yang masuk bersamaan digabung menjadi satu refresh ringan
+  // Langganan Supabase Realtime (Postgres Changes orders + Broadcast instan + Presence antar kasir)
+  // Dilengkapi pemantauan status WebSocket, auto-reconnect, dan polling adaptif
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+    let reconnectAttempt = 0;
+    let dbSubscribed = false;
+    let broadcastSubscribed = false;
+    let activeDbChannel: ReturnType<typeof supabase.channel> | null = null;
+    let activeBroadcastChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    const triggerRefreshNow = () => {
+      if (disposed) return;
+      if (typeof document !== "undefined" && document.hidden) return;
+      startTransition(() => {
+        router.refresh();
+      });
+    };
 
     const scheduleRefresh = () => {
+      if (disposed) return;
       if (typeof document !== "undefined" && document.hidden) return;
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        startTransition(() => {
-          router.refresh();
-        });
-      }, 350);
+        triggerRefreshNow();
+      }, 120);
     };
 
-    const dbChannel = supabase
-      .channel(`cashier-orders-${initialData.outlet.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "orders",
-          filter: `outlet_id=eq.${initialData.outlet.id}`,
-        },
-        () => {
-          scheduleRefresh();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "audit_logs",
-          filter: `outlet_id=eq.${initialData.outlet.id}`,
-        },
-        (payload) => {
-          const action = (payload.new as { action?: unknown } | undefined)?.action;
-          if (action === "order.customer_claimed_qris_paid") {
+    const syncConnectionStatus = () => {
+      if (disposed) return;
+      if (dbSubscribed || broadcastSubscribed) {
+        setRealtimeStatus("connected");
+      } else if (reconnectAttempt > 0) {
+        setRealtimeStatus("reconnecting");
+      } else {
+        setRealtimeStatus("connecting");
+      }
+    };
+
+    const cleanupLiveChannels = () => {
+      if (activeDbChannel) {
+        void supabase.removeChannel(activeDbChannel);
+        activeDbChannel = null;
+      }
+      if (activeBroadcastChannel) {
+        void supabase.removeChannel(activeBroadcastChannel);
+        activeBroadcastChannel = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimer) return;
+      const delayMs = Math.min(5000, 1200 * Math.pow(1.5, reconnectAttempt));
+      reconnectAttempt += 1;
+      syncConnectionStatus();
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectLiveChannels();
+      }, delayMs);
+    };
+
+    const connectLiveChannels = () => {
+      if (disposed) return;
+      cleanupLiveChannels();
+      dbSubscribed = false;
+      broadcastSubscribed = false;
+      syncConnectionStatus();
+
+      const suffix = reconnectAttempt > 0 ? `-r${reconnectAttempt}` : "";
+
+      const dbChannel = supabase
+        .channel(`cashier-orders-${initialData.outlet.id}${suffix}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+            filter: `outlet_id=eq.${initialData.outlet.id}`,
+          },
+          () => {
             scheduleRefresh();
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          if (disposed) return;
+          if (status === "SUBSCRIBED") {
+            dbSubscribed = true;
+            reconnectAttempt = 0;
+            syncConnectionStatus();
+          } else if (
+            status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT" ||
+            status === "CLOSED"
+          ) {
+            dbSubscribed = false;
+            syncConnectionStatus();
+            if (!broadcastSubscribed) {
+              scheduleReconnect();
+            }
+          }
+        });
+
+      const broadcastChannel = supabase
+        .channel(`${getOutletOrdersLiveTopic(initialData.outlet.id)}${suffix}`, {
+          config: { broadcast: { self: false } },
+        })
+        .on("broadcast", { event: ORDER_REALTIME_EVENT }, () => {
+          scheduleRefresh();
+        })
+        .subscribe((status) => {
+          if (disposed) return;
+          if (status === "SUBSCRIBED") {
+            broadcastSubscribed = true;
+            reconnectAttempt = 0;
+            syncConnectionStatus();
+          } else if (
+            status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT" ||
+            status === "CLOSED"
+          ) {
+            broadcastSubscribed = false;
+            syncConnectionStatus();
+            if (!dbSubscribed) {
+              scheduleReconnect();
+            }
+          }
+        });
+
+      activeDbChannel = dbChannel;
+      activeBroadcastChannel = broadcastChannel;
+    };
+
+    connectLiveChannels();
 
     const presenceChannel = supabase.channel(
       `cashier-presence-${initialData.outlet.id}`,
@@ -470,28 +715,38 @@ export function CashierWorkspace({
         }
       });
 
-    // Fallback polling setiap 15 detik (saat tab aktif) sebagai cadangan jika Realtime tertunda
+    // Polling adaptif: setiap 3.5 detik jika WebSocket putus/belum siap, atau heartbeat 25 detik saat WebSocket sehat
+    let pollTick = 0;
     const interval = setInterval(() => {
-      if (!document.hidden) {
-        router.refresh();
+      if (disposed || document.hidden) return;
+      pollTick += 1;
+      const isLiveHealthy = dbSubscribed || broadcastSubscribed;
+      if (!isLiveHealthy || pollTick % 7 === 0) {
+        triggerRefreshNow();
       }
-    }, 15_000);
+    }, 3500);
 
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        scheduleRefresh();
+    const handleVisibilityOrOnline = () => {
+      if (document.hidden) return;
+      if (!dbSubscribed && !broadcastSubscribed) {
+        connectLiveChannels();
       }
+      scheduleRefresh();
     };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityOrOnline);
+    window.addEventListener("online", handleVisibilityOrOnline);
 
     return () => {
+      disposed = true;
       if (debounceTimer) clearTimeout(debounceTimer);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       clearInterval(interval);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityOrOnline);
+      window.removeEventListener("online", handleVisibilityOrOnline);
       presenceSubscribedRef.current = false;
       presenceChannelRef.current = null;
-      supabase.removeChannel(dbChannel);
-      supabase.removeChannel(presenceChannel);
+      cleanupLiveChannels();
+      void supabase.removeChannel(presenceChannel);
     };
   }, [
     initialData.outlet.id,
@@ -798,8 +1053,9 @@ export function CashierWorkspace({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Peringatan Autoplay Browser jika Suara Beep Belum Dibuka Kuncinya */}
+    <div className="contents">
+      <div className={isActiveTab ? "space-y-4" : "hidden"}>
+        {/* Peringatan Autoplay Browser jika Suara Beep Belum Dibuka Kuncinya */}
       {soundEnabled && !audioUnlocked && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <div className="flex items-center gap-2 font-medium">
@@ -919,12 +1175,37 @@ export function CashierWorkspace({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
+              realtimeStatus === "connected"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+            }`}
+            title={
+              realtimeStatus === "connected"
+                ? "WebSocket Realtime aktif"
+                : "Menyambungkan ulang koneksi Realtime (polling cadangan aktif)"
+            }
+          >
+            {realtimeStatus === "connected" ? (
+              <Wifi className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            )}
+            <span>
+              {realtimeStatus === "connected"
+                ? "Realtime Live"
+                : realtimeStatus === "reconnecting"
+                  ? "Menyambung Ulang..."
+                  : "Menghubungkan..."}
+            </span>
+          </div>
           <Input
             type="search"
             placeholder="Cari no order / meja / nominal..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-60"
+            className="w-56 sm:w-60"
           />
           <Button
             type="button"
@@ -1278,163 +1559,215 @@ export function CashierWorkspace({
                   </div>
                 )}
 
-                {/* PANEL 1: PEMBAYARAN (QRIS & TUNAI) */}
+                {/* PANEL 1: PEMBAYARAN (Model terpadu seperti POS / Order Manual) */}
                 {selectedOrder.status === "pending" &&
                   actionMode === "payment" && (
-                    <div className="space-y-4">
-                      {/* Kotak Verifikasi QRIS di Meja */}
-                      <div
-                        className={`rounded-xl border-2 p-4 ${
-                          selectedOrder.customerClaimedPaidAt
-                            ? "border-emerald-500 bg-emerald-50/70 dark:border-emerald-600 dark:bg-emerald-950/30"
-                            : "border-zinc-200 bg-white dark:border-slate-800 dark:bg-slate-900"
-                        }`}
-                      >
+                    <div className="space-y-3">
+                      <div className="space-y-3 rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <h4 className="text-sm font-bold text-zinc-900 dark:text-slate-100">
-                              Opsi 1 — Verifikasi Pembayaran QRIS di Meja
-                            </h4>
-                            <p className="mt-0.5 text-xs text-zinc-600 dark:text-slate-400">
-                              Cocokkan uang masuk pada aplikasi merchant QRIS
-                              untuk{" "}
-                              <strong className="text-zinc-900 dark:text-slate-100">
-                                {selectedOrder.tableName}
-                              </strong>{" "}
-                              sebesar{" "}
-                              <strong className="text-zinc-900 dark:text-slate-100">
-                                {formatRupiah(selectedOrder.total)}
-                              </strong>{" "}
-                              (nominal murni tanpa tambahan angka unik).
-                            </p>
-                          </div>
-                          {selectedOrder.customerClaimedPaidAt ? (
-                            <Badge variant="success">
-                              Pelanggan Klik &ldquo;Saya Sudah Bayar&rdquo; (
-                              {formatTimeWIB(
-                                selectedOrder.customerClaimedPaidAt
-                              )}
-                              )
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">
-                              Pilihan Awal:{" "}
-                              {selectedOrder.paymentChoice === "qris"
-                                ? "QRIS di Meja"
-                                : "Tunai di Kasir"}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={isSubmitting}
-                            onClick={() => setShowQrisPopup(true)}
-                            className="border-sky-300 bg-sky-50 font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60"
-                          >
-                            <QrCode className="mr-1.5 h-4 w-4" />
-                            Tampilkan Popup QRIS Tagihan
-                          </Button>
-                          <Button
-                            type="button"
-                            disabled={isSubmitting}
-                            onClick={handleVerifyQrisPayment}
-                            className="flex-1 bg-emerald-700 text-white hover:bg-emerald-800"
-                          >
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                            {isSubmitting
-                              ? "Memproses..."
-                              : `Pembayaran Sesuai — Terima QRIS (${selectedOrder.tableName} • ${formatRupiah(selectedOrder.total)})`}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Kotak Penerimaan Tunai di Kasir */}
-                      <div className="rounded-xl border border-zinc-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-                        <h4 className="text-sm font-bold text-zinc-900 dark:text-slate-100">
-                          Opsi 2 — Pembayaran Tunai di Kasir
-                        </h4>
-                        <p className="mt-0.5 text-xs text-zinc-600 dark:text-slate-400">
-                          Masukkan nominal uang tunai yang diterima dari
-                          pelanggan. Sistem menghitung kembalian otomatis.
-                        </p>
-
-                        {/* Tombol Cepat Nominal */}
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              setCashReceivedInput(String(selectedOrder.total))
+                          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-slate-400">
+                            Metode Pembayaran
+                          </span>
+                          <Badge
+                            variant={
+                              selectedOrder.customerClaimedPaidAt
+                                ? "success"
+                                : "outline"
                             }
                           >
-                            Uang Pas ({formatRupiah(selectedOrder.total)})
+                            {selectedOrder.customerClaimedPaidAt
+                              ? `Pelanggan Klik "Saya Sudah Bayar" (${formatTimeWIB(selectedOrder.customerClaimedPaidAt)})`
+                              : `Pilihan Awal: ${
+                                  selectedOrder.paymentChoice === "qris"
+                                    ? "QRIS di Meja"
+                                    : "Tunai di Kasir"
+                                }`}
+                          </Badge>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            className="min-h-[44px] flex-1"
+                            variant={
+                              selectedPayMethod === "cash"
+                                ? "default"
+                                : "outline"
+                            }
+                            onClick={() => setSelectedPayMethod("cash")}
+                          >
+                            <Banknote className="mr-1.5 h-4 w-4" />
+                            Tunai
                           </Button>
-                          {[50000, 100000, 150000, 200000].map((preset) => (
+                          <Button
+                            type="button"
+                            className="min-h-[44px] flex-1"
+                            variant={
+                              selectedPayMethod === "qris"
+                                ? "default"
+                                : "outline"
+                            }
+                            onClick={() => setSelectedPayMethod("qris")}
+                          >
+                            <QrCode className="mr-1.5 h-4 w-4" />
+                            QRIS di Meja
+                          </Button>
+                        </div>
+
+                        {selectedPayMethod === "cash" && (
+                          <div className="space-y-2.5 pt-1">
+                            <div className="flex flex-wrap gap-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setCashReceivedInput(
+                                    String(selectedOrder.total)
+                                  )
+                                }
+                              >
+                                Uang Pas
+                              </Button>
+                              {[50000, 100000, 150000, 200000].map((preset) => (
+                                <Button
+                                  key={preset}
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    setCashReceivedInput(String(preset))
+                                  }
+                                >
+                                  {formatRupiah(preset)}
+                                </Button>
+                              ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                              <div>
+                                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-slate-300">
+                                  Uang Diterima (Rp)
+                                </label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={500}
+                                  value={cashReceivedInput}
+                                  placeholder={String(selectedOrder.total)}
+                                  onChange={(e) =>
+                                    setCashReceivedInput(e.target.value)
+                                  }
+                                />
+                              </div>
+                              <div className="flex flex-col justify-center rounded-lg border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/70 px-3 py-1.5">
+                                <span className="text-[11px] text-zinc-500 dark:text-slate-400">
+                                  {cashShortfall > 0 ? "Kurang" : "Kembalian"}
+                                </span>
+                                <span
+                                  className={`text-base font-extrabold ${
+                                    cashShortfall > 0
+                                      ? "text-red-600 dark:text-red-400"
+                                      : "text-emerald-700 dark:text-emerald-400"
+                                  }`}
+                                >
+                                  {cashShortfall > 0
+                                    ? `- ${formatRupiah(cashShortfall)}`
+                                    : formatRupiah(cashChangePreview)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedPayMethod === "qris" && (
+                          <div
+                            className={`space-y-3 rounded-xl border p-3.5 text-center ${
+                              selectedOrder.customerClaimedPaidAt
+                                ? "border-emerald-400 bg-emerald-50/70 dark:border-emerald-700 dark:bg-emerald-950/30"
+                                : "border-sky-200 bg-sky-50/60 dark:border-sky-800 dark:bg-sky-950/30"
+                            }`}
+                          >
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                                QRIS{" "}
+                                {selectedOrder.tableName} &bull;{" "}
+                                {initialData.outlet.qrisMerchantName ||
+                                  initialData.outlet.name}
+                              </p>
+                              <p className="text-xs font-semibold text-sky-900 dark:text-sky-300">
+                                Cocokkan mutasi masuk sebesar{" "}
+                                <strong>
+                                  {formatRupiah(selectedOrder.total)}
+                                </strong>{" "}
+                                (nominal murni tanpa angka unik).
+                              </p>
+                            </div>
+
+                            <div className="mx-auto flex w-fit items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs">
+                              {qrisPopupSvgMarkup === null ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={(
+                                    initialData.outlet.qrisRawPayload ?? ""
+                                  ).trim()}
+                                  alt="QRIS Toko"
+                                  className="h-40 w-40 object-contain"
+                                />
+                              ) : (
+                                <div
+                                  className="h-40 w-40"
+                                  dangerouslySetInnerHTML={{
+                                    __html: qrisPopupSvgMarkup,
+                                  }}
+                                />
+                              )}
+                            </div>
+
                             <Button
-                              key={preset}
                               type="button"
-                              size="sm"
                               variant="outline"
-                              onClick={() =>
-                                setCashReceivedInput(String(preset))
-                              }
+                              size="sm"
+                              disabled={isSubmitting}
+                              onClick={() => setShowQrisPopup(true)}
+                              className="w-full border-sky-300 bg-white font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-700 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-sky-950/60"
                             >
-                              {formatRupiah(preset)}
+                              <Maximize2 className="mr-1.5 h-3.5 w-3.5" />
+                              Tampilkan Popup QRIS Layar Penuh
                             </Button>
-                          ))}
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-slate-300">
-                              Uang Diterima (Rp)
-                            </label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step={500}
-                              value={cashReceivedInput}
-                              onChange={(e) =>
-                                setCashReceivedInput(e.target.value)
-                              }
-                            />
                           </div>
-                          <div className="flex flex-col justify-center rounded-lg border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800/70 px-3 py-2">
-                            <span className="text-xs text-zinc-500 dark:text-slate-400">
-                              {cashShortfall > 0
-                                ? "Kurang Bayar"
-                                : "Uang Kembalian"}
-                            </span>
-                            <span
-                              className={`text-lg font-extrabold ${
-                                cashShortfall > 0
-                                  ? "text-red-600 dark:text-red-400"
-                                  : "text-emerald-700 dark:text-emerald-400"
-                              }`}
-                            >
-                              {cashShortfall > 0
-                                ? `- ${formatRupiah(cashShortfall)}`
-                                : formatRupiah(cashChangePreview)}
-                            </span>
-                          </div>
-                        </div>
+                        )}
+                      </div>
 
+                      {selectedPayMethod === "qris" ? (
+                        <Button
+                          type="button"
+                          disabled={isSubmitting}
+                          onClick={handleVerifyQrisPayment}
+                          className="h-auto min-h-12 w-full whitespace-normal bg-emerald-700 px-4 py-2.5 text-center text-sm font-bold leading-snug text-white hover:bg-emerald-800 sm:text-base"
+                        >
+                          <CheckCircle2 className="mr-2 h-5 w-5 shrink-0" />
+                          <span>
+                            {isSubmitting
+                              ? "Memproses Pembayaran..."
+                              : `Pembayaran Sesuai — Terima QRIS (${selectedOrder.tableName} • ${formatRupiah(selectedOrder.total)})`}
+                          </span>
+                        </Button>
+                      ) : (
                         <Button
                           type="button"
                           disabled={isSubmitting || cashShortfall > 0}
                           onClick={handleAcceptCashPayment}
-                          className="mt-3 w-full"
+                          className="h-auto min-h-12 w-full whitespace-normal bg-emerald-700 px-4 py-2.5 text-center text-sm font-bold leading-snug text-white hover:bg-emerald-800 sm:text-base"
                         >
-                          <Banknote className="mr-1.5 h-4 w-4" />
-                          {isSubmitting
-                            ? "Memproses..."
-                            : `Bayar Tunai (${formatRupiah(selectedOrder.total)})`}
+                          <CheckCircle2 className="mr-2 h-5 w-5 shrink-0" />
+                          <span>
+                            {isSubmitting
+                              ? "Memproses Pembayaran..."
+                              : `Terima Pembayaran Tunai (${formatRupiah(selectedOrder.total)})`}
+                          </span>
                         </Button>
-                      </div>
+                      )}
                     </div>
                   )}
 
@@ -2082,6 +2415,7 @@ export function CashierWorkspace({
           )}
         </div>
       </div>
+      </div>
 
       {/* POPUP MODAL QRIS TAGIHAN DI LAYAR KASIR */}
       {showQrisPopup && selectedOrder && (
@@ -2277,6 +2611,7 @@ export function CashierWorkspace({
                     selectOrder(incomingOrderAlert);
                     setActiveTab("pending");
                     acknowledgeAllIncomingOrders();
+                    onSwitchToKasirTab?.();
                   }}
                   className="min-h-11 sm:w-auto font-semibold"
                 >
@@ -2289,6 +2624,7 @@ export function CashierWorkspace({
                   selectOrder(incomingOrderAlert);
                   setActiveTab("pending");
                   acknowledgeIncomingOrder(incomingOrderAlert.id);
+                  onSwitchToKasirTab?.();
                 }}
                 className="min-h-11 flex-1 bg-emerald-700 font-bold text-white hover:bg-emerald-800 shadow-sm"
               >

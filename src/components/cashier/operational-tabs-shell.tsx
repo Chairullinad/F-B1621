@@ -185,8 +185,12 @@ export function OperationalTabsShell({
         </p>
       </div>
 
-      {/* Konten Tab Aktif */}
-      {activeTab === "kasir" && <CashierWorkspace initialData={cashierData} />}
+      {/* Konten Tab Aktif (CashierWorkspace tetap ter-mount agar WebSocket & alarm order meja tidak putus saat ganti tab) */}
+      <CashierWorkspace
+        initialData={cashierData}
+        isActiveTab={activeTab === "kasir"}
+        onSwitchToKasirTab={() => handleSelectTab("kasir")}
+      />
       {activeTab === "kitchen" && (
         <KitchenBoard
           initialData={kitchenData}

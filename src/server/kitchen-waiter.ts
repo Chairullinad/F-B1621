@@ -11,6 +11,7 @@ import type {
 } from "@/lib/types/database";
 import type { OrderReceiptDetail } from "@/server/cashier";
 import { requireStaffRole, type ActionResult } from "@/server/auth";
+import { broadcastOutletOrderChange } from "@/server/realtime-broadcast";
 
 // ============================================================================
 // ZOD SCHEMAS (Validasi Server sesuai AGENTS.md)
@@ -261,6 +262,13 @@ export async function startOrderCookingAction(rawInput: {
     return { ok: false, message: `Gagal memulai masak: ${error.message}` };
   }
 
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId: parsed.data.orderId,
+    eventType: "order.cooking",
+    status: "paid",
+  });
+
   revalidatePath("/dapur");
   revalidatePath("/kasir");
   return {
@@ -332,6 +340,13 @@ export async function markOrderReadyAction(rawInput: {
     reason: `Dapur (${staff.fullName}) menandai Order #${updated.order_no} siap diantar (READY).`,
     prev_hash: "",
     hash: "",
+  });
+
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId,
+    eventType: "order.ready",
+    status: "ready",
   });
 
   revalidatePath("/dapur");
@@ -502,6 +517,13 @@ export async function markOrderServedAction(rawInput: {
     reason: `Pesanan #${updated.order_no} telah disajikan oleh ${staff.fullName}; sesi pantau pelanggan berakhir otomatis.`,
     prev_hash: "",
     hash: "",
+  });
+
+  await broadcastOutletOrderChange({
+    outletId: staff.outletId,
+    orderId,
+    eventType: "order.served",
+    status: "served",
   });
 
   revalidatePath("/antar");
