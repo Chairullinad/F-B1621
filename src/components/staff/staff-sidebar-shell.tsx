@@ -238,19 +238,7 @@ export function StaffSidebarShell({
         label: "Menu & Kedai",
         icon: <Building2 className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
         roles: ["owner"],
-        items: [
-          { href: "/dashboard/produk", label: "Daftar Menu & Kategori" },
-          {
-            href: "/dashboard/pengaturan",
-            label: "Pengaturan",
-            children: [
-              { href: "/dashboard/cabang", label: "Pengaturan Cabang / Kedai" },
-              { href: "/dashboard/landing-page", label: "Landing Page / Banner" },
-              { href: "/dashboard/meja", label: "QR Code Meja" },
-              { href: "/dashboard/pengaturan", label: "Pajak, Servis, dan QRIS" },
-            ],
-          },
-        ],
+        items: [{ href: "/dashboard/produk", label: "Daftar Menu & Kategori" }],
       },
       {
         id: "inventori",
@@ -295,6 +283,18 @@ export function StaffSidebarShell({
                   label: "Cek Supplier",
                 },
               ]),
+        ],
+      },
+      {
+        id: "pengaturan",
+        label: "Pengaturan",
+        icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: ["owner"],
+        items: [
+          { href: "/dashboard/cabang", label: "Pengaturan Cabang / Kedai" },
+          { href: "/dashboard/landing-page", label: "Landing Page / Banner" },
+          { href: "/dashboard/meja", label: "QR Code Meja" },
+          { href: "/dashboard/pengaturan", label: "Pajak, Servis, dan QRIS" },
         ],
       },
     ];
@@ -379,15 +379,6 @@ export function StaffSidebarShell({
         roles: [staff.role],
         items: [
           { href: "/dashboard/produk", label: "Daftar Menu & Kategori" },
-          {
-            href: "/dashboard/pengaturan",
-            label: "Pengaturan",
-            children: [
-              { href: "/dashboard/landing-page", label: "Landing Page / Banner" },
-              { href: "/dashboard/meja", label: "QR Code Meja" },
-              { href: "/dashboard/pengaturan", label: "Pajak, Servis, dan QRIS" },
-            ],
-          },
         ],
       },
       {
@@ -413,6 +404,18 @@ export function StaffSidebarShell({
           },
           { href: "/dashboard/waste", label: "Barang Rusak (Waste)" },
           { href: "/dashboard/supplier", label: "Supplier & Purchase Order" },
+        ],
+      },
+      {
+        id: "pengaturan",
+        label: "Pengaturan",
+        icon: <Settings className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />,
+        roles: [staff.role],
+        items: [
+          { href: "/dashboard/cabang", label: "Pengaturan Cabang / Kedai" },
+          { href: "/dashboard/landing-page", label: "Landing Page / Banner" },
+          { href: "/dashboard/meja", label: "QR Code Meja" },
+          { href: "/dashboard/pengaturan", label: "Pajak, Servis, dan QRIS" },
         ],
       },
       {
