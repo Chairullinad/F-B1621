@@ -612,7 +612,8 @@ export function CashierWorkspace({
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        void syncCashierNow(true);
+        // Sinkronkan state langsung di background agar alarm bip berbunyi instan tanpa me-refresh seluruh halaman RSC
+        void syncCashierNow(false);
       }, 100);
     };
 
@@ -767,13 +768,13 @@ export function CashierWorkspace({
         }
       });
 
-    // Polling ringan cadangan: tiap 2 detik jika WebSocket putus, atau tiap 4 detik saat aktif untuk sinkronisasi instan
+    // Polling ringan cadangan di background: tiap 2 detik jika WebSocket putus, atau tiap 20 detik saat WebSocket sehat
     let pollTick = 0;
     const interval = setInterval(() => {
       if (disposed || document.hidden) return;
       pollTick += 1;
       const isLiveHealthy = dbSubscribed || broadcastSubscribed;
-      if (!isLiveHealthy || pollTick % 2 === 0) {
+      if (!isLiveHealthy || pollTick % 10 === 0) {
         void syncCashierNow(false);
       }
     }, 2000);
@@ -784,7 +785,7 @@ export function CashierWorkspace({
         void connectLiveChannels();
       }
       if (pendingSyncOnVisible) {
-        void syncCashierNow(true);
+        void syncCashierNow(false);
       } else {
         scheduleRefresh();
       }

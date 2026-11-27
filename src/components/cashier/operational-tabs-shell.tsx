@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   ChefHat,
   ClipboardCheck,
@@ -29,14 +30,22 @@ export function OperationalTabsShell({
   initialTab = "kasir",
 }: {
   cashierData: CashierWorkspaceData;
-  kitchenData: KitchenWorkspaceData;
-  waiterData: WaiterWorkspaceData;
+  kitchenData: KitchenWorkspaceData | null;
+  waiterData: WaiterWorkspaceData | null;
   shiftData: ShiftClosingWorkspaceData | null;
   initialTab?: "kasir" | "kitchen" | "antar" | "shift";
 }) {
+  const router = useRouter();
+  const [, startTabRefresh] = React.useTransition();
+  const safeInitialTab =
+    (initialTab === "kitchen" && !kitchenData) ||
+    (initialTab === "antar" && !waiterData)
+      ? "kasir"
+      : initialTab;
+
   const [activeTab, setActiveTab] = React.useState<
     "kasir" | "kitchen" | "antar" | "shift"
-  >(initialTab);
+  >(safeInitialTab);
   const [loadedShiftData, setLoadedShiftData] =
     React.useState<ShiftClosingWorkspaceData | null>(shiftData);
   const [isLoadingShift, setIsLoadingShift] = React.useState(false);
@@ -49,8 +58,8 @@ export function OperationalTabsShell({
   }, [cashierData.pendingOrders.length]);
 
   React.useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+    setActiveTab(safeInitialTab);
+  }, [safeInitialTab]);
 
   React.useEffect(() => {
     if (shiftData) {
@@ -81,6 +90,8 @@ export function OperationalTabsShell({
   }, [activeTab, loadedShiftData, isLoadingShift]);
 
   function handleSelectTab(nextTab: "kasir" | "kitchen" | "antar" | "shift") {
+    if (nextTab === "kitchen" && !kitchenData) return;
+    if (nextTab === "antar" && !waiterData) return;
     setActiveTab(nextTab);
     try {
       const nextUrl = nextTab === "kasir" ? "/kasir" : `/kasir?tab=${nextTab}`;
@@ -90,11 +101,16 @@ export function OperationalTabsShell({
     } catch {
       // Abaikan jika browser membatasi history API
     }
+    if (nextTab === "kitchen" || nextTab === "antar") {
+      startTabRefresh(() => {
+        router.refresh();
+      });
+    }
   }
 
   const pendingCount = livePendingCount;
-  const kitchenCount = kitchenData.paidTickets.length;
-  const waiterCount = waiterData.readyTickets.length;
+  const kitchenCount = kitchenData?.paidTickets.length ?? 0;
+  const waiterCount = waiterData?.readyTickets.length ?? 0;
 
   return (
     <div className="space-y-4">
@@ -125,53 +141,57 @@ export function OperationalTabsShell({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleSelectTab("kitchen")}
-            className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "kitchen"
-                ? "bg-[#1B5E86] text-white shadow-xs"
-                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <ChefHat className="h-4 w-4" />
-            <span>Layar Kitchen (KDS)</span>
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold ${
+          {kitchenData && (
+            <button
+              type="button"
+              onClick={() => handleSelectTab("kitchen")}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "kitchen"
-                  ? "bg-white/20 text-white"
-                  : kitchenCount > 0
-                    ? "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300"
-                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  ? "bg-[#1B5E86] text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               }`}
             >
-              {kitchenCount}
-            </span>
-          </button>
+              <ChefHat className="h-4 w-4" />
+              <span>Layar Kitchen (KDS)</span>
+              <span
+                className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold ${
+                  activeTab === "kitchen"
+                    ? "bg-white/20 text-white"
+                    : kitchenCount > 0
+                      ? "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+              >
+                {kitchenCount}
+              </span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => handleSelectTab("antar")}
-            className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "antar"
-                ? "bg-[#1B5E86] text-white shadow-xs"
-                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Utensils className="h-4 w-4" />
-            <span>Layar Antar</span>
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold ${
+          {waiterData && (
+            <button
+              type="button"
+              onClick={() => handleSelectTab("antar")}
+              className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
                 activeTab === "antar"
-                  ? "bg-white/20 text-white"
-                  : waiterCount > 0
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  ? "bg-[#1B5E86] text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               }`}
             >
-              {waiterCount}
-            </span>
-          </button>
+              <Utensils className="h-4 w-4" />
+              <span>Layar Antar</span>
+              <span
+                className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold ${
+                  activeTab === "antar"
+                    ? "bg-white/20 text-white"
+                    : waiterCount > 0
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+              >
+                {waiterCount}
+              </span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -199,13 +219,15 @@ export function OperationalTabsShell({
         onSwitchToKasirTab={() => handleSelectTab("kasir")}
         onPendingCountChange={setLivePendingCount}
       />
-      {activeTab === "kitchen" && (
+      {activeTab === "kitchen" && kitchenData && (
         <KitchenBoard
           initialData={kitchenData}
           receiptReturnTo="/kasir?tab=kitchen"
         />
       )}
-      {activeTab === "antar" && <WaiterBoard initialData={waiterData} />}
+      {activeTab === "antar" && waiterData && (
+        <WaiterBoard initialData={waiterData} />
+      )}
       {activeTab === "shift" &&
         (loadedShiftData ? (
           <ShiftClosingManager initialData={loadedShiftData} />
