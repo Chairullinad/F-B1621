@@ -5,6 +5,7 @@ import {
   canOwnerAccessWithoutOutlet,
   canRoleAccessPathname,
   getDefaultRouteForRole,
+  hasUserPermission,
   isPublicPathname,
   validateStaffDeletion,
 } from "../auth.ts";
@@ -110,6 +111,15 @@ describe("src/lib/auth.ts", () => {
     );
     assert.equal(
       canRoleAccessPathname("cashier", "/kasir", promotedCashier),
+      true
+    );
+
+    // Kasir baru (default) punya izin kasir namun TIDAK punya izin dapur/antar kecuali dipromosikan
+    assert.equal(hasUserPermission("cashier", null, "kasir"), true);
+    assert.equal(hasUserPermission("cashier", null, "dapur"), false);
+    assert.equal(hasUserPermission("cashier", null, "antar"), false);
+    assert.equal(
+      hasUserPermission("cashier", { dapur: true, antar: true }, "dapur"),
       true
     );
   });
